@@ -1,0 +1,40 @@
+# ==========================
+# Python / Django
+# ==========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.env
+.env.local
+.env.*
+
+# Django migrations
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# DB
+*.sqlite3
+auth_db_data/
+user_db_data/
+
+# Static
+staticfiles/
+media/
+
+# ==========================
+# Node / Frontend
+# ==========================
+node_modules/
+dist/
+.build/
+.vite/
+
+# ==========================
+# IDE / OS
+# ==========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

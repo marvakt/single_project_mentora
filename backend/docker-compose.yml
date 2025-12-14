@@ -1,0 +1,394 @@
+# version: "3.9"
+
+# services:
+
+#   ###############################################
+#   # POSTGRES FOR AUTH SERVICE
+#   ###############################################
+#   postgres_auth:
+#     image: postgres:15
+#     container_name: mentora_postgres_auth
+#     environment:
+#       POSTGRES_DB: auth_db
+#       POSTGRES_USER: auth_user
+#       POSTGRES_PASSWORD: auth_pass
+#     ports:
+#       - "5433:5432"
+#     volumes:
+#       - auth_db_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+#       interval: 3s
+#       timeout: 3s
+#       retries: 5
+
+#   ###############################################
+#   # POSTGRES FOR USER SERVICE
+#   ###############################################
+#   postgres_user:
+#     image: postgres:15
+#     container_name: mentora_postgres_user
+#     environment:
+#       POSTGRES_DB: user_db
+#       POSTGRES_USER: user_user
+#       POSTGRES_PASSWORD: user_pass
+#     ports:
+#       - "5434:5432"
+#     volumes:
+#       - user_db_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U user_user -d user_db"]
+#       interval: 3s
+#       timeout: 3s
+#       retries: 5
+
+#   ###############################################
+#   # REDIS (OTP + Celery backend)
+#   ###############################################
+#   redis:
+#     image: redis:7
+#     container_name: mentora_redis
+#     ports:
+#       - "6379:6379"
+
+#   ###############################################
+#   # RABBITMQ (Celery broker)
+#   ###############################################
+#   rabbitmq:
+#     image: rabbitmq:3-management
+#     container_name: mentora_rabbitmq
+#     ports:
+#       - "5672:5672"
+#       - "15672:15672"   # RabbitMQ admin dashboard
+#     healthcheck:
+#       test: ["CMD", "rabbitmq-diagnostics", "ping"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 5
+
+#   ###############################################
+#   # AUTH SERVICE
+#   ###############################################
+#   auth_service:
+#     build: ./auth_service
+#     container_name: mentora_auth_service
+#     command: >
+#       sh -c "
+#       until pg_isready -h mentora_postgres_auth -U auth_user; do
+#         echo 'Waiting for AUTH DB...';
+#         sleep 2;
+#       done;
+#       python manage.py migrate &&
+#       python manage.py runserver 0.0.0.0:8000
+#       "
+#     volumes:
+#       - ./auth_service:/app
+#     ports:
+#       - "8000:8000"
+#     depends_on:
+#       postgres_auth:
+#         condition: service_healthy
+#       redis:
+#         condition: service_started
+#       user_service:
+#         condition: service_started
+#     environment:
+#       DB_NAME: auth_db
+#       DB_USER: auth_user
+#       DB_PASSWORD: auth_pass
+#       DB_HOST: mentora_postgres_auth
+#       DB_PORT: 5432
+
+#       REDIS_HOST: redis
+#       REDIS_PORT: 6379
+
+#       USER_SERVICE_URL: http://mentora_user_service:8001
+
+#   ###############################################
+#   # USER SERVICE (Django)
+#   ###############################################
+#   user_service:
+#     build: ./user_service
+#     container_name: mentora_user_service
+#     command: >
+#       sh -c "
+#       until pg_isready -h mentora_postgres_user -U user_user; do
+#         echo 'Waiting for USER DB...';
+#         sleep 2;
+#       done;
+#       python manage.py migrate &&
+#       python manage.py runserver 0.0.0.0:8001
+#       "
+#     volumes:
+#       - ./user_service:/app
+#     ports:
+#       - "8001:8001"
+#     depends_on:
+#       postgres_user:
+#         condition: service_healthy
+#       rabbitmq:
+#         condition: service_healthy
+#       redis:
+#         condition: service_started
+#     environment:
+#       DB_NAME: user_db
+#       DB_USER: user_user
+#       DB_PASSWORD: user_pass
+#       DB_HOST: mentora_postgres_user
+#       DB_PORT: 5432
+
+#       REDIS_HOST: redis
+#       REDIS_PORT: 6379
+
+#       RABBITMQ_URL: amqp://guest:guest@mentora_rabbitmq:5672/
+
+#       AUTH_SERVICE_URL: http://mentora_auth_service:8000
+
+#   ###############################################
+#   # CELERY WORKER (User Service)
+#   ###############################################
+#   celery_user_worker:
+#     build: ./user_service
+#     container_name: mentora_celery_user
+#     command: celery -A user_service_project worker --loglevel=info
+#     volumes:
+#       - ./user_service:/app
+#     depends_on:
+#       rabbitmq:
+#         condition: service_healthy
+#       redis:
+#         condition: service_started
+#       postgres_user:
+#         condition: service_healthy
+
+#   ###############################################
+#   # CELERY BEAT (Scheduled tasks)
+#   ###############################################
+#   celery_user_beat:
+#     build: ./user_service
+#     container_name: mentora_celery_user_beat
+#     command: celery -A user_service_project beat --loglevel=info
+#     volumes:
+#       - ./user_service:/app
+#     depends_on:
+#       rabbitmq:
+#         condition: service_healthy
+#       redis:
+#         condition: service_started
+#       postgres_user:
+#         condition: service_healthy
+
+# #################################################
+# # VOLUMES
+# #################################################
+# volumes:
+#   auth_db_data:
+#   user_db_data:
+
+
+
+
+version: "3.9"
+
+services:
+
+  ###############################################
+  # POSTGRES — AUTH SERVICE
+  ###############################################
+  postgres_auth:
+    image: postgres:15
+    container_name: mentora_postgres_auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  ###############################################
+  # POSTGRES — USER SERVICE
+  ###############################################
+  postgres_user:
+    image: postgres:15
+    container_name: mentora_postgres_user
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_user -d user_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  ###############################################
+  # REDIS — OTP + CELERY BACKEND
+  ###############################################
+  redis:
+    image: redis:7
+    container_name: mentora_redis
+    ports:
+      - "6379:6379"
+
+  ###############################################
+  # RABBITMQ — CELERY BROKER
+  ###############################################
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: mentora_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ###############################################
+  # AUTH SERVICE
+  ###############################################
+  auth_service:
+    build: ./auth_service
+    container_name: mentora_auth_service
+    command: >
+      sh -c "
+      until pg_isready -h mentora_postgres_auth -U auth_user; do
+        echo 'Waiting for AUTH DB...';
+        sleep 2;
+      done;
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - ./auth_service:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres_auth:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      user_service:
+        condition: service_started
+    environment:
+      DB_NAME: auth_db
+      DB_USER: auth_user
+      DB_PASSWORD: auth_pass
+      DB_HOST: mentora_postgres_auth
+      DB_PORT: 5432
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      USER_SERVICE_URL: http://mentora_user_service:8001
+
+  ###############################################
+  # USER SERVICE (DJANGO)
+  ###############################################
+  user_service:
+    build: ./user_service
+    container_name: mentora_user_service
+    command: >
+      sh -c "
+      until pg_isready -h mentora_postgres_user -U user_user; do
+        echo 'Waiting for USER DB...';
+        sleep 2;
+      done;
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8001
+      "
+    volumes:
+      - ./user_service:/app
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres_user:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DB_NAME: user_db
+      DB_USER: user_user
+      DB_PASSWORD: user_pass
+      DB_HOST: mentora_postgres_user
+      DB_PORT: 5432
+
+      REDIS_URL: redis://mentora_redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@mentora_rabbitmq:5672/
+
+      AUTH_SERVICE_URL: http://mentora_auth_service:8000
+
+  ###############################################
+  # CELERY WORKER — USER SERVICE
+  ###############################################
+  celery_user_worker:
+    build: ./user_service
+    container_name: mentora_celery_user
+    command: celery -A user_service_project worker -l info
+    volumes:
+      - ./user_service:/app
+    restart: always
+    depends_on:
+      postgres_user:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DB_NAME: user_db
+      DB_USER: user_user
+      DB_PASSWORD: user_pass
+      DB_HOST: mentora_postgres_user
+      DB_PORT: 5432
+
+      REDIS_URL: redis://mentora_redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@mentora_rabbitmq:5672/
+
+  ###############################################
+  # CELERY BEAT — USER SERVICE
+  ###############################################
+  celery_user_beat:
+    build: ./user_service
+    container_name: mentora_celery_user_beat
+    command: celery -A user_service_project beat -l info
+    volumes:
+      - ./user_service:/app
+    restart: always
+    depends_on:
+      postgres_user:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DB_NAME: user_db
+      DB_USER: user_user
+      DB_PASSWORD: user_pass
+      DB_HOST: mentora_postgres_user
+      DB_PORT: 5432
+
+      REDIS_URL: redis://mentora_redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@mentora_rabbitmq:5672/
+
+###############################################
+# VOLUMES
+###############################################
+volumes:
+  auth_db_data:
+  user_db_data:
