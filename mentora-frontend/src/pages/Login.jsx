@@ -1,6 +1,7 @@
 import { useState } from "react";
 import AuthLayout from "./AuthLayout";
 import api from "../api/axios";
+import { toast } from "react-toastify";
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -11,7 +12,7 @@ export default function Login() {
   const login = async () => {
     try {
       const res = await api.post("/api/accounts/login/", form);
-      alert("Login success!");
+      toast.success("Login success!");
 
       // Save tokens
       localStorage.setItem("access", res.data.access);
@@ -23,7 +24,7 @@ export default function Login() {
       if (payload.role === "doctor") window.location.href = "/dashboard/doctor";
       if (payload.role === "admin") window.location.href = "/dashboard/admin";
     } catch (e) {
-      alert("Invalid credentials.");
+      toast.error("Invalid credentials.");
     }
   };
 
@@ -95,7 +96,7 @@ export default function Login() {
       {/* GOOGLE BUTTON */}
       <button
         className="w-full border py-3 rounded-md flex items-center justify-center gap-3"
-        onClick={() => alert("Google Login Coming Next")}
+        onClick={() => toast.info("Google Login Coming Soon")}
       >
         <img
           src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg"

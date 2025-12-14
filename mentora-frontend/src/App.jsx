@@ -12,6 +12,22 @@ import DashboardUser from "./pages/DashboardUser";
 import DashboardDoctor from "./pages/DashboardDoctor";
 import DashboardAdmin from "./pages/DashboardAdmin";
 
+/* USER PAGES */
+import UserDashboard from "./pages/UserDashboard";
+import UserProfile from "./pages/UserProfile";
+import Notifications from "./pages/Notifications";
+
+/* DOCTOR PAGES */
+import DoctorOnboarding from "./pages/DoctorOnboarding";
+import DoctorStatus from "./pages/DoctorStatus";
+import DoctorAvailability from "./pages/DoctorAvailability";
+
+/* ADMIN PAGES */
+import AdminDoctorApproval from "./pages/AdminDoctorApproval";
+
+/* PUBLIC PAGES */
+import PublicDoctorListing from "./pages/PublicDoctorListing";
+
 /* GUARDS */
 import ProtectedRoute from "./components/ProtectedRoute";
 import OnboardingGuard from "./routes/OnboardingGuard";
@@ -34,6 +50,9 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        
+        {/* ---------- PUBLIC ROUTES ---------- */}
+        <Route path="/doctors" element={<PublicDoctorListing />} />
 
         {/* ---------- ONBOARDING ROUTES ---------- */}
         <Route path="/onboarding/user/:userId" element={<UserOnboarding />} />
@@ -53,6 +72,40 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        
+        {/* ---------- USER PAGES ---------- */}
+        <Route
+          path="/user/dashboard"
+          element={
+            <ProtectedRoute allowed={["user"]}>
+              <OnboardingGuard>
+                <UserDashboard />
+              </OnboardingGuard>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowed={["user"]}>
+              <OnboardingGuard>
+                <UserProfile />
+              </OnboardingGuard>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute allowed={["user"]}>
+              <OnboardingGuard>
+                <Notifications />
+              </OnboardingGuard>
+            </ProtectedRoute>
+          }
+        />
 
         {/* ---------- DOCTOR DASHBOARD ---------- */}
         <Route
@@ -65,6 +118,34 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        
+        {/* ---------- DOCTOR PAGES ---------- */}
+        <Route
+          path="/doctor/onboarding"
+          element={
+            <ProtectedRoute allowed={["doctor"]}>
+              <DoctorOnboarding />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/doctor/status"
+          element={
+            <ProtectedRoute allowed={["doctor"]}>
+              <DoctorStatus />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/doctor/availability"
+          element={
+            <ProtectedRoute allowed={["doctor"]}>
+              <DoctorAvailability />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ---------- ADMIN DASHBOARD (NO ONBOARDING) ---------- */}
         <Route
@@ -72,6 +153,16 @@ export default function App() {
           element={
             <ProtectedRoute allowed={["admin"]}>
               <DashboardAdmin />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* ---------- ADMIN PAGES ---------- */}
+        <Route
+          path="/admin/doctor-approvals"
+          element={
+            <ProtectedRoute allowed={["admin"]}>
+              <AdminDoctorApproval />
             </ProtectedRoute>
           }
         />

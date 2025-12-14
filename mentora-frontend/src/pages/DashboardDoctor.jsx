@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { getProfile, listDocuments, listAvailability, addAvailability } from "../api/user";
+import { toast } from "react-toastify";
 
 export default function DashboardDoctor() {
   const [profile, setProfile] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [availability, setAvailability] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const token = localStorage.getItem("access");
   const decoded = jwtDecode(token);
@@ -16,16 +19,57 @@ export default function DashboardDoctor() {
   }, []);
 
   const loadAll = async () => {
-    const p = await getProfile(userId);
-    const d = await listDocuments(userId);
-    const a = await listAvailability(userId);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const p = await getProfile(userId);
+      const d = await listDocuments(userId);
+      const a = await listAvailability(userId);
 
-    setProfile(p.data);
-    setDocuments(d.data);
-    setAvailability(a.data);
+      setProfile(p.data);
+      setDocuments(d.data);
+      setAvailability(a.data);
+    } catch (err) {
+      console.error("Failed to load dashboard data:", err);
+      
+      // Handle different error types
+      if (err.response?.status === 403) {
+        setError("Access denied. Please log in again.");
+        toast.error("Access denied. Please log in again.");
+      } else if (err.response?.status === 404) {
+        setError("Service temporarily unavailable.");
+        toast.error("Service temporarily unavailable.");
+      } else if (err.response?.status === 401) {
+        setError("Session expired. Please log in again.");
+        toast.error("Session expired. Please log in again.");
+      } else {
+        setError("Failed to load dashboard data. Please try again.");
+        toast.error("Failed to load dashboard data. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (!profile) return <div className="p-10">Loading…</div>;
+  if (loading && !profile) return <div className="p-10">Loading…</div>;
+  
+  if (error && !profile) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Error Loading Dashboard</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button 
+            onClick={loadAll}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -44,9 +88,21 @@ export default function DashboardDoctor() {
 
       {/* Main Content */}
       <div className="flex-1 p-10">
+        
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-700">{error}</p>
+            <button 
+              onClick={loadAll}
+              className="mt-2 px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Status Banner */}
-        {profile.onboarding_status < 100 && (
+        {profile && profile.onboarding_status < 100 && (
           <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500">
             <h2 className="font-semibold text-yellow-700">
               Your application is still under review.  
@@ -62,13 +118,13 @@ export default function DashboardDoctor() {
 
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-4">Profile Summary</h2>
-            <p><b>Name:</b> {profile.name}</p>
-            <p><b>Email:</b> {profile.email}</p>
-            <p><b>Phone:</b> {profile.phone || "Not added"}</p>
-            <p><b>Specialization:</b> {profile.specialization || "Not set"}</p>
+            <p><b>Name:</b> {profile ? profile.name : "Loading..."}</p>
+            <p><b>Email:</b> {profile ? profile.email : "Loading..."}</p>
+            <p><b>Phone:</b> {profile ? (profile.phone || "Not added") : "Loading..."}</p>
+            <p><b>Specialization:</b> {profile ? (profile.specialization || "Not set") : "Loading..."}</p>
             <p><b>Status:</b> 
               <span className="ml-2 px-3 py-1 text-sm rounded bg-blue-100 text-blue-700">
-                {profile.onboarding_status === 100 ? "Approved" : "Pending"}
+                {profile ? (profile.onboarding_status === 100 ? "Approved" : "Pending") : "Loading..."}
               </span>
             </p>
           </div>
