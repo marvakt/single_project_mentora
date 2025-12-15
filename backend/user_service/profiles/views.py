@@ -250,6 +250,7 @@
 #         serializer = DoctorAvailabilitySerializer(availability, many=True)
 #         return Response(serializer.data)
 
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -290,10 +291,30 @@ class CreateProfileInternalAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        serializer = UserProfileSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=201)
+        user_id = request.data.get("user_id")
+        email = request.data.get("email")
+        role = request.data.get("role", "user")
+
+        if not user_id or not email:
+            return Response(
+                {"detail": "user_id and email required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        profile, created = UserProfile.objects.get_or_create(
+            user_id=user_id,
+            defaults={
+                "email": email,
+                "role": role,
+                "status": "active",
+            }
+        )
+
+        return Response(
+            UserProfileSerializer(profile).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
+
 
 
 # =========================================================
@@ -525,7 +546,7 @@ class PublicDoctorListAPIView(APIView):
                 "user_id": d.profile.user_id,
                 "name": d.profile.name,
                 "specialization": d.specialization,
-                "experience": d.experience,
+                "experience": d.experience_years,
                 "consultation_fee": d.consultation_fee,
             })
 

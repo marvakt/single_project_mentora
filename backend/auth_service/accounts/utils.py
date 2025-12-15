@@ -67,16 +67,46 @@ def verify_google_id_token(id_token):
         return None
 
 # Call user_service to create blank profile (internal)
+# def create_profile_in_user_service(user_id, email, role):
+#     USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8001")
+#     # If you have internal auth token, include in headers
+#     try:
+#         resp = requests.post(f"{USER_SERVICE_URL}/api/internal/profile/create", json={
+#             "user_id": user_id,
+#             "email": email,
+#             "role": role
+#         }, timeout=5)
+#         return resp.status_code == 201 or resp.status_code == 200
+#     except Exception as e:
+#         print("user_service create profile failed", e)
+#         return False
+
+
 def create_profile_in_user_service(user_id, email, role):
-    USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://localhost:8001")
-    # If you have internal auth token, include in headers
+    USER_SERVICE_URL = os.getenv(
+        "USER_SERVICE_URL",
+        "http://mentora_user_service:8001"
+    )
+
     try:
-        resp = requests.post(f"{USER_SERVICE_URL}/api/internal/profile/create", json={
-            "user_id": user_id,
-            "email": email,
-            "role": role
-        }, timeout=5)
-        return resp.status_code == 201 or resp.status_code == 200
+        resp = requests.post(
+            f"{USER_SERVICE_URL}/api/internal/profile/create/",
+            headers={
+                "X-INTERNAL-TOKEN": os.getenv("INTERNAL_SERVICE_TOKEN", "dev-internal")
+            },
+            json={
+                "user_id": user_id,
+                "email": email,
+                "role": role
+            },
+            timeout=5
+        )
+
+        if resp.status_code not in (200, 201):
+            print("user_service error:", resp.status_code, resp.text)
+
+        return resp.status_code in (200, 201)
+
     except Exception as e:
-        print("user_service create profile failed", e)
+        print("user_service create profile failed:", e)
         return False
