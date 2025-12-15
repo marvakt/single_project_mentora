@@ -34,7 +34,8 @@ from .views import (
     ListDoctorDocumentsAPIView,
 
 
-    PublicDoctorListAPIView
+    PublicDoctorListAPIView,
+   
 )
 
 urlpatterns = [
@@ -69,6 +70,10 @@ urlpatterns = [
     path("doctor/<int:user_id>/availability/", ListAvailabilityAPIView.as_view(), name="list-availability"),
 
    path("doctors/", PublicDoctorListAPIView.as_view(), name="public-doctor-list"),
+
+
+
+
 
 
 
