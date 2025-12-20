@@ -1,5 +1,5 @@
 from rest_framework.permissions import BasePermission
-
+from django.conf import settings
 
 class IsAuthenticatedJWT(BasePermission):
     """
@@ -7,7 +7,10 @@ class IsAuthenticatedJWT(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return hasattr(request, "user_data")
+        print(f"IsAuthenticatedJWT check: {hasattr(request, 'user_data')}")
+        result = hasattr(request, "user_data")
+        print(f"IsAuthenticatedJWT result: {result}")
+        return result
 
 
 class IsOwner(BasePermission):
@@ -16,7 +19,10 @@ class IsOwner(BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
-        return obj.user_id == request.user_data["user_id"]
+        print(f"IsOwner check - obj.user_id: {obj.user_id}, request.user_data['user_id']: {request.user_data['user_id']}")
+        result = obj.user_id == request.user_data["user_id"]
+        print(f"IsOwner result: {result}")
+        return result
 
 
 class IsDoctor(BasePermission):
@@ -41,3 +47,15 @@ class IsAdmin(BasePermission):
             hasattr(request, "user_data")
             and request.user_data.get("role") == "admin"
         )
+
+class IsInternalService(BasePermission):
+    def has_permission(self, request, view):
+        # Get the token from settings
+        expected_token = getattr(settings, "INTERNAL_SERVICE_TOKEN", "dev-internal")
+        provided_token = request.headers.get("X-INTERNAL-TOKEN")
+        
+        # Debug logging
+        print(f"Expected token: {expected_token}")
+        print(f"Provided token: {provided_token}")
+        
+        return provided_token == expected_token

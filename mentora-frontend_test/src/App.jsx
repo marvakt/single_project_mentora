@@ -16,6 +16,9 @@ import DashboardAdmin from "./pages/DashboardAdmin";
 import UserDashboard from "./pages/UserDashboard";
 import UserProfile from "./pages/UserProfile";
 import Notifications from "./pages/Notifications";
+import CreateAppointment from "./pages/CreateAppointment";
+import AppointmentList from "./pages/AppointmentList";
+import AppointmentPayment from "./pages/AppointmentPayment";
 
 /* DOCTOR PAGES */
 import DoctorOnboarding from "./pages/DoctorOnboarding";
@@ -102,6 +105,40 @@ export default function App() {
             <ProtectedRoute allowed={["user"]}>
               <OnboardingGuard>
                 <Notifications />
+              </OnboardingGuard>
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* ---------- APPOINTMENT PAGES ---------- */}
+        <Route
+          path="/appointments/create"
+          element={
+            <ProtectedRoute allowed={["user"]}>
+              <OnboardingGuard>
+                <CreateAppointment />
+              </OnboardingGuard>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/appointments"
+          element={
+            <ProtectedRoute allowed={["user", "doctor"]}>
+              <OnboardingGuard>
+                <AppointmentList />
+              </OnboardingGuard>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/appointments/:appointmentId/payment"
+          element={
+            <ProtectedRoute allowed={["user"]}>
+              <OnboardingGuard>
+                <AppointmentPayment />
               </OnboardingGuard>
             </ProtectedRoute>
           }
