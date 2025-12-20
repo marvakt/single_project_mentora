@@ -1,18 +1,31 @@
+
+
+
 // // ═══════════════════════════════════════════════════════════════
-// // FILE: src/App.jsx (FIXED IMPORT PATHS)
+// // FILE: src/App.jsx - COMPLETE WORKING VERSION
 // // ═══════════════════════════════════════════════════════════════
 
 // import React, { useState, useEffect } from 'react';
 
-// // Pages - ✅ ALL PATHS FIXED
+// // Auth & Landing
 // import LandingPage from './pages/LandingPage';
 // import LoginPage from './pages/auth/LoginPage';
 // import RegisterPage from './pages/auth/RegisterPage';
 // import DoctorRegisterPage from './pages/auth/DoctorRegisterPage';
+
+// // User Pages
 // import UserDashboard from './pages/user/UserDashboard';
-// import UserProfile from './pages/user/UserProfile';           // ✅ FIXED: was ./user/UserProfile
+// import UserProfile from './pages/user/UserProfile';
+// import SeverityAssessment from './pages/user/SeverityAssessment';
+// import MoodTracker from './pages/user/MoodTracker';
+// import BookAppointment from './pages/user/BookAppointment';
+// import MyAppointments from './pages/user/MyAppointments';
+
+// // Doctor Pages
 // import DoctorDashboard from './pages/doctor/DoctorDashboard';
 // import DoctorProfile from './pages/doctor/DoctorProfile';
+
+// // Admin Pages
 // import AdminDashboard from './pages/admin/AdminDashboard';
 
 // const App = () => {
@@ -45,27 +58,64 @@
 //   };
 
 //   const renderView = () => {
+//     // Auth & Landing
 //     if (currentView === 'landing') {
 //       return <LandingPage setCurrentView={setCurrentView} />;
-//     } else if (currentView === 'login') {
-//       return <LoginPage setCurrentView={setCurrentView} setUser={setUser} setToken={setToken} />;
-//     } else if (currentView === 'register') {
-//       return <RegisterPage setCurrentView={setCurrentView} />;
-//     } else if (currentView === 'doctor-register') {
-//       return <DoctorRegisterPage setCurrentView={setCurrentView} />;
-//     } else if (currentView === 'user-dashboard') {
-//       return <UserDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
-//     } else if (currentView === 'doctor-dashboard') {
-//       return <DoctorDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
-//     } else if (currentView === 'admin-dashboard') {
-//       return <AdminDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
-//     } else if (currentView === 'user-profile') {
-//       return <UserProfile user={user} token={token} setCurrentView={setCurrentView} />;
-//     } else if (currentView === 'doctor-profile') {
-//       return <DoctorProfile user={user} token={token} setCurrentView={setCurrentView} />;
-//     } else {
-//       return <LandingPage setCurrentView={setCurrentView} />;
 //     }
+    
+//     if (currentView === 'login') {
+//       return <LoginPage setCurrentView={setCurrentView} setUser={setUser} setToken={setToken} />;
+//     }
+    
+//     if (currentView === 'register') {
+//       return <RegisterPage setCurrentView={setCurrentView} />;
+//     }
+    
+//     if (currentView === 'doctor-register') {
+//       return <DoctorRegisterPage setCurrentView={setCurrentView} />;
+//     }
+
+//     // User Views
+//     if (currentView === 'user-dashboard') {
+//       return <UserDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
+//     }
+    
+//     if (currentView === 'user-profile') {
+//       return <UserProfile user={user} token={token} setCurrentView={setCurrentView} />;
+//     }
+    
+//     if (currentView === 'severity-assessment') {
+//       return <SeverityAssessment user={user} token={token} setCurrentView={setCurrentView} />;
+//     }
+    
+//     if (currentView === 'mood-tracker') {
+//       return <MoodTracker user={user} token={token} setCurrentView={setCurrentView} />;
+//     }
+    
+//     if (currentView === 'book-appointment') {
+//       return <BookAppointment user={user} token={token} setCurrentView={setCurrentView} />;
+//     }
+    
+//     if (currentView === 'my-appointments') {
+//       return <MyAppointments user={user} token={token} setCurrentView={setCurrentView} />;
+//     }
+
+//     // Doctor Views
+//     if (currentView === 'doctor-dashboard') {
+//       return <DoctorDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
+//     }
+    
+//     if (currentView === 'doctor-profile') {
+//       return <DoctorProfile user={user} token={token} setCurrentView={setCurrentView} />;
+//     }
+
+//     // Admin Views
+//     if (currentView === 'admin-dashboard') {
+//       return <AdminDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
+//     }
+
+//     // Default
+//     return <LandingPage setCurrentView={setCurrentView} />;
 //   };
 
 //   return (
@@ -78,8 +128,13 @@
 // export default App;
 
 
+
+
+
+
+
 // ═══════════════════════════════════════════════════════════════
-// FILE: src/App.jsx - COMPLETE WORKING VERSION
+// FILE: src/App.jsx - UPDATED WITH NEW ROUTES
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useEffect } from 'react';
@@ -101,9 +156,11 @@ import MyAppointments from './pages/user/MyAppointments';
 // Doctor Pages
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import DoctorProfile from './pages/doctor/DoctorProfile';
+import DoctorAvailability from './pages/doctor/DoctorAvailability';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUserManagement from './pages/admin/AdminUserManagement';
 
 const App = () => {
   const [currentView, setCurrentView] = useState('landing');
@@ -186,9 +243,17 @@ const App = () => {
       return <DoctorProfile user={user} token={token} setCurrentView={setCurrentView} />;
     }
 
+    if (currentView === 'doctor-availability') {
+      return <DoctorAvailability user={user} token={token} setCurrentView={setCurrentView} />;
+    }
+
     // Admin Views
     if (currentView === 'admin-dashboard') {
       return <AdminDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
+    }
+
+    if (currentView === 'admin-users') {
+      return <AdminUserManagement user={user} token={token} setCurrentView={setCurrentView} />;
     }
 
     // Default

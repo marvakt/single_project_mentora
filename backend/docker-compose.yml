@@ -252,6 +252,9 @@
 #   appointment_db_data:
 #   rabbitmq_data:
 #   mongo_medical_data:
+
+
+
 services:
 
   ############################

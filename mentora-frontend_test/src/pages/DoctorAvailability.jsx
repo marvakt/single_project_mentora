@@ -12,7 +12,8 @@ export default function DoctorAvailability() {
   const [newSlot, setNewSlot] = useState({
     day_of_week: "",
     start_time: "",
-    end_time: ""
+    end_time: "",
+    timezone: "UTC"
   });
 
   useEffect(() => {
@@ -84,7 +85,11 @@ export default function DoctorAvailability() {
       }
       
       // Add new availability slot
-      await addAvailability(userId, newSlot);
+      const slotData = {
+        ...newSlot,
+        day_of_week: parseInt(newSlot.day_of_week, 10)
+      };
+      await addAvailability(userId, slotData);
       toast.success("Availability slot added successfully!");
       
       // Reset form and reload data

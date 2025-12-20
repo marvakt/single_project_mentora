@@ -154,8 +154,9 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
 
   const fetchProfile = async () => {
     try {
+      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/profile/${user.user_id}/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${accessToken}` }
       });
       if (response.ok) {
         const data = await response.json();

@@ -162,11 +162,12 @@ const UserProfile = ({ user, token, setCurrentView }) => {
 
   const fetchProfile = async () => {
     try {
+      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(
         `${USER_API}/profile/${user.user_id}/`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
@@ -198,7 +199,7 @@ const UserProfile = ({ user, token, setCurrentView }) => {
         {
           method: 'PUT',
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${sessionStorage.getItem('access_token')}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
