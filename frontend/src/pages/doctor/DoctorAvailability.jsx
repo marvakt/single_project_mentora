@@ -26,6 +26,16 @@ const DoctorAvailability = ({ user, token, setCurrentView }) => {
     'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
   ];
 
+  const DAY_TO_INDEX = {
+    'monday': 0,
+    'tuesday': 1,
+    'wednesday': 2,
+    'thursday': 3,
+    'friday': 4,
+    'saturday': 5,
+    'sunday': 6
+  };
+
   useEffect(() => {
     fetchAvailability();
   }, []);
@@ -33,9 +43,8 @@ const DoctorAvailability = ({ user, token, setCurrentView }) => {
   const fetchAvailability = async () => {
     setLoading(true);
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/doctor/${user.user_id}/availability/`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -62,11 +71,11 @@ const DoctorAvailability = ({ user, token, setCurrentView }) => {
       const response = await fetch(`${USER_API}/doctor/${user.user_id}/availability/add/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          day_of_week: selectedDay,
+          day_of_week: DAY_TO_INDEX[selectedDay],
           start_time: startTime,
           end_time: endTime,
           slot_duration_minutes: parseInt(slotDuration),
@@ -97,7 +106,7 @@ const DoctorAvailability = ({ user, token, setCurrentView }) => {
     try {
       const response = await fetch(`${USER_API}/doctor/availability/${slotId}/delete/`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('access_token')}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
@@ -122,8 +131,8 @@ const DoctorAvailability = ({ user, token, setCurrentView }) => {
 
   const groupByDay = () => {
     const grouped = {};
-    DAYS_OF_WEEK.forEach(day => {
-      grouped[day] = availability.filter(slot => slot.day_of_week === day);
+    DAYS_OF_WEEK.forEach((day, index) => {
+      grouped[day] = availability.filter(slot => slot.day_of_week === index);
     });
     return grouped;
   };

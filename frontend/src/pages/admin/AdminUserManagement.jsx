@@ -43,17 +43,13 @@ const AdminUserManagement = ({ user, token, setCurrentView }) => {
   const fetchAllUsers = async () => {
     setLoading(true);
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/admin/users/`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
         setAllUsers(data);
         calculateStats(data);
-      } else if (response.status === 403) {
-        console.error('Unauthorized access - admin privileges required');
-        alert('You do not have permission to access this resource.');
       }
     } catch (err) {
       console.error('Failed to fetch users', err);
@@ -115,9 +111,8 @@ const AdminUserManagement = ({ user, token, setCurrentView }) => {
     if (userObj.role === 'doctor') {
       setLoadingDocs(true);
       try {
-        const accessToken = sessionStorage.getItem('access_token');
         const response = await fetch(`${USER_API}/doctor/${userObj.user_id}/documents/`, {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
           const docs = await response.json();
@@ -138,11 +133,10 @@ const AdminUserManagement = ({ user, token, setCurrentView }) => {
     if (!confirm('Are you sure you want to APPROVE this doctor?')) return;
 
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/doctor/${userId}/approve/`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -168,11 +162,10 @@ const AdminUserManagement = ({ user, token, setCurrentView }) => {
     if (!confirm('Are you sure you want to REJECT this doctor?')) return;
 
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/doctor/${userId}/reject/`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ reason })

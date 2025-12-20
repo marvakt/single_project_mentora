@@ -213,9 +213,8 @@ const DoctorProfile = ({ user, token, setCurrentView }) => {
 
   const fetchProfile = async () => {
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/profile/${user.user_id}/`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -234,9 +233,8 @@ const DoctorProfile = ({ user, token, setCurrentView }) => {
 
   const fetchDocuments = async () => {
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/doctor/${user.user_id}/documents/`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -255,7 +253,7 @@ const DoctorProfile = ({ user, token, setCurrentView }) => {
       await fetch(`${USER_API}/profile/${user.user_id}/update/`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ name, phone })
@@ -264,7 +262,7 @@ const DoctorProfile = ({ user, token, setCurrentView }) => {
       await fetch(`${USER_API}/doctor/${user.user_id}/profile/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -315,7 +313,7 @@ const DoctorProfile = ({ user, token, setCurrentView }) => {
       const response = await fetch(`${USER_API}/doctor/${user.user_id}/document/upload/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

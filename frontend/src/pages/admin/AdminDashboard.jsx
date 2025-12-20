@@ -623,9 +623,8 @@ const AdminDashboard = ({ user, token, handleLogout, setCurrentView }) => {
   const fetchAllDoctors = async () => {
     setLoading(true);
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/admin/users/?role=doctor`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -661,9 +660,8 @@ const AdminDashboard = ({ user, token, handleLogout, setCurrentView }) => {
     setLoadingDocs(true);
 
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/doctor/${doctor.user_id}/documents/`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const docs = await response.json();
@@ -683,11 +681,10 @@ const AdminDashboard = ({ user, token, handleLogout, setCurrentView }) => {
     if (!confirm('Are you sure you want to APPROVE this doctor?')) return;
 
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/doctor/${userId}/approve/`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -713,11 +710,10 @@ const AdminDashboard = ({ user, token, handleLogout, setCurrentView }) => {
     if (!confirm('Are you sure you want to REJECT this doctor?')) return;
 
     try {
-      const accessToken = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/doctor/${userId}/reject/`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ reason })
