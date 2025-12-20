@@ -25,7 +25,7 @@ from .utils import (
     fetch_doctor_availability_and_fee,
     UserServiceError,
 )
-from .events import (
+from .producer import (
     publish_appointment_created,
     publish_appointment_cancelled,
 )

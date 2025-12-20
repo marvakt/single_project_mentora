@@ -18,9 +18,13 @@ app.conf.task_queues = (
     Queue("appointment_created", routing_key="appointment_created"),
     Queue("appointment_cancelled", routing_key="appointment_cancelled"),
     Queue("appointment_paid", routing_key="appointment_paid"),
+    Queue("doctor_approved", routing_key="doctor_approved"),
+    Queue("doctor_rejected", routing_key="doctor_rejected"),
 )
 
 app.conf.task_default_queue = "default"
 
+# Explicitly include producer tasks
+from appointments import producer
 app.autodiscover_tasks()
 

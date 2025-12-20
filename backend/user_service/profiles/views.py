@@ -30,6 +30,9 @@ from .permissions import (
 )
 from .authentication import JWTAuthentication
 
+# Event producer
+from .producer import publish_doctor_approved, publish_doctor_rejected
+
 
 # =========================================================
 # INTERNAL — PROFILE CREATE (AUTH SERVICE ONLY)

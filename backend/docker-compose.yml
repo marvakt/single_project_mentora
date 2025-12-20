@@ -492,6 +492,43 @@ services:
       redis:
         condition: service_started
 
+  ############################
+  # CONSUMER — APPOINTMENT SERVICE
+  ############################
+  appointment_consumer:
+    build: ./appointment_service
+    restart: always
+    working_dir: /app
+    command: python consume_doctor_events.py
+    volumes:
+      - ./appointment_service:/app
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  ############################
+  # CONSUMER — MEDICAL SERVICE
+  ############################
+  medical_consumer:
+    build: ./medical_service
+    restart: always
+    working_dir: /app
+    command: python -m app.messaging.consumer_runner
+    volumes:
+      - ./medical_service:/app
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      MONGO_URI: mongodb://mongo_medical:27017
+      MONGO_DB: mentora_medical
+      JWT_SECRET: mentora-jwt-secret-2025-change-this
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo_medical:
+        condition: service_started
+
 ############################
 # VOLUMES
 ############################

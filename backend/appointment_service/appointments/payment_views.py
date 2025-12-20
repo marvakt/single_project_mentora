@@ -17,7 +17,7 @@ from .authentication import JWTAuthentication
 from .permissions import IsAuthenticatedJWT, IsUserRole
 from .utils import fetch_doctor_availability_and_fee, UserServiceError
 from .razorpay_utils import create_razorpay_order, verify_razorpay_signature
-from .events import publish_appointment_paid
+from .producer import publish_appointment_paid
 
 logger = logging.getLogger(__name__)
 
