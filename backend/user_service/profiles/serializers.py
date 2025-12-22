@@ -6,6 +6,7 @@ from .models import (
     DoctorProfile,
     DoctorDocument,
     DoctorAvailability,
+    DoctorRating,
     Notification
 )
 
@@ -105,6 +106,69 @@ class UserProfileSerializer(serializers.ModelSerializer):
         validated_data.setdefault("onboarding_status", 0)
         validated_data.setdefault("status", "pending")
         return super().create(validated_data)
+
+
+# ============================================================
+# DOCTOR RATING SERIALIZER
+# ============================================================
+class DoctorRatingSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    doctor_email = serializers.CharField(source="doctor.email", read_only=True)
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    
+    class Meta:
+        model = DoctorRating
+        fields = [
+            "id",
+            "doctor",
+            "user",
+            "rating",
+            "review",
+            "created_at",
+            "updated_at",
+            "user_email",
+            "doctor_email",
+            "user_name",
+        ]
+        read_only_fields = ("created_at", "updated_at", "user_email", "doctor_email", "user_name")
+
+
+# ============================================================
+# DOCTOR PROFILE WITH RATING SERIALIZER
+# ============================================================
+class DoctorProfileWithRatingSerializer(serializers.ModelSerializer):
+    documents = DoctorDocumentSerializer(many=True, read_only=True)
+    availability = DoctorAvailabilitySerializer(many=True, read_only=True)
+    email = serializers.CharField(source="profile.email", read_only=True)
+    name = serializers.CharField(source="profile.name", read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    total_ratings = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DoctorProfile
+        fields = [
+            "id",
+            "email",
+            "name",
+            "specialization",
+            "experience_years",
+            "consultation_fee",
+            "bio",
+            "doctor_status",
+            "registered_at",
+            "updated_at",
+            "documents",
+            "availability",
+            "average_rating",
+            "total_ratings",
+        ]
+        read_only_fields = ("registered_at", "updated_at", "doctor_status", "average_rating", "total_ratings")
+    
+    def get_average_rating(self, obj):
+        return round(obj.average_rating, 1) if obj.average_rating else 0.0
+    
+    def get_total_ratings(self, obj):
+        return obj.total_ratings
 
 
 # ============================================================

@@ -1,49 +1,103 @@
-from fastapi import FastAPI
+"""
+app/main.py - FastAPI Medical Service Main Application
+Handles mental health assessments, AI scoring, chat, and secure medical data
+"""
 
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import logging
+
+from app.core.database import connect_db, close_db
 from app.core.config import settings
-from app.core.database import mongodb
-from app.routes import severity, mood, symptom, summary
+from app.routes import questionnaire, mood, severity, symptom, summary, chat, treatment, session_notes
 
-# ✅ VERSIONED API ROUTERS
-from app.api.v1.severity import router as severity_router
-from app.api.v1.summary import router as summary_router
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events"""
+    # Startup
+    logger.info("🚀 Starting Medical Service...")
+    await connect_db()
+    logger.info("✅ Database connected")
+    
+    yield
+    
+    # Shutdown
+    logger.info("🛑 Shutting down Medical Service...")
+    await close_db()
+    logger.info("✅ Database disconnected")
+
+
+# Initialize FastAPI app
 app = FastAPI(
-    title=settings.app_name,
+    title="Mentora Medical Service",
+    description="AI-Powered Mental Health Assessment & Guidance System",
     version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-# ==============================
-# LIFECYCLE EVENTS
-# ==============================
-@app.on_event("startup")
-def startup_event():
-    mongodb.connect()
-
-
-@app.on_event("shutdown")
-def shutdown_event():
-    mongodb.close()
-
-
-# ==============================
-# HEALTH CHECK
-# ==============================
+# Health check endpoint
 @app.get("/health")
-def health_check():
+async def health_check():
+    """Health check endpoint"""
     return {
-        "status": "ok",
-        "env": settings.app_env,
+        "status": "healthy",
+        "service": "medical_service",
+        "version": "1.0.0"
     }
 
 
-# ==============================
-# VERSIONED MEDICAL APIs
-# ==============================
-app.include_router(severity_router, prefix="/api/v1")
-app.include_router(summary_router, prefix="/api/v1")
+# Include routers
+app.include_router(questionnaire.router, prefix="/api/v1/questionnaire", tags=["Questionnaire"])
+app.include_router(mood.router, prefix="/api/v1/mood", tags=["Mood Tracking"])
+app.include_router(severity.router, prefix="/api/v1/severity", tags=["Severity Analysis"])
+app.include_router(symptom.router, prefix="/api/v1/symptoms", tags=["Symptoms"])
+app.include_router(summary.router, prefix="/api/v1/summary", tags=["Summary"])
+app.include_router(chat.router, prefix="/api/v1/chat", tags=["Chat"])
+app.include_router(treatment.router, prefix="/api/v1/treatment", tags=["Treatment Plans"])
+app.include_router(session_notes.router, prefix="/api/v1/session-notes", tags=["Session Notes"])
 
-# Legacy, non-versioned routes (kept for backward compatibility)
-app.include_router(symptom.router)
-app.include_router(summary.router)
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "Mentora Medical Service",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs",
+            "questionnaire": "/api/v1/questionnaire",
+            "mood": "/api/v1/mood",
+            "severity": "/api/v1/severity",
+            "symptoms": "/api/v1/symptoms",
+            "chat": "/api/v1/chat",
+            "treatment": "/api/v1/treatment",
+            "session_notes": "/api/v1/session-notes"
+        }
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8003,
+        reload=True
+    )

@@ -21,6 +21,10 @@ class UserServiceError(Exception):
     pass
 
 
+class MedicalServiceError(Exception):
+    pass
+
+
 def fetch_doctor_availability_and_fee(doctor_id):
     """
     Synchronous call to user_service.
@@ -46,3 +50,32 @@ def fetch_doctor_availability_and_fee(doctor_id):
         raise UserServiceError("Doctor is not available")
 
     return data.get("consultation_fee")
+
+
+def fetch_user_severity_level(user_id, auth_header):
+    """
+    Fetch user's latest severity level from medical_service.
+    Used for priority-based appointment scheduling.
+    """
+    try:
+        headers = {
+            "Authorization": auth_header,
+            "Content-Type": "application/json"
+        }
+        response = requests.get(
+            f"{settings.MEDICAL_SERVICE_BASE_URL}/questionnaire/latest",
+            headers=headers,
+            timeout=3
+        )
+    except requests.RequestException as e:
+        raise MedicalServiceError(f"Medical service unavailable: {str(e)}")
+
+    if response.status_code != 200:
+        raise MedicalServiceError(f"Failed to fetch severity data: {response.status_code}")
+
+    data = response.json()
+    return {
+        "raw_score": data.get("score"),
+        "severity_level": data.get("severity_level"),
+        "timestamp": data.get("timestamp")
+    }

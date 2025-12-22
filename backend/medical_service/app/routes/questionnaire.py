@@ -1,0 +1,269 @@
+"""
+app/routes/questionnaire.py - Mental Health Questionnaire API
+PHQ-9 based depression/anxiety screening questionnaire
+"""
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from typing import Dict, List
+from app.core.security import get_current_user_id
+from app.core.database import get_database
+from app.core.encryption import encryption, ENCRYPTED_FIELDS
+from app.ai_engine.srts_scoring import SRTSEngine
+from app.messaging.celery_client import send_high_risk_alert
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# Request/Response Models
+class QuestionnaireResponse(BaseModel):
+    """User's responses to questionnaire"""
+    responses: Dict[int, int] = Field(
+        ..., 
+        description="Dictionary of question_number: score (0-3)"
+    )
+    notes: str = Field(default="", description="Optional additional notes")
+
+
+class SeverityResult(BaseModel):
+    """Severity assessment result"""
+    severity_id: str
+    raw_score: int
+    severity_level: str
+    specialist_type: str
+    high_risk: bool
+    recommendations: List[str]
+    assessed_at: str
+
+
+# Questionnaire questions (PHQ-9 based)
+QUESTIONNAIRE = [
+    {
+        "id": 1,
+        "question": "Little interest or pleasure in doing things?",
+        "category": "interest"
+    },
+    {
+        "id": 2,
+        "question": "Feeling down, depressed, or hopeless?",
+        "category": "mood"
+    },
+    {
+        "id": 3,
+        "question": "Trouble falling or staying asleep, or sleeping too much?",
+        "category": "sleep"
+    },
+    {
+        "id": 4,
+        "question": "Feeling tired or having little energy?",
+        "category": "energy"
+    },
+    {
+        "id": 5,
+        "question": "Poor appetite or overeating?",
+        "category": "appetite"
+    },
+    {
+        "id": 6,
+        "question": "Feeling bad about yourself or that you are a failure?",
+        "category": "self_esteem"
+    },
+    {
+        "id": 7,
+        "question": "Trouble concentrating on things?",
+        "category": "concentration"
+    },
+    {
+        "id": 8,
+        "question": "Moving or speaking slowly, or being fidgety/restless?",
+        "category": "psychomotor"
+    },
+    {
+        "id": 9,
+        "question": "Thoughts that you would be better off dead, or hurting yourself?",
+        "category": "self_harm",
+        "warning": "⚠️ If you're experiencing these thoughts, please seek immediate help"
+    },
+    {
+        "id": 10,
+        "question": "How difficult have these problems made it to function?",
+        "category": "functioning"
+    }
+]
+
+ANSWER_OPTIONS = [
+    {"value": 0, "label": "Not at all"},
+    {"value": 1, "label": "Several days"},
+    {"value": 2, "label": "More than half the days"},
+    {"value": 3, "label": "Nearly every day"}
+]
+
+
+@router.get("/questions")
+async def get_questions():
+    """
+    Get mental health questionnaire questions
+    
+    Returns standardized PHQ-9 questionnaire for depression/anxiety screening
+    """
+    return {
+        "questionnaire": QUESTIONNAIRE,
+        "answer_options": ANSWER_OPTIONS,
+        "instructions": "Over the last 2 weeks, how often have you been bothered by the following problems?",
+        "total_questions": len(QUESTIONNAIRE)
+    }
+
+
+@router.post("/submit", response_model=SeverityResult)
+async def submit_questionnaire(
+    questionnaire_data: QuestionnaireResponse,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Submit questionnaire and calculate severity score
+    
+    - Validates responses
+    - Calculates SRTS severity score
+    - Stores encrypted assessment
+    - Triggers high-risk alerts if needed
+    - Returns specialist recommendation
+    """
+    db = get_database()
+    
+    # Validate responses
+    responses = questionnaire_data.responses
+    
+    if len(responses) != 10:
+        raise HTTPException(
+            status_code=400,
+            detail="All 10 questions must be answered"
+        )
+    
+    # Validate score ranges (0-3)
+    for q_num, score in responses.items():
+        if not (1 <= q_num <= 10) or not (0 <= score <= 3):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid response for question {q_num}"
+            )
+    
+    # Calculate severity using SRTS engine
+    severity_result = SRTSEngine.calculate_severity(responses)
+    
+    # Prepare severity log document - convert dict keys to strings for MongoDB
+    responses_str_keys = {str(k): v for k, v in responses.items()}
+    
+    severity_log = {
+        "user_id": user_id,
+        "responses": responses_str_keys,
+        "raw_score": severity_result["raw_score"],
+        "severity_level": severity_result["severity_level"],
+        "specialist_type": severity_result["specialist_type"],
+        "high_risk": severity_result["high_risk"],
+        "recommendations": severity_result["recommendations"],
+        "notes": questionnaire_data.notes,
+        "created_at": datetime.utcnow()
+    }
+    
+    # Encrypt sensitive fields
+    encrypted_log = encryption.encrypt_dict(
+        severity_log, 
+        ENCRYPTED_FIELDS.get("severity_logs", [])
+    )
+    
+    # Store in database
+    result = await db.severity_logs.insert_one(encrypted_log)
+    severity_id = str(result.inserted_id)
+    
+    logger.info(f"Severity assessment saved for user {user_id}: {severity_result['severity_level']}")
+    
+    # Send high-risk alert if needed
+    if severity_result["high_risk"]:
+        logger.warning(f"⚠️ HIGH RISK detected for user {user_id}")
+        try:
+            send_high_risk_alert(user_id, severity_result)
+        except Exception as e:
+            logger.error(f"Failed to send high-risk alert: {e}")
+    
+    return SeverityResult(
+        severity_id=severity_id,
+        **severity_result
+    )
+
+
+@router.get("/history")
+async def get_severity_history(
+    limit: int = 10,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Get user's severity assessment history
+    
+    Returns previous assessments with trends analysis
+    """
+    db = get_database()
+    
+    # Fetch severity logs
+    cursor = db.severity_logs.find(
+        {"user_id": user_id}
+    ).sort("created_at", -1).limit(limit)
+    
+    logs = await cursor.to_list(length=limit)
+    
+    # Decrypt sensitive fields
+    decrypted_logs = []
+    for log in logs:
+        log["_id"] = str(log["_id"])
+        decrypted_log = encryption.decrypt_dict(
+            log,
+            ENCRYPTED_FIELDS.get("severity_logs", [])
+        )
+        decrypted_logs.append(decrypted_log)
+    
+    # Analyze trends
+    trend_analysis = SRTSEngine.analyze_trends(decrypted_logs)
+    
+    return {
+        "assessments": decrypted_logs,
+        "total_count": len(decrypted_logs),
+        "trend_analysis": trend_analysis
+    }
+
+
+@router.get("/latest")
+async def get_latest_severity(
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Get user's most recent severity assessment
+    
+    Returns the latest assessment or None if no assessments exist
+    """
+    db = get_database()
+    
+    # Find latest assessment
+    latest = await db.severity_logs.find_one(
+        {"user_id": user_id},
+        sort=[("created_at", -1)]
+    )
+    
+    if not latest:
+        return {
+            "assessment": None,
+            "message": "No assessments found. Please complete a questionnaire."
+        }
+    
+    # Decrypt and return
+    latest["_id"] = str(latest["_id"])
+    decrypted = encryption.decrypt_dict(
+        latest,
+        ENCRYPTED_FIELDS.get("severity_logs", [])
+    )
+    
+    return {
+        "assessment": decrypted
+    }

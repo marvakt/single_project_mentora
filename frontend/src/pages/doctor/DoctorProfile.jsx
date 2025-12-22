@@ -1,176 +1,299 @@
 // import React, { useState, useEffect } from 'react';
-// import { ChevronRight } from 'lucide-react';
-// import { USER_API } from '../../config/api';
+// import { Heart, Calendar, Star, Award, UserCheck, Clock, Phone, Mail, MapPin } from 'lucide-react';
+// import DoctorRating from '../../components/DoctorRating';
 
 // const DoctorProfile = ({ user, token, setCurrentView }) => {
-//   const [profile, setProfile] = useState(null);
-//   const [name, setName] = useState('');
-//   const [phone, setPhone] = useState('');
-//   const [specialization, setSpecialization] = useState('');
-//   const [experience, setExperience] = useState('');
-//   const [fee, setFee] = useState('');
-//   const [bio, setBio] = useState('');
-//   const [loading, setLoading] = useState(false);
+//   const [doctor, setDoctor] = useState(null);
+//   const [loading, setLoading] = useState(true);
+//   const [activeTab, setActiveTab] = useState('profile');
 
+//   // Mock doctor data
 //   useEffect(() => {
-//     fetchProfile();
+//     // Simulate API call
+//     setTimeout(() => {
+//       setDoctor({
+//         id: 1,
+//         name: "Dr. Sarah Johnson",
+//         email: "s.johnson@example.com",
+//         phone: "+91 98765 43210",
+//         specialization: "Clinical Psychology",
+//         experience_years: 12,
+//         consultation_fee: 1500,
+//         location: "Mumbai, Maharashtra",
+//         bio: "Dr. Sarah Johnson is a licensed clinical psychologist with over 12 years of experience helping individuals overcome anxiety, depression, and trauma. She specializes in cognitive behavioral therapy and mindfulness-based interventions.",
+//         education: [
+//           "Ph.D. in Clinical Psychology, University of Mumbai",
+//           "M.Sc. in Psychology, St. Xavier's College",
+//           "B.Sc. in Psychology, University of Mumbai"
+//         ],
+//         certifications: [
+//           "Licensed Clinical Psychologist",
+//           "Certified Cognitive Behavioral Therapist",
+//           "Mindfulness-Based Stress Reduction (MBSR) Instructor"
+//         ],
+//         languages: ["English", "Hindi", "Marathi"],
+//         average_rating: 4.8,
+//         total_ratings: 127,
+//         availability: [
+//           { day: "Monday", slots: ["10:00 AM", "2:00 PM", "4:00 PM"] },
+//           { day: "Tuesday", slots: ["11:00 AM", "3:00 PM", "5:00 PM"] },
+//           { day: "Wednesday", slots: ["10:00 AM", "2:00 PM", "4:00 PM"] },
+//           { day: "Thursday", slots: ["11:00 AM", "3:00 PM", "5:00 PM"] },
+//           { day: "Friday", slots: ["10:00 AM", "2:00 PM", "4:00 PM"] }
+//         ]
+//       });
+//       setLoading(false);
+//     }, 1000);
 //   }, []);
 
-//   const fetchProfile = async () => {
-//     try {
-//       const response = await fetch(`${USER_API}/profile/${user.user_id}/`, {
-//         headers: { 'Authorization': `Bearer ${token}` }
-//       });
-//       if (response.ok) {
-//         const data = await response.json();
-//         setProfile(data);
-//         setName(data.name || '');
-//         setPhone(data.phone || '');
-//         setSpecialization(data.doctor?.specialization || '');
-//         setExperience(data.doctor?.experience_years || '');
-//         setFee(data.doctor?.consultation_fee || '');
-//         setBio(data.doctor?.bio || '');
-//       }
-//     } catch (err) {
-//       console.error('Failed to fetch profile', err);
-//     }
-//   };
-
-//   const handleUpdateProfile = async (e) => {
-//     e.preventDefault();
-//     setLoading(true);
-
-//     try {
-//       await fetch(`${USER_API}/profile/${user.user_id}/update/`, {
-//         method: 'PUT',
-//         headers: {
-//           'Authorization': `Bearer ${token}`,
-//           'Content-Type': 'application/json'
-//         },
-//         body: JSON.stringify({ name, phone })
-//       });
-
-//       await fetch(`${USER_API}/doctor/${user.user_id}/profile/`, {
-//         method: 'POST',
-//         headers: {
-//           'Authorization': `Bearer ${token}`,
-//           'Content-Type': 'application/json'
-//         },
-//         body: JSON.stringify({
-//           specialization,
-//           experience_years: parseInt(experience),
-//           consultation_fee: parseInt(fee),
-//           bio
-//         })
-//       });
-
-//       alert('Profile updated successfully!');
-//       fetchProfile();
-//     } catch (err) {
-//       alert('Failed to update profile');
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
+//         <div className="text-center">
+//           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+//           <p className="mt-4 text-gray-600">Loading doctor profile...</p>
+//         </div>
+//       </div>
+//     );
+//   }
 
 //   return (
-//     <div className="min-h-screen">
-//       <nav className="bg-white shadow-lg">
-//         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-//           <div className="flex justify-between items-center h-16">
-//             <button 
-//               onClick={() => setCurrentView('doctor-dashboard')} 
-//               className="text-purple-600 hover:text-purple-800 flex items-center space-x-2"
-//             >
-//               <ChevronRight className="w-5 h-5 transform rotate-180" />
-//               <span>Back to Dashboard</span>
-//             </button>
+//     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
+//       {/* Header */}
+//       <div className="bg-white shadow-sm">
+//         <div className="max-w-6xl mx-auto px-4 py-4">
+//           <button 
+//             onClick={() => setCurrentView('user-dashboard')}
+//             className="text-purple-600 hover:text-purple-800 font-semibold"
+//           >
+//             ← Back to Dashboard
+//           </button>
+//         </div>
+//       </div>
+
+//       <div className="max-w-6xl mx-auto px-4 py-8">
+//         {/* Doctor Header */}
+//         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+//           <div className="flex flex-col md:flex-row items-center">
+//             <div className="bg-gray-200 border-2 border-dashed rounded-xl w-32 h-32 flex items-center justify-center mr-6 mb-4 md:mb-0" />
+//             <div className="flex-1 text-center md:text-left">
+//               <h1 className="text-3xl font-bold text-gray-800">{doctor.name}</h1>
+//               <p className="text-purple-600 text-xl mt-1">{doctor.specialization}</p>
+              
+//               <div className="flex flex-wrap items-center justify-center md:justify-start mt-3">
+//                 <div className="flex items-center mr-4">
+//                   <Star className="w-5 h-5 text-yellow-400 fill-current" />
+//                   <span className="ml-1 text-gray-700">{doctor.average_rating} ({doctor.total_ratings} reviews)</span>
+//                 </div>
+//                 <div className="flex items-center mr-4">
+//                   <Award className="w-5 h-5 text-purple-600" />
+//                   <span className="ml-1 text-gray-700">{doctor.experience_years} years exp</span>
+//                 </div>
+//                 <div className="flex items-center">
+//                   <UserCheck className="w-5 h-5 text-green-600" />
+//                   <span className="ml-1 text-gray-700">Verified</span>
+//                 </div>
+//               </div>
+              
+//               <div className="mt-4 flex flex-wrap justify-center md:justify-start">
+//                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 mr-2 mb-2">
+//                   ₹{doctor.consultation_fee}
+//                 </span>
+//                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 mr-2 mb-2">
+//                   <Clock className="w-4 h-4 mr-1" /> 45 mins
+//                 </span>
+//               </div>
+//             </div>
+            
+//             <div className="mt-6 md:mt-0">
+//               <button className="bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-6 rounded-lg font-semibold hover:shadow-lg transition">
+//                 Book Appointment
+//               </button>
+//             </div>
 //           </div>
 //         </div>
-//       </nav>
 
-//       <div className="max-w-3xl mx-auto px-4 py-8">
-//         <h1 className="text-3xl font-bold mb-8 text-gray-800">Doctor Profile</h1>
-
-//         <div className="bg-white rounded-xl p-8 shadow-lg">
-//           <form onSubmit={handleUpdateProfile} className="space-y-6">
-//             <div className="grid md:grid-cols-2 gap-6">
-//               <div>
-//                 <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-//                 <input
-//                   type="text"
-//                   value={name}
-//                   onChange={(e) => setName(e.target.value)}
-//                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-//                 />
-//               </div>
-
-//               <div>
-//                 <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-//                 <input
-//                   type="tel"
-//                   value={phone}
-//                   onChange={(e) => setPhone(e.target.value)}
-//                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-//                 />
-//               </div>
-//             </div>
-
-//             <div>
-//               <label className="block text-sm font-medium text-gray-700 mb-2">Specialization</label>
-//               <select
-//                 value={specialization}
-//                 onChange={(e) => setSpecialization(e.target.value)}
-//                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+//         {/* Tabs */}
+//         <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-8">
+//           <div className="border-b border-gray-200">
+//             <nav className="flex -mb-px">
+//               <button
+//                 onClick={() => setActiveTab('profile')}
+//                 className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
+//                   activeTab === 'profile'
+//                     ? 'border-purple-600 text-purple-600'
+//                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+//                 }`}
 //               >
-//                 <option value="">Select Specialization</option>
-//                 <option value="Counselor">Counselor</option>
-//                 <option value="Psychologist">Psychologist</option>
-//                 <option value="Psychiatrist">Psychiatrist</option>
-//               </select>
-//             </div>
+//                 Profile
+//               </button>
+//               <button
+//                 onClick={() => setActiveTab('availability')}
+//                 className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
+//                   activeTab === 'availability'
+//                     ? 'border-purple-600 text-purple-600'
+//                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+//                 }`}
+//               >
+//                 Availability
+//               </button>
+//               <button
+//                 onClick={() => setActiveTab('reviews')}
+//                 className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
+//                   activeTab === 'reviews'
+//                     ? 'border-purple-600 text-purple-600'
+//                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+//                 }`}
+//               >
+//                 Reviews
+//               </button>
+//             </nav>
+//           </div>
 
-//             <div className="grid md:grid-cols-2 gap-6">
-//               <div>
-//                 <label className="block text-sm font-medium text-gray-700 mb-2">Experience (years)</label>
-//                 <input
-//                   type="number"
-//                   value={experience}
-//                   onChange={(e) => setExperience(e.target.value)}
-//                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-//                 />
+//           <div className="p-6">
+//             {/* Profile Tab */}
+//             {activeTab === 'profile' && (
+//               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+//                 <div className="md:col-span-2">
+//                   <h2 className="text-2xl font-bold text-gray-800 mb-4">About</h2>
+//                   <p className="text-gray-700 mb-6">{doctor.bio}</p>
+                  
+//                   <h3 className="text-xl font-semibold text-gray-800 mb-3">Education</h3>
+//                   <ul className="space-y-2 mb-6">
+//                     {doctor.education.map((item, index) => (
+//                       <li key={index} className="flex items-start">
+//                         <div className="flex-shrink-0 h-5 w-5 text-purple-600 mt-0.5">•</div>
+//                         <p className="ml-2 text-gray-700">{item}</p>
+//                       </li>
+//                     ))}
+//                   </ul>
+                  
+//                   <h3 className="text-xl font-semibold text-gray-800 mb-3">Certifications</h3>
+//                   <ul className="space-y-2 mb-6">
+//                     {doctor.certifications.map((item, index) => (
+//                       <li key={index} className="flex items-start">
+//                         <div className="flex-shrink-0 h-5 w-5 text-purple-600 mt-0.5">•</div>
+//                         <p className="ml-2 text-gray-700">{item}</p>
+//                       </li>
+//                     ))}
+//                   </ul>
+                  
+//                   <h3 className="text-xl font-semibold text-gray-800 mb-3">Languages</h3>
+//                   <div className="flex flex-wrap">
+//                     {doctor.languages.map((lang, index) => (
+//                       <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 mr-2 mb-2">
+//                         {lang}
+//                       </span>
+//                     ))}
+//                   </div>
+//                 </div>
+                
+//                 <div>
+//                   <div className="bg-gray-50 rounded-lg p-6 mb-6">
+//                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Contact Information</h3>
+//                     <div className="space-y-4">
+//                       <div className="flex items-start">
+//                         <Mail className="w-5 h-5 text-gray-500 mt-0.5" />
+//                         <span className="ml-3 text-gray-700">{doctor.email}</span>
+//                       </div>
+//                       <div className="flex items-start">
+//                         <Phone className="w-5 h-5 text-gray-500 mt-0.5" />
+//                         <span className="ml-3 text-gray-700">{doctor.phone}</span>
+//                       </div>
+//                       <div className="flex items-start">
+//                         <MapPin className="w-5 h-5 text-gray-500 mt-0.5" />
+//                         <span className="ml-3 text-gray-700">{doctor.location}</span>
+//                       </div>
+//                     </div>
+//                   </div>
+                  
+//                   <div className="bg-gray-50 rounded-lg p-6">
+//                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Specializations</h3>
+//                     <ul className="space-y-2">
+//                       <li className="flex items-center">
+//                         <Heart className="w-5 h-5 text-purple-600 mr-2" />
+//                         <span>Anxiety Disorders</span>
+//                       </li>
+//                       <li className="flex items-center">
+//                         <Heart className="w-5 h-5 text-purple-600 mr-2" />
+//                         <span>Depression</span>
+//                       </li>
+//                       <li className="flex items-center">
+//                         <Heart className="w-5 h-5 text-purple-600 mr-2" />
+//                         <span>Trauma & PTSD</span>
+//                       </li>
+//                       <li className="flex items-center">
+//                         <Heart className="w-5 h-5 text-purple-600 mr-2" />
+//                         <span>Stress Management</span>
+//                       </li>
+//                     </ul>
+//                   </div>
+//                 </div>
 //               </div>
+//             )}
 
+//             {/* Availability Tab */}
+//             {activeTab === 'availability' && (
 //               <div>
-//                 <label className="block text-sm font-medium text-gray-700 mb-2">Consultation Fee (₹)</label>
-//                 <input
-//                   type="number"
-//                   value={fee}
-//                   onChange={(e) => setFee(e.target.value)}
-//                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-//                 />
+//                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Weekly Availability</h2>
+//                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+//                   {doctor.availability.map((day, index) => (
+//                     <div key={index} className="border border-gray-200 rounded-lg p-4">
+//                       <h3 className="font-semibold text-lg text-gray-800 mb-3">{day.day}</h3>
+//                       <div className="space-y-2">
+//                         {day.slots.map((slot, slotIndex) => (
+//                           <button
+//                             key={slotIndex}
+//                             className="block w-full text-left px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-md transition"
+//                           >
+//                             {slot}
+//                           </button>
+//                         ))}
+//                       </div>
+//                     </div>
+//                   ))}
+//                 </div>
 //               </div>
-//             </div>
+//             )}
 
-//             <div>
-//               <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-//               <textarea
-//                 value={bio}
-//                 onChange={(e) => setBio(e.target.value)}
-//                 rows={4}
-//                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-//                 placeholder="Tell patients about yourself..."
-//               />
-//             </div>
-
-//             <button
-//               type="submit"
-//               disabled={loading}
-//               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition disabled:opacity-50"
-//             >
-//               {loading ? 'Updating...' : 'Update Profile'}
-//             </button>
-//           </form>
+//             {/* Reviews Tab */}
+//             {activeTab === 'reviews' && (
+//               <div>
+//                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Patient Reviews</h2>
+                
+//                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+//                   <div className="lg:col-span-2">
+//                     <div className="space-y-6">
+//                       {/* Sample reviews */}
+//                       {[1, 2, 3].map((review) => (
+//                         <div key={review} className="border-b border-gray-200 pb-6 last:border-0 last:pb-0">
+//                           <div className="flex items-center mb-2">
+//                             <div className="flex">
+//                               {[...Array(5)].map((_, i) => (
+//                                 <Star
+//                                   key={i}
+//                                   className={`w-5 h-5 ${i < 4 ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+//                                 />
+//                               ))}
+//                             </div>
+//                             <span className="ml-2 text-gray-600">4 days ago</span>
+//                           </div>
+//                           <h4 className="font-semibold text-gray-800 mb-1">Anonymous Patient</h4>
+//                           <p className="text-gray-700">
+//                             Dr. Johnson has been incredibly supportive throughout my treatment. Her approach is compassionate yet professional, and she helped me develop practical coping strategies for managing my anxiety.
+//                           </p>
+//                         </div>
+//                       ))}
+//                     </div>
+//                   </div>
+                  
+//                   <div>
+//                     <DoctorRating doctorId={doctor.id} />
+//                   </div>
+//                 </div>
+//               </div>
+//             )}
+//           </div>
 //         </div>
 //       </div>
 //     </div>
@@ -178,6 +301,7 @@
 // };
 
 // export default DoctorProfile;
+
 
 
 

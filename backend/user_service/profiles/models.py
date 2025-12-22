@@ -80,6 +80,19 @@ class DoctorProfile(models.Model):
     def __str__(self):
         return f"Doctor: {self.profile.email} ({self.doctor_status})"
 
+    @property
+    def average_rating(self):
+        """Calculate and return the average rating for this doctor."""
+        ratings = self.profile.ratings_received.all()
+        if not ratings:
+            return 0.0
+        return sum(r.rating for r in ratings) / len(ratings)
+
+    @property
+    def total_ratings(self):
+        """Return the total number of ratings for this doctor."""
+        return self.profile.ratings_received.count()
+
 
 # ============================================================
 # DOCTOR DOCUMENTS
@@ -113,6 +126,49 @@ class DoctorAvailability(models.Model):
 
     def __str__(self):
         return f"{self.profile.email} — {self.day_of_week} {self.start_time}-{self.end_time}"
+
+
+# ============================================================
+# DOCTOR RATINGS AND REVIEWS
+# ============================================================
+class DoctorRating(models.Model):
+    """
+    Store ratings given by users to doctors.
+    Each user can rate a doctor only once.
+    """
+    doctor = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="ratings_received")
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="ratings_given")
+    
+    # Rating value (1-5 stars)
+    rating = models.IntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    
+    # Optional review text
+    review = models.TextField(blank=True, null=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('doctor', 'user')  # One rating per user per doctor
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.email} → {self.doctor.email}: {self.rating}/5"
+
+
+# ============================================================
+# DOCTOR SPECIALIZATION CATEGORIES
+# ============================================================
+class DoctorSpecializationCategory(models.Model):
+    """
+    Categories for doctor specializations to help with matching.
+    """
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return self.name
 
 
 # ============================================================

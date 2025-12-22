@@ -9,6 +9,7 @@ from .models import (
     DoctorProfile,
     DoctorDocument,
     DoctorAvailability,
+    DoctorRating,
     Notification,
 )
 
@@ -17,6 +18,8 @@ from .serializers import (
     DoctorProfileSerializer,
     DoctorDocumentSerializer,
     DoctorAvailabilitySerializer,
+    DoctorRatingSerializer,
+    DoctorProfileWithRatingSerializer,
     NotificationSerializer,
 )
 
@@ -68,6 +71,51 @@ class CreateProfileInternalAPIView(APIView):
 
 
 # =========================================================
+# INTERNAL — DOCTOR AVAILABILITY (FOR APPOINTMENT SERVICE)
+# =========================================================
+class DoctorAvailabilityInternalAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [IsInternalService]
+
+    def get(self, request, doctor_id):
+        """
+        Internal endpoint for appointment service to check doctor availability.
+        Returns doctor status and consultation fee for booking decisions.
+        """
+        try:
+            profile = get_object_or_404(UserProfile, user_id=doctor_id)
+            doctor_profile = get_object_or_404(DoctorProfile, profile=profile)
+        except:
+            return Response(
+                {"detail": "Doctor not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if doctor is approved
+        is_approved = doctor_profile.doctor_status == "approved"
+        
+        # Check if doctor has completed onboarding
+        is_onboarded = profile.onboarding_status == 100
+        
+        # Check if doctor has availability slots
+        has_availability = doctor_profile.profile.availability.exists()
+        
+        # Doctor is available if approved, onboarded, and has availability
+        is_available = is_approved and is_onboarded and has_availability
+
+        response_data = {
+            "approved": is_approved,
+            "available": is_available,
+            "onboarded": is_onboarded,
+            "consultation_fee": doctor_profile.consultation_fee,
+            "doctor_id": doctor_id,
+            "name": profile.name or profile.email
+        }
+
+        return Response(response_data)
+
+
+# =========================================================
 # USER PROFILE
 # =========================================================
 class GetProfileAPIView(APIView):
@@ -95,7 +143,6 @@ class GetProfileAPIView(APIView):
         self.check_object_permissions(request, profile)
         return Response(UserProfileSerializer(profile).data)
     
-
 
 class UpdateProfileAPIView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -358,3 +405,142 @@ class PublicDoctorListAPIView(APIView):
 
         return Response(data)
 
+
+# =========================================================
+# DOCTOR RATINGS
+# =========================================================
+class RateDoctorAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedJWT]
+
+    def post(self, request, doctor_id):
+        # Get the doctor profile
+        doctor_profile = get_object_or_404(
+            DoctorProfile.objects.select_related('profile'), 
+            profile__user_id=doctor_id,
+            doctor_status='approved'
+        )
+        
+        # Get the user profile
+        user_profile = get_object_or_404(UserProfile, user_id=request.user_data['user_id'])
+        
+        # Prevent doctors from rating themselves
+        if user_profile.role == 'doctor' and user_profile.user_id == doctor_id:
+            return Response(
+                {"detail": "You cannot rate yourself"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get rating data
+        rating = request.data.get('rating')
+        review = request.data.get('review', '')
+        
+        # Validate rating
+        if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+            return Response(
+                {"detail": "Rating must be an integer between 1 and 5"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create or update rating
+        rating_obj, created = DoctorRating.objects.update_or_create(
+            doctor=doctor_profile.profile,
+            user=user_profile,
+            defaults={
+                'rating': rating,
+                'review': review
+            }
+        )
+        
+        serializer = DoctorRatingSerializer(rating_obj)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+# =========================================================
+# DOCTOR SUGGESTIONS BASED ON SEVERITY SCORE
+# =========================================================
+class DoctorSuggestionAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedJWT]
+
+    def post(self, request):
+        # Get severity score from request
+        severity_score = request.data.get('severity_score')
+        
+        # Validate severity score
+        if not isinstance(severity_score, int) or severity_score < 0 or severity_score > 10:
+            return Response(
+                {"detail": "Severity score must be an integer between 0 and 10"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Calculate severity level
+        if severity_score <= 3:
+            severity_level = 'LOW'
+        elif severity_score <= 6:
+            severity_level = 'MODERATE'
+        elif severity_score <= 8:
+            severity_level = 'HIGH'
+        else:
+            severity_level = 'CRITICAL'
+        
+        # Get all approved doctors
+        doctors = DoctorProfile.objects.filter(
+            doctor_status="approved",
+            profile__onboarding_status=100
+        ).select_related("profile")
+        
+        # Score doctors based on rating and experience
+        scored_doctors = []
+        for doctor in doctors:
+            # Base score from rating (weight: 0.6)
+            rating_score = doctor.average_rating * 0.6 if doctor.average_rating else 0
+            
+            # Experience score (weight: 0.3)
+            # Normalize experience to 0-1 scale (assuming max experience of 50 years)
+            experience_score = min(doctor.experience_years / 50.0, 1.0) * 0.3
+            
+            # Availability score (weight: 0.1)
+            # Doctors with more availability slots get higher scores
+            availability_slots = doctor.profile.availability.count()
+            availability_score = min(availability_slots / 20.0, 1.0) * 0.1
+            
+            # Total score
+            total_score = rating_score + experience_score + availability_score
+            
+            scored_doctors.append({
+                'doctor': doctor,
+                'score': total_score,
+                'rating_score': rating_score,
+                'experience_score': experience_score,
+                'availability_score': availability_score
+            })
+        
+        # Sort doctors by score (descending)
+        scored_doctors.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Take top 5 doctors
+        top_doctors = scored_doctors[:5]
+        
+        # Serialize the results
+        result = {
+            'severity_level': severity_level,
+            'severity_score': severity_score,
+            'suggested_doctors': []
+        }
+        
+        for item in top_doctors:
+            doctor = item['doctor']
+            result['suggested_doctors'].append({
+                'user_id': doctor.profile.user_id,
+                'name': doctor.profile.name,
+                'email': doctor.profile.email,
+                'specialization': doctor.specialization,
+                'experience_years': doctor.experience_years,
+                'consultation_fee': doctor.consultation_fee,
+                'average_rating': round(doctor.average_rating, 1),
+                'total_ratings': doctor.total_ratings,
+                'match_score': round(item['score'] * 100, 1),
+            })
+        
+        return Response(result)

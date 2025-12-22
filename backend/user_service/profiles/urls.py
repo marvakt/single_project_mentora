@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     # Internal
     CreateProfileInternalAPIView,
+    DoctorAvailabilityInternalAPIView,
 
     # Profile
     GetProfileAPIView,
@@ -35,12 +36,16 @@ from .views import (
 
 
     PublicDoctorListAPIView,
-   
+    
+    # Ratings and Suggestions
+    RateDoctorAPIView,
+    DoctorSuggestionAPIView,
 )
 
 urlpatterns = [
     # ---------- INTERNAL ----------
     path("internal/profile/create/", CreateProfileInternalAPIView.as_view(), name="internal-create-profile"),
+    path("internal/doctors/<int:doctor_id>/availability/", DoctorAvailabilityInternalAPIView.as_view(), name="internal-doctor-availability"),
 
     # ---------- USER PROFILE ----------
     path("profile/<int:user_id>/", GetProfileAPIView.as_view(), name="get-profile"),
@@ -70,12 +75,8 @@ urlpatterns = [
     path("doctor/<int:user_id>/availability/", ListAvailabilityAPIView.as_view(), name="list-availability"),
 
    path("doctors/", PublicDoctorListAPIView.as_view(), name="public-doctor-list"),
-
-
-
-
-
-
-
-
+   
+   # Ratings and Suggestions
+   path("doctor/<int:doctor_id>/rate/", RateDoctorAPIView.as_view(), name="rate-doctor"),
+   path("doctors/suggest/", DoctorSuggestionAPIView.as_view(), name="suggest-doctors"),
 ]
