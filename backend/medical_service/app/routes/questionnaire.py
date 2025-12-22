@@ -5,14 +5,16 @@ PHQ-9 based depression/anxiety screening questionnaire
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import Dict, List
+from typing import Dict, List, Optional
 from app.core.security import get_current_user_id
 from app.core.database import get_database
 from app.core.encryption import encryption, ENCRYPTED_FIELDS
+from app.core.config import settings
 from app.ai_engine.srts_scoring import SRTSEngine
 from app.messaging.celery_client import send_high_risk_alert
 from datetime import datetime
 import logging
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,7 @@ class SeverityResult(BaseModel):
     high_risk: bool
     recommendations: List[str]
     assessed_at: str
+    suggested_doctors: Optional[List[Dict]] = None
 
 
 # Questionnaire questions (PHQ-9 based)
@@ -130,7 +133,7 @@ async def submit_questionnaire(
     - Calculates SRTS severity score
     - Stores encrypted assessment
     - Triggers high-risk alerts if needed
-    - Returns specialist recommendation
+    - Returns specialist recommendation and suggested doctors based on ratings
     """
     db = get_database()
     
@@ -188,6 +191,28 @@ async def submit_questionnaire(
             send_high_risk_alert(user_id, severity_result)
         except Exception as e:
             logger.error(f"Failed to send high-risk alert: {e}")
+    
+    # Get suggested doctors based on severity score and ratings
+    suggested_doctors = []
+    try:
+        async with httpx.AsyncClient() as client:
+            # Call user service to get doctor suggestions
+            response = await client.post(
+                f"{settings.USER_SERVICE_URL}/api/doctors/suggest/",
+                json={"severity_score": severity_result["raw_score"]},
+                headers={"Content-Type": "application/json"},
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                doctor_data = response.json()
+                suggested_doctors = doctor_data.get("suggested_doctors", [])
+    except Exception as e:
+        logger.error(f"Failed to fetch doctor suggestions: {e}")
+        # Continue without doctor suggestions if service is unavailable
+    
+    # Add suggested doctors to the response
+    severity_result["suggested_doctors"] = suggested_doctors
     
     return SeverityResult(
         severity_id=severity_id,

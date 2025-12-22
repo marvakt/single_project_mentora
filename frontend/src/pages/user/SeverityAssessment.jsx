@@ -566,9 +566,17 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
         const data = await response.json();
         setResult(data);
         
-        // Fetch doctors based on severity
-        if (data.specialist_type) {
-          await fetchRecommendedDoctors(data.severity_level);
+        // Use suggested doctors from the response - no fallback logic
+        // The backend already provides rating-based prioritized doctors
+        if (data.suggested_doctors && data.suggested_doctors.length > 0) {
+          // Sort by rating (highest first)
+          const sortedDoctors = data.suggested_doctors.sort((a, b) => 
+            (b.average_rating || 0) - (a.average_rating || 0)
+          );
+          setDoctors(sortedDoctors);
+        } else {
+          // If no doctors available, show empty state - no fallback
+          setDoctors([]);
         }
         
         setStep(3);
@@ -581,28 +589,6 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
       alert('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchRecommendedDoctors = async (severityLevel) => {
-    try {
-      const response = await apiCall(`${USER_API}/doctors/`, {
-        method: 'GET'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Filter doctors based on severity level
-        const filtered = data.filter(doc => {
-          if (severityLevel === 'severe') return doc.specialization?.toLowerCase().includes('psychiatrist');
-          if (severityLevel === 'moderate' || severityLevel === 'moderately_severe') 
-            return doc.specialization?.toLowerCase().includes('psychologist');
-          return doc.specialization?.toLowerCase().includes('counselor');
-        });
-        setDoctors(filtered.length > 0 ? filtered : data.slice(0, 3));
-      }
-    } catch (err) {
-      console.error('Failed to fetch doctors:', err);
     }
   };
 
@@ -871,26 +857,34 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
                   Recommended Mental Health Professionals
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  Based on your severity level, we recommend connecting with these specialists:
+                  Based on your severity level and doctor ratings, we recommend connecting with these specialists:
                 </p>
                 
                 <div className="space-y-4">
                   {doctors.map((doctor) => (
-                    <div key={doctor.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
+                    <div key={doctor.user_id || doctor.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900">{doctor.name}</h3>
                           <p className="text-purple-600 font-medium">{doctor.specialization}</p>
                           <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600">
                             <span>{doctor.experience_years} years exp.</span>
-                            {doctor.average_rating && (
+                            {(doctor.average_rating || doctor.average_rating === 0) && (
                               <div className="flex items-center">
                                 <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
                                 <span>{doctor.average_rating}</span>
+                                {doctor.total_ratings && (
+                                  <span className="ml-1">({doctor.total_ratings})</span>
+                                )}
                               </div>
                             )}
                             <span className="font-semibold text-green-600">₹{doctor.consultation_fee}</span>
                           </div>
+                          {doctor.match_score && (
+                            <div className="mt-2 text-xs text-gray-500">
+                              Match Score: {doctor.match_score}%
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={() => setCurrentView('book-appointment')}

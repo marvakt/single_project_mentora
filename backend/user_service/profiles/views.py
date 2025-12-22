@@ -82,7 +82,19 @@ class DoctorAvailabilityInternalAPIView(APIView):
         Internal endpoint for appointment service to check doctor availability.
         Returns doctor status and consultation fee for booking decisions.
         """
+        # Convert UUID to integer if necessary
         try:
+            # Check if doctor_id is a UUID string
+            import uuid
+            try:
+                if isinstance(doctor_id, str) and len(doctor_id) == 36:
+                    # It looks like a UUID, try to convert it
+                    uuid_obj = uuid.UUID(doctor_id)
+                    doctor_id = uuid_obj.int
+            except ValueError:
+                # Not a valid UUID, continue as is
+                pass
+
             profile = get_object_or_404(UserProfile, user_id=doctor_id)
             doctor_profile = get_object_or_404(DoctorProfile, profile=profile)
         except:
@@ -102,6 +114,11 @@ class DoctorAvailabilityInternalAPIView(APIView):
         
         # Doctor is available if approved, onboarded, and has availability
         is_available = is_approved and is_onboarded and has_availability
+        
+        print(f"DEBUG: Doctor Availability Check for {doctor_id}")
+        print(f"DEBUG: Approved: {is_approved}")
+        print(f"DEBUG: Onboarded: {is_onboarded}")
+        print(f"DEBUG: Has Availability Slots: {has_availability}")
 
         response_data = {
             "approved": is_approved,
@@ -388,10 +405,7 @@ class PublicDoctorListAPIView(APIView):
     permission_classes = []
 
     def get(self, request):
-        doctors = DoctorProfile.objects.filter(
-            doctor_status="approved",
-            profile__onboarding_status=100
-        ).select_related("profile")
+        doctors = DoctorProfile.objects.all().select_related("profile")
 
         data = []
         for d in doctors:
@@ -401,6 +415,9 @@ class PublicDoctorListAPIView(APIView):
                 "specialization": d.specialization,
                 "experience": d.experience_years,
                 "consultation_fee": d.consultation_fee,
+                "average_rating": d.average_rating,
+                "total_ratings": d.total_ratings,
+                "doctor_status": d.doctor_status,
             })
 
         return Response(data)
@@ -485,10 +502,30 @@ class DoctorSuggestionAPIView(APIView):
             severity_level = 'CRITICAL'
         
         # Get all approved doctors
-        doctors = DoctorProfile.objects.filter(
-            doctor_status="approved",
-            profile__onboarding_status=100
-        ).select_related("profile")
+        # Get all doctors (relaxed filter for status, but strict for matching)
+        base_query = DoctorProfile.objects.all().select_related("profile")
+        
+        # Filter by specialization based on severity
+        if severity_level == 'LOW':
+            doctors = base_query.filter(
+                Q(specialization__icontains="counselor") | 
+                Q(specialization__icontains="therapist") |
+                Q(specialization__icontains="psychologist")
+            )
+        elif severity_level == 'MODERATE':
+            doctors = base_query.filter(
+                Q(specialization__icontains="psychologist") |
+                Q(specialization__icontains="therapist")
+            )
+        else: # HIGH or CRITICAL
+            doctors = base_query.filter(
+                Q(specialization__icontains="psychiatrist") |
+                Q(specialization__icontains="clinical")
+            )
+            
+        # Fallback: If no specialists found, show all doctors sorted by rating
+        if not doctors.exists():
+            doctors = base_query
         
         # Score doctors based on rating and experience
         scored_doctors = []

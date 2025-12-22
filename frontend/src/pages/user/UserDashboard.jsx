@@ -185,9 +185,9 @@
 
 // src/pages/user/UserDashboard.jsx - UPDATED WITH MEDICAL SERVICE FEATURES
 import React, { useState, useEffect } from 'react';
-import { 
-  Heart, Calendar, Clock, Bell, User, LogOut, Smile, 
-  MessageSquare, FileText, TrendingUp, Activity 
+import {
+  Heart, Calendar, Clock, Bell, User, LogOut, Smile,
+  MessageSquare, FileText, TrendingUp, Activity
 } from 'lucide-react';
 import { USER_API, MEDICAL_API, apiCall } from '../../config/api';
 
@@ -240,9 +240,31 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
       if (response.ok) {
         const data = await response.json();
         setLatestAssessment(data.assessment);
+        // If assessment exists, fetch matching doctors based on severity
+        if (data.assessment && data.assessment.raw_score !== undefined) {
+          fetchSuggestedDoctors(data.assessment.raw_score);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch assessment', err);
+    }
+  };
+
+  const fetchSuggestedDoctors = async (score) => {
+    try {
+      const response = await apiCall(`${USER_API}/doctors/suggest/`, {
+        method: 'POST',
+        body: JSON.stringify({ severity_score: score })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.suggested_doctors && data.suggested_doctors.length > 0) {
+          setDoctors(data.suggested_doctors);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch suggested doctors', err);
+      // Fallback to all doctors handled by initial fetchDoctors call
     }
   };
 
@@ -295,15 +317,15 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
             </div>
             <div className="flex items-center space-x-4">
               <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-purple-600" />
-              <button 
-                onClick={() => setCurrentView('user-profile')} 
+              <button
+                onClick={() => setCurrentView('user-profile')}
                 className="flex items-center space-x-2 hover:bg-gray-100 px-3 py-2 rounded-lg transition"
               >
                 <User className="w-5 h-5" />
                 <span className="hidden md:inline">{profile?.name || 'Profile'}</span>
               </button>
-              <button 
-                onClick={handleLogout} 
+              <button
+                onClick={handleLogout}
                 className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition"
               >
                 <LogOut className="w-5 h-5" />
@@ -495,7 +517,7 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                   )}
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-green-600 font-semibold">₹{doctor.consultation_fee}</span>
-                    <button 
+                    <button
                       onClick={() => setCurrentView('book-appointment')}
                       className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition text-sm"
                     >

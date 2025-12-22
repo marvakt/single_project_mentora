@@ -43,8 +43,8 @@ class AppointmentCreateSerializer(serializers.Serializer):
     
     user_id is extracted from JWT - NOT included in request body.
     """
-    doctor_id = serializers.UUIDField(
-        help_text="UUID of the doctor to book"
+    doctor_id = serializers.CharField(
+        help_text="ID of the doctor (UUID or legacy integer ID)"
     )
     scheduled_at = serializers.DateTimeField(
         help_text="Appointment date and time (ISO 8601 format)"

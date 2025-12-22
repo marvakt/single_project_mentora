@@ -12,7 +12,7 @@ from app.core.encryption import encryption, ENCRYPTED_FIELDS
 from datetime import datetime
 import logging
 import json
-
+import asyncio
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -22,12 +22,52 @@ router = APIRouter()
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict = {}
+        self.last_heartbeat: dict = {}  # Track last heartbeat time for each connection
+        self.cleanup_task = None  # Background cleanup task
+    
+    async def start_cleanup_task(self):
+        """Start the background cleanup task if not already running"""
+        if self.cleanup_task is None:
+            self.cleanup_task = asyncio.create_task(self._cleanup_stale_connections())
+    
+    async def _cleanup_stale_connections(self):
+        """Background task to remove stale connections"""
+        while True:
+            try:
+                current_time = datetime.utcnow()
+                stale_connections = []
+                
+                # Find connections that haven't responded in 30 seconds
+                for room_id, users in self.last_heartbeat.items():
+                    for user_id, last_ping in users.items():
+                        if (current_time - last_ping).seconds > 30:
+                            stale_connections.append((room_id, user_id))
+                
+                # Clean up stale connections
+                for room_id, user_id in stale_connections:
+                    self.disconnect(room_id, user_id)
+                    logger.warning(f"Force disconnected stale connection: {user_id} in room {room_id}")
+                    
+            except Exception as e:
+                logger.error(f"Error in cleanup task: {e}")
+            
+            # Run every 15 seconds
+            await asyncio.sleep(15)
     
     async def connect(self, websocket: WebSocket, room_id: str, user_id: str):
         await websocket.accept()
         if room_id not in self.active_connections:
             self.active_connections[room_id] = {}
         self.active_connections[room_id][user_id] = websocket
+        
+        # Initialize heartbeat tracking
+        if room_id not in self.last_heartbeat:
+            self.last_heartbeat[room_id] = {}
+        self.last_heartbeat[room_id][user_id] = datetime.utcnow()
+        
+        # Start cleanup task if not already running
+        await self.start_cleanup_task()
+        
         logger.info(f"User {user_id} connected to room {room_id}")
     
     def disconnect(self, room_id: str, user_id: str):
@@ -35,17 +75,61 @@ class ConnectionManager:
             if user_id in self.active_connections[room_id]:
                 del self.active_connections[room_id][user_id]
                 logger.info(f"User {user_id} disconnected from room {room_id}")
+                
+                # Clean up heartbeat tracking
+                if room_id in self.last_heartbeat and user_id in self.last_heartbeat[room_id]:
+                    del self.last_heartbeat[room_id][user_id]
+                
+                # Clean up empty rooms to prevent memory leaks
+                if not self.active_connections[room_id]:
+                    del self.active_connections[room_id]
+                    if room_id in self.last_heartbeat:
+                        del self.last_heartbeat[room_id]
+                    logger.info(f"Room {room_id} cleaned up (no more connections)")
+    
+    async def send_heartbeat(self, room_id: str, user_id: str):
+        """Send periodic heartbeat to detect dead connections"""
+        if room_id in self.active_connections and user_id in self.active_connections[room_id]:
+            try:
+                await self.active_connections[room_id][user_id].send_text(json.dumps({"type": "heartbeat"}))
+                # Update last heartbeat timestamp
+                if room_id not in self.last_heartbeat:
+                    self.last_heartbeat[room_id] = {}
+                self.last_heartbeat[room_id][user_id] = datetime.utcnow()
+            except:
+                # Connection dead - clean up
+                self.disconnect(room_id, user_id)
     
     async def send_message(self, message: dict, room_id: str, exclude_user: str = None):
         if room_id in self.active_connections:
+            users_to_remove = []
             for user_id, connection in self.active_connections[room_id].items():
                 if user_id != exclude_user:
                     try:
                         await connection.send_json(message)
+                        # Update heartbeat for active connections
+                        if room_id not in self.last_heartbeat:
+                            self.last_heartbeat[room_id] = {}
+                        self.last_heartbeat[room_id][user_id] = datetime.utcnow()
                     except Exception as e:
                         logger.error(f"Failed to send message to {user_id}: {e}")
-
-
+                        # Mark dead connections for removal
+                        users_to_remove.append(user_id)
+            
+            # Clean up dead connections
+            for user_id in users_to_remove:
+                del self.active_connections[room_id][user_id]
+                # Clean up heartbeat tracking
+                if room_id in self.last_heartbeat and user_id in self.last_heartbeat[room_id]:
+                    del self.last_heartbeat[room_id][user_id]
+                logger.info(f"Removed dead connection for user {user_id} in room {room_id}")
+                
+                # Clean up empty rooms
+                if not self.active_connections[room_id]:
+                    del self.active_connections[room_id]
+                    if room_id in self.last_heartbeat:
+                        del self.last_heartbeat[room_id]
+                    logger.info(f"Room {room_id} cleaned up after removing dead connections")
 manager = ConnectionManager()
 
 
@@ -55,6 +139,7 @@ class ChatMessage(BaseModel):
     room_id: str = Field(..., description="Chat room ID (usually appointment_id)")
     message: str = Field(..., min_length=1, max_length=2000)
     message_type: str = Field(default="text", description="text, image, file")
+    client_message_id: Optional[str] = Field(None, description="Client-generated ID for idempotency")
 
 
 @router.post("/send")
@@ -66,17 +151,18 @@ async def send_chat_message(
     """
     Send a chat message (REST endpoint)
     
-    Stores encrypted message in database
+    Stores encrypted message in database with idempotency support
     """
     db = get_database()
     
-    # Prepare message document
+    # Prepare message document with client_message_id for idempotency
     message_doc = {
         "room_id": chat_data.room_id,
         "sender_id": user_id,
         "sender_role": current_user.get("role", "user"),
         "message": chat_data.message,
         "message_type": chat_data.message_type,
+        "client_message_id": chat_data.client_message_id,  # For deduplication
         "timestamp": datetime.utcnow(),
         "read": False
     }
@@ -87,8 +173,25 @@ async def send_chat_message(
         ENCRYPTED_FIELDS.get("chat_messages", [])
     )
     
-    # Store in database
-    result = await db.chat_messages.insert_one(encrypted_message)
+    # Try to insert, handle duplicate key error for idempotency
+    try:
+        result = await db.chat_messages.insert_one(encrypted_message)
+    except Exception as e:
+        # Check if it's a duplicate key error
+        if "duplicate key" in str(e).lower():
+            # Fetch existing message
+            existing = await db.chat_messages.find_one({
+                "room_id": chat_data.room_id,
+                "client_message_id": chat_data.client_message_id
+            })
+            if existing:
+                result = type('result', (), {'inserted_id': existing['_id']})()
+            else:
+                # If we can't find it, re-raise the error
+                raise e
+        else:
+            # Some other error, re-raise
+            raise e
     
     logger.info(f"Message sent in room {chat_data.room_id} by user {user_id}")
     
@@ -160,6 +263,31 @@ async def mark_messages_read(
     }
 
 
+async def verify_appointment_token(token: str, room_id: str, expected_user_id: str) -> bool:
+    """
+    Verify appointment token binds to correct user and appointment
+    
+    Args:
+        token: JWT token with appointment claims
+        room_id: Expected appointment ID
+        expected_user_id: Expected user ID
+        
+    Returns:
+        bool: True if token is valid for user and appointment
+    """
+    try:
+        payload = decode_jwt(token)
+        # Verify all critical components
+        if (payload.get("scope") != "chat" or 
+            payload.get("appointment_id") != room_id or
+            str(payload.get("sub")) != expected_user_id):
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"Token verification failed: {e}")
+        return False
+
+
 @router.websocket("/ws/{room_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: str):
     """
@@ -182,35 +310,57 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
     
     user_id = str(user_data.get("user_id") or user_data.get("id"))
     
+    # Verify token is valid for this appointment and user
+    if not await verify_appointment_token(token, room_id, user_id):
+        await websocket.close(code=1008)
+        return
+    
+    db = get_database()    
     # Connect to room
-    await manager.connect(websocket, room_id, user_id)
-    
-    db = get_database()
-    
+    await manager.connect(websocket, room_id, user_id)    
     try:
         while True:
             # Receive message
             data = await websocket.receive_text()
             message_data = json.loads(data)
             
-            # Prepare message document
+            # Prepare message document with client_message_id for idempotency
             message_doc = {
                 "room_id": room_id,
                 "sender_id": user_id,
                 "sender_role": user_data.get("role", "user"),
                 "message": message_data.get("message", ""),
                 "message_type": message_data.get("type", "text"),
+                "client_message_id": message_data.get("client_message_id"),  # For deduplication
                 "timestamp": datetime.utcnow(),
                 "read": False
             }
             
-            # Encrypt and store
+            # Encrypt and store with idempotency
             encrypted_message = encryption.encrypt_dict(
                 message_doc,
                 ENCRYPTED_FIELDS.get("chat_messages", [])
             )
             
-            result = await db.chat_messages.insert_one(encrypted_message)
+            # Try to insert, handle duplicate key error for idempotency
+            try:
+                result = await db.chat_messages.insert_one(encrypted_message)
+            except Exception as e:
+                # Check if it's a duplicate key error
+                if "duplicate key" in str(e).lower():
+                    # Fetch existing message
+                    existing = await db.chat_messages.find_one({
+                        "room_id": room_id,
+                        "client_message_id": message_data.get("client_message_id")
+                    })
+                    if existing:
+                        result = type('result', (), {'inserted_id': existing['_id']})()
+                    else:
+                        # If we can't find it, re-raise the error
+                        raise e
+                else:
+                    # Some other error, re-raise
+                    raise e
             
             # Broadcast to room (except sender)
             broadcast_data = {
@@ -249,10 +399,41 @@ async def ai_chat(
     if not message or len(message.strip()) < 1:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     
-    # This is a placeholder for RAG implementation
-    # In production, integrate with your RAG system
-    
     db = get_database()
+    
+    # Check if there's an ongoing crisis situation for this user
+    recent_crisis = await db.crisis_events.find_one(
+        {"user_id": user_id},
+        sort=[("timestamp", -1)]
+    )
+    
+    # If there was a recent crisis (within last 10 minutes) and AI was blocked, 
+    # continue to provide only crisis response
+    if recent_crisis and recent_crisis.get("ai_blocked", False):
+        time_diff = datetime.utcnow() - recent_crisis["timestamp"]
+        if time_diff.total_seconds() < 600:  # 10 minutes
+            crisis_response = """🚨 **EMERGENCY RESPONSE REQUIRED** 🚨
+
+⚠️ **THIS IS AN AI ASSISTANT - NOT A CRISIS INTERVENTION SYSTEM**
+
+**IMMEDIATE ACTIONS REQUIRED:**
+📞 CALL EMERGENCY SERVICES: 911 (US) or local emergency number
+💬 CONTACT CRISIS COUNSELOR: 988 (US National Suicide Prevention Lifeline)
+📱 TEXT CRISIS LINE: Text HOME to 741741
+
+**DISCLAIMER:**
+❌ This AI cannot provide emergency intervention
+❌ This is NOT a substitute for professional mental health care
+❌ If you are in immediate danger, seek human assistance NOW
+
+Your safety matters. Please reach out to a human crisis responder immediately."""
+
+            return {
+                "response": crisis_response,
+                "timestamp": datetime.utcnow().isoformat(),
+                "crisis_detected": True,
+                "ai_blocked": True
+            }
     
     # Get user's recent severity assessment
     latest_severity = await db.severity_logs.find_one(
@@ -263,7 +444,51 @@ async def ai_chat(
     # Simple rule-based responses (replace with RAG)
     response = _generate_ai_response(message, latest_severity)
     
-    # Store conversation
+    # Check for crisis keywords and log crisis events
+    crisis_keywords = ["suicide", "kill myself", "end it all", "hurt myself"]
+    message_lower = message.lower()
+    is_crisis = any(keyword in message_lower for keyword in crisis_keywords)
+    
+    if is_crisis:
+        # Log crisis event with escalation metadata
+        crisis_event = {
+            "user_id": user_id,
+            "message": message,
+            "timestamp": datetime.utcnow(),
+            "response_generated": True,
+            "escalation_required": True,
+            "ai_response": response,
+            "ai_blocked": True,  # Block further AI chat during crisis
+            "severity_indicators": [kw for kw in crisis_keywords if kw in message_lower]
+        }
+        await db.crisis_events.insert_one(crisis_event)
+        logger.critical(f"CRISIS EVENT DETECTED - User {user_id} requires immediate attention")
+        
+        # Return crisis-only response, block normal AI flow
+        crisis_response = """🚨 **EMERGENCY RESPONSE REQUIRED** 🚨
+
+⚠️ **THIS IS AN AI ASSISTANT - NOT A CRISIS INTERVENTION SYSTEM**
+
+**IMMEDIATE ACTIONS REQUIRED:**
+📞 CALL EMERGENCY SERVICES: 911 (US) or local emergency number
+💬 CONTACT CRISIS COUNSELOR: 988 (US National Suicide Prevention Lifeline)
+📱 TEXT CRISIS LINE: Text HOME to 741741
+
+**DISCLAIMER:**
+❌ This AI cannot provide emergency intervention
+❌ This is NOT a substitute for professional mental health care
+❌ If you are in immediate danger, seek human assistance NOW
+
+Your safety matters. Please reach out to a human crisis responder immediately."""
+
+        return {
+            "response": crisis_response,
+            "timestamp": crisis_event["timestamp"].isoformat(),
+            "crisis_detected": True,
+            "ai_blocked": True  # Client uses this to disable further chat
+        }
+    
+    # Store normal conversation
     conversation_doc = {
         "user_id": user_id,
         "user_message": message,
@@ -286,18 +511,26 @@ def _generate_ai_response(message: str, severity_data: dict = None) -> str:
     """
     message_lower = message.lower()
     
-    # Crisis keywords
+    # Crisis keywords - this should never be reached due to blocking above
     crisis_keywords = ["suicide", "kill myself", "end it all", "hurt myself"]
     if any(keyword in message_lower for keyword in crisis_keywords):
-        return """I'm really concerned about you. Please reach out for immediate help:
-        
-🚨 **Crisis Helplines:**
-- National Suicide Prevention Lifeline: 988
-- Crisis Text Line: Text HOME to 741741
-- International Association for Suicide Prevention: https://www.iasp.info/resources/Crisis_Centres/
+        crisis_response = """🚨 **EMERGENCY RESPONSE REQUIRED** 🚨
 
-Please talk to someone right away. You matter, and help is available."""
-    
+⚠️ **THIS IS AN AI ASSISTANT - NOT A CRISIS INTERVENTION SYSTEM**
+
+**IMMEDIATE ACTIONS REQUIRED:**
+📞 CALL EMERGENCY SERVICES: 911 (US) or local emergency number
+💬 CONTACT CRISIS COUNSELOR: 988 (US National Suicide Prevention Lifeline)
+📱 TEXT CRISIS LINE: Text HOME to 741741
+
+**DISCLAIMER:**
+❌ This AI cannot provide emergency intervention
+❌ This is NOT a substitute for professional mental health care
+❌ If you are in immediate danger, seek human assistance NOW
+
+Your safety matters. Please reach out to a human crisis responder immediately."""
+        
+        return crisis_response    
     # Anxiety keywords
     if any(word in message_lower for word in ["anxious", "anxiety", "panic", "worried"]):
         return """I understand you're feeling anxious. Here are some techniques that might help:

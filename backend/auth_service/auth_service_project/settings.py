@@ -238,7 +238,7 @@ AUTH_USER_MODEL = "accounts.User"
 # ======================================================
 # USER SERVICE URL
 # ======================================================
-USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user_service:8001")
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "dev-internal")
 
 # ======================================================

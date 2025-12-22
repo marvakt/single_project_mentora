@@ -271,6 +271,8 @@ class AppointmentAPIView(APIView):
 
         serializer = AppointmentCreateSerializer(data=request.data)
         if not serializer.is_valid():
+            print(f"DEBUG: Appointment creation failed. Data: {request.data}")
+            print(f"DEBUG: Serializer errors: {serializer.errors}")
             return Response(
                 serializer.errors,
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -278,7 +280,20 @@ class AppointmentAPIView(APIView):
 
         data = serializer.validated_data
         user_id = request.user_data["user_id"]
-        doctor_id = data["doctor_id"]
+        try:
+            # Handle doctor_id being UUID string or Integer string
+            d_id_str = str(data["doctor_id"])
+            if len(d_id_str) < 32 and d_id_str.isdigit():
+                 # It's likely a legacy integer ID (e.g. "24")
+                 doctor_id = uuid.UUID(int=int(d_id_str))
+            else:
+                 # Assume it's a UUID string
+                 doctor_id = uuid.UUID(d_id_str)
+        except ValueError:
+             return Response(
+                 {"error": "Invalid doctor_id format"},
+                 status=status.HTTP_400_BAD_REQUEST
+             )
 
         # Convert user_id to UUID
         user_uuid = uuid.UUID(int=user_id) if isinstance(user_id, int) else uuid.UUID(str(user_id))

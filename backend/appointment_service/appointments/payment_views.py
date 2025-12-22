@@ -75,7 +75,8 @@ class PaymentCreateAPIView(APIView):
 
         # Fetch consultation fee from user_service
         try:
-            consultation_fee = fetch_doctor_availability_and_fee(appointment.doctor_id)
+            doctor_data = fetch_doctor_availability_and_fee(appointment.doctor_id)
+            consultation_fee = doctor_data.get("consultation_fee")
         except UserServiceError as e:
             return Response(
                 {"error": f"Failed to fetch consultation fee: {str(e)}"},

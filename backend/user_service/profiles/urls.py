@@ -45,38 +45,38 @@ from .views import (
 urlpatterns = [
     # ---------- INTERNAL ----------
     path("internal/profile/create/", CreateProfileInternalAPIView.as_view(), name="internal-create-profile"),
-    path("internal/doctors/<int:doctor_id>/availability/", DoctorAvailabilityInternalAPIView.as_view(), name="internal-doctor-availability"),
+    path("internal/doctors/<str:doctor_id>/availability/", DoctorAvailabilityInternalAPIView.as_view(), name="internal-doctor-availability"),
 
     # ---------- USER PROFILE ----------
-    path("profile/<int:user_id>/", GetProfileAPIView.as_view(), name="get-profile"),
-    path("profile/<int:user_id>/update/", UpdateProfileAPIView.as_view(), name="update-profile"),
+    path("profile/<str:user_id>/", GetProfileAPIView.as_view(), name="get-profile"),
+    path("profile/<str:user_id>/update/", UpdateProfileAPIView.as_view(), name="update-profile"),
 
     # ---------- DOCTOR PROFILE ----------
-    path("doctor/<int:user_id>/profile/", CreateOrUpdateDoctorProfileAPIView.as_view(), name="doctor-profile"),
+    path("doctor/<str:user_id>/profile/", CreateOrUpdateDoctorProfileAPIView.as_view(), name="doctor-profile"),
 
     # ---------- DOCTOR DOCUMENTS ----------
-    path("doctor/<int:user_id>/document/upload/", UploadDoctorDocumentAPIView.as_view(), name="upload-doctor-document"),
+    path("doctor/<str:user_id>/document/upload/", UploadDoctorDocumentAPIView.as_view(), name="upload-doctor-document"),
 
     # ---------- DOCTOR AVAILABILITY ----------
-    path("doctor/<int:user_id>/availability/add/", AddAvailabilityAPIView.as_view(), name="add-availability"),
+    path("doctor/<str:user_id>/availability/add/", AddAvailabilityAPIView.as_view(), name="add-availability"),
     path("doctor/availability/<int:availability_id>/delete/", DeleteAvailabilityAPIView.as_view(), name="delete-availability"),
 
     # ---------- DOCTOR APPROVAL ----------
-    path("doctor/<int:user_id>/approve/", ApproveDoctorAPIView.as_view(), name="approve-doctor"),
-    path("doctor/<int:user_id>/reject/", RejectDoctorAPIView.as_view(), name="reject-doctor"),
+    path("doctor/<str:user_id>/approve/", ApproveDoctorAPIView.as_view(), name="approve-doctor"),
+    path("doctor/<str:user_id>/reject/", RejectDoctorAPIView.as_view(), name="reject-doctor"),
 
     # ---------- ADMIN USER LIST ----------
     path("admin/users/", UserManagementListAPIView.as_view(), name="admin-user-list"),
 
     # ---------- NOTIFICATIONS ----------
-    path("notifications/<int:user_id>/", NotificationListAPIView.as_view(), name="user-notifications"),
+    path("notifications/<str:user_id>/", NotificationListAPIView.as_view(), name="user-notifications"),
 
-    path("doctor/<int:user_id>/documents/", ListDoctorDocumentsAPIView.as_view(), name="list-doctor-documents"),
-    path("doctor/<int:user_id>/availability/", ListAvailabilityAPIView.as_view(), name="list-availability"),
+    path("doctor/<str:user_id>/documents/", ListDoctorDocumentsAPIView.as_view(), name="list-doctor-documents"),
+    path("doctor/<str:user_id>/availability/", ListAvailabilityAPIView.as_view(), name="list-availability"),
 
    path("doctors/", PublicDoctorListAPIView.as_view(), name="public-doctor-list"),
    
    # Ratings and Suggestions
-   path("doctor/<int:doctor_id>/rate/", RateDoctorAPIView.as_view(), name="rate-doctor"),
+   path("doctor/<str:doctor_id>/rate/", RateDoctorAPIView.as_view(), name="rate-doctor"),
    path("doctors/suggest/", DoctorSuggestionAPIView.as_view(), name="suggest-doctors"),
 ]

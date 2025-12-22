@@ -347,7 +347,7 @@ services:
   ############################
   # AUTH SERVICE
   ############################
-  auth_service:
+  auth-service:
     build: ./auth_service
     restart: always
     command: >
@@ -367,7 +367,7 @@ services:
       DB_PORT: 5432
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: mentora-jwt-secret-2025-change-this
-      USER_SERVICE_URL: http://user_service:8001
+      USER_SERVICE_URL: http://user-service:8001
       INTERNAL_SERVICE_TOKEN: dev-internal
     depends_on:
       postgres_auth:
@@ -378,7 +378,7 @@ services:
   ############################
   # USER SERVICE
   ############################
-  user_service:
+  user-service:
     build: ./user_service
     restart: always
     command: >
@@ -421,6 +421,8 @@ services:
       "
     volumes:
       - ./appointment_service:/app
+    env_file:
+      - ./appointment_service/.env
     ports:
       - "8002:8002"
     environment:
@@ -430,6 +432,7 @@ services:
       POSTGRES_PASSWORD: appointment_pass
       POSTGRES_PORT: 5432
       JWT_SECRET: mentora-jwt-secret-2025-change-this
+      AUTH_SERVICE_BASE_URL: http://auth-service:8000/api
     depends_on:
       postgres_appointment:
         condition: service_healthy

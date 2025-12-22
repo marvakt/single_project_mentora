@@ -13,9 +13,10 @@ const RealTimeChat = ({
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [websocket, setWebsocket] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const messagesEndRef = useRef(null);
+  const wsRef = useRef(null);
+  const messageIdsRef = useRef(new Set()); // Track message IDs to prevent duplicates
 
   useEffect(() => {
     if (appointmentId && token) {
@@ -24,12 +25,12 @@ const RealTimeChat = ({
     }
 
     return () => {
-      if (websocket) {
-        websocket.close();
+      if (wsRef.current) {
+        wsRef.current.close();
       }
     };
   }, [appointmentId, token]);
-
+  
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -40,25 +41,48 @@ const RealTimeChat = ({
 
   const connectToWebSocket = () => {
     try {
+      // Close existing connection if any
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      
       const wsUrl = `${MEDICAL_API.replace('http', 'ws').replace('/api/v1', '')}/api/v1/chat/ws/${appointmentId}?token=${token}`;
       console.log('Connecting to WebSocket:', wsUrl);
       
       const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
       
       ws.onopen = () => {
         console.log('WebSocket connected');
         setConnectionStatus('connected');
-        setWebsocket(ws);
-      };
+      };      
       
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           console.log('Received message:', data);
           
-          // Add message to chat
+          // Handle heartbeat messages
+          if (data.type === 'heartbeat') {
+            console.log('Received heartbeat');
+            return;
+          }
+          
+          // Add message to chat with deduplication using both message_id and client_message_id
+          const messageId = data.message_id || data.client_message_id;
+          if (messageId && messageIdsRef.current.has(messageId)) {
+            console.log('Duplicate message ignored:', messageId);
+            return;
+          }
+          
+          // Add to tracked IDs
+          if (messageId) {
+            messageIdsRef.current.add(messageId);
+          }
+          
           const newMessage = {
             id: data.message_id,
+            client_id: data.client_message_id,
             sender_id: data.sender_id,
             sender_role: data.sender_role,
             content: data.message,
@@ -70,7 +94,7 @@ const RealTimeChat = ({
         } catch (err) {
           console.error('Error parsing message:', err);
         }
-      };
+      };      
       
       ws.onclose = () => {
         console.log('WebSocket disconnected');
@@ -110,6 +134,13 @@ const RealTimeChat = ({
           type: msg.message_type || 'text'
         }));
         
+        // Populate message IDs set for deduplication
+        formattedMessages.forEach(msg => {
+          if (msg.id) {
+            messageIdsRef.current.add(msg.id);
+          }
+        });
+        
         setMessages(formattedMessages);
       }
     } catch (err) {
@@ -117,24 +148,70 @@ const RealTimeChat = ({
     }
   };
 
+  const sendMessageWithFallback = async (messageData) => {
+    // Generate client message ID once for idempotency
+    const clientMessageId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const enrichedMessageData = {
+      ...messageData,
+      client_message_id: clientMessageId
+    };
+    
+    // Try WebSocket first
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(enrichedMessageData));
+      return { method: 'websocket', status: 'sent' };
+    }
+    
+    // Fallback to REST API with same client_message_id
+    try {
+      const response = await fetch(`${MEDICAL_API}/chat/send`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          room_id: appointmentId,
+          message: enrichedMessageData.message,
+          message_type: enrichedMessageData.type,
+          client_message_id: clientMessageId
+        })
+      });
+      
+      if (response.ok) {
+        return { method: 'rest', status: 'sent' };
+      }
+    } catch (err) {
+      console.error('Both WebSocket and REST failed:', err);
+      return { method: 'both', status: 'failed' };
+    }
+  };
+
   const sendMessage = async () => {
-    if (!inputMessage.trim() || !websocket || websocket.readyState !== WebSocket.OPEN) {
+    if (!inputMessage.trim() || loading) {
       return;
     }
 
     try {
+      setLoading(true);
       const messageData = {
         message: inputMessage.trim(),
         type: 'text'
       };
       
-      websocket.send(JSON.stringify(messageData));
+      const result = await sendMessageWithFallback(messageData);
       
-      // Clear input and add to UI immediately
-      setInputMessage('');
+      if (result.status === 'sent') {
+        // Clear input and add to UI immediately with temporary ID
+        setInputMessage('');
+      } else {
+        alert('Failed to send message. Please try again.');
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
       alert('Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -210,7 +287,7 @@ const RealTimeChat = ({
               ) : (
                 messages.map((msg) => (
                   <div
-                    key={msg.id}
+                    key={msg.id || msg.client_id || Math.random()} // Fallback key
                     className={`flex ${isCurrentUser(msg.sender_id) ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className={`flex items-start space-x-2 max-w-[80%] ${isCurrentUser(msg.sender_id) ? 'flex-row-reverse space-x-reverse' : ''}`}>
@@ -261,14 +338,14 @@ const RealTimeChat = ({
                   placeholder="Type your message... (Press Enter to send)"
                   className="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   rows="2"
-                  disabled={loading || connectionStatus !== 'connected'}
+                  disabled={loading || (connectionStatus !== 'connected' && connectionStatus !== 'disconnected')}
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={loading || !inputMessage.trim() || connectionStatus !== 'connected'}
+                  disabled={loading || !inputMessage.trim()}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-lg hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Send className="w-5 h-5" />
+                  {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </button>
               </div>
               

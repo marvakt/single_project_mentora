@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     MODERATE_THRESHOLD: int = 10
     
     # External Services
-    USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://user_service:8001")
+    USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
     
     class Config:
         env_file = ".env"

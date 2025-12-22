@@ -31,15 +31,19 @@ def fetch_doctor_availability_and_fee(doctor_id):
     Required for booking decision.
     """
     try:
+        headers = {
+            "X-INTERNAL-TOKEN": getattr(settings, "INTERNAL_SERVICE_TOKEN", "dev-internal")
+        }
         response = requests.get(
             f"{settings.USER_SERVICE_BASE_URL}/internal/doctors/{doctor_id}/availability/",
+            headers=headers,
             timeout=3
         )
     except requests.RequestException:
         raise UserServiceError("User service unavailable")
 
     if response.status_code != 200:
-        raise UserServiceError("Failed to fetch doctor data")
+        raise UserServiceError(f"Failed to fetch doctor data (Status: {response.status_code})")
 
     data = response.json()
 
@@ -49,7 +53,7 @@ def fetch_doctor_availability_and_fee(doctor_id):
     if not data.get("available"):
         raise UserServiceError("Doctor is not available")
 
-    return data.get("consultation_fee")
+    return data
 
 
 def fetch_user_severity_level(user_id, auth_header):

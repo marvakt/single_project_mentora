@@ -7,6 +7,6 @@ from appointments.payment_views import RazorpayWebhookAPIView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("appointments/", include("appointments.urls")),
+    path("api/appointments/", include("appointments.urls")),
     path("payments/webhook/razorpay/", RazorpayWebhookAPIView.as_view(), name="razorpay-webhook"),
 ]

@@ -400,12 +400,12 @@ LOGGING = {
 # SERVICE-TO-SERVICE CONFIGURATION
 USER_SERVICE_BASE_URL = os.getenv(
     "USER_SERVICE_BASE_URL",
-    "http://user_service:8001/api"
+    "http://user-service:8001/api"
 )
 
 AUTH_SERVICE_BASE_URL = os.getenv(
     "AUTH_SERVICE_BASE_URL",
-    "http://auth_service:8000/api"
+    "http://auth-service:8000/api"
 )
 
 MEDICAL_SERVICE_BASE_URL = os.getenv(

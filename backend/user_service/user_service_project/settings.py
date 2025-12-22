@@ -16,8 +16,8 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "user_service",
-    "user_service:8001",
+    "user-service",
+    "user-service:8001",
     "*"
 ]
 

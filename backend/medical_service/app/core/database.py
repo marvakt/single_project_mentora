@@ -61,7 +61,12 @@ async def create_indexes():
         await database.chat_messages.create_index([("room_id", 1), ("timestamp", -1)])
         await database.chat_messages.create_index("user_id")
         await database.chat_messages.create_index("doctor_id")
-        
+        # Unique compound index for idempotency
+        await database.chat_messages.create_index(
+            [("room_id", 1), ("client_message_id", 1)], 
+            unique=True,
+            sparse=True  # Allow null client_message_id for legacy messages
+        )        
         # Treatment plans indexes
         await database.treatment_plans.create_index("user_id")
         await database.treatment_plans.create_index([("user_id", 1), ("created_at", -1)])
@@ -70,8 +75,11 @@ async def create_indexes():
         await database.session_notes.create_index([("appointment_id", 1)])
         await database.session_notes.create_index([("user_id", 1), ("created_at", -1)])
         
-        logger.info("✅ Database indexes created")
+        # Crisis events indexes
+        await database.crisis_events.create_index([("user_id", 1), ("timestamp", -1)])
+        await database.crisis_events.create_index("timestamp")
         
+        logger.info("✅ Database indexes created")        
     except Exception as e:
         logger.error(f"❌ Failed to create indexes: {e}")
 
