@@ -433,6 +433,7 @@ services:
       POSTGRES_PORT: 5432
       JWT_SECRET: mentora-jwt-secret-2025-change-this
       AUTH_SERVICE_BASE_URL: http://auth-service:8000/api
+      USER_SERVICE_BASE_URL: http://user-service:8001/api
     depends_on:
       postgres_appointment:
         condition: service_healthy

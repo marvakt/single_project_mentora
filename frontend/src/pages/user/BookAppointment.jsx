@@ -122,19 +122,47 @@ const BookAppointment = ({ user, token, setCurrentView }) => {
     if (!availabilityData || availabilityData.length === 0) return [];
 
     const date = new Date(dateString);
-    let dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday
-    dayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek; // Adjust to backend 1-7
+    // Convert JS day (0=Sunday, 1=Monday, ..., 6=Saturday) to our backend format (0=Monday, 1=Tuesday, ..., 6=Sunday)
+    let dayOfWeek = date.getDay();
+    if (dayOfWeek === 0) {
+      // Sunday case: JS returns 0, backend expects 6
+      dayOfWeek = 6;
+    } else {
+      // Other days: JS returns 1-6 (Mon-Sat), backend expects 0-5 (Mon-Sat)
+      dayOfWeek = dayOfWeek - 1;
+    }
 
     const daySchedule = availabilityData.find(d => d.day_of_week === dayOfWeek);
 
     if (!daySchedule) return [];
 
     const slots = [];
-    let start = parseInt(daySchedule.start_time.split(':')[0]);
-    let end = parseInt(daySchedule.end_time.split(':')[0]);
+    // Parse start and end times including minutes (format could be HH:MM:SS or HH:MM)
+    const timeParts = daySchedule.start_time.split(':');
+    const [startHour, startMinute] = [parseInt(timeParts[0]), parseInt(timeParts[1])];
+    const endTimeParts = daySchedule.end_time.split(':');
+    const [endHour, endMinute] = [parseInt(endTimeParts[0]), parseInt(endTimeParts[1])];
 
-    for (let i = start; i < end; i++) {
-      slots.push(`${i.toString().padStart(2, '0')}:00`);
+    // Generate time slots in 30-minute intervals
+    let currentHour = startHour;
+    let currentMinute = startMinute;
+
+    while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
+      // Add current time slot
+      const timeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+      slots.push(timeString);
+      
+      // Increment by 30 minutes
+      currentMinute += 30;
+      if (currentMinute >= 60) {
+        currentMinute = 0;
+        currentHour++;
+      }
+      
+      // Break if we exceed the end time
+      if (currentHour > endHour || (currentHour === endHour && currentMinute >= endMinute)) {
+        break;
+      }
     }
 
     return slots;

@@ -1,7 +1,9 @@
+import uuid
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 from django.db.models import Q
 
 from .models import (
@@ -82,21 +84,62 @@ class DoctorAvailabilityInternalAPIView(APIView):
         Internal endpoint for appointment service to check doctor availability.
         Returns doctor status and consultation fee for booking decisions.
         """
-        # Convert UUID to integer if necessary
-        try:
-            # Check if doctor_id is a UUID string
-            import uuid
-            try:
-                if isinstance(doctor_id, str) and len(doctor_id) == 36:
-                    # It looks like a UUID, try to convert it
+        # Handle doctor_id which might be UUID string or integer
+        # The doctor_id from appointment service might be a UUID string
+        print(f"DEBUG: Received doctor_id: {doctor_id} (type: {type(doctor_id)})")
+        
+        # Try to find the doctor with different ID formats
+        profile = None
+        actual_doctor_id = doctor_id
+        
+        # If it's a string, first check if it's a UUID that needs conversion
+        if isinstance(doctor_id, str):
+            if len(doctor_id) == 36:
+                # It's a UUID string, convert to integer
+                try:
                     uuid_obj = uuid.UUID(doctor_id)
-                    doctor_id = uuid_obj.int
-            except ValueError:
-                # Not a valid UUID, continue as is
+                    actual_doctor_id = uuid_obj.int
+                    print(f"DEBUG: Converted UUID {doctor_id} to integer {actual_doctor_id}")
+                    profile = UserProfile.objects.get(user_id=actual_doctor_id)
+                    print(f"DEBUG: Found user with converted UUID integer ID: {actual_doctor_id}")
+                except (ValueError, UserProfile.DoesNotExist):
+                    print(f"DEBUG: UUID conversion failed for {doctor_id}")
+                    pass
+            elif doctor_id.isdigit():
+                # It's a numeric string, convert to integer
+                actual_doctor_id = int(doctor_id)
+                print(f"DEBUG: Converted numeric string {doctor_id} to integer {actual_doctor_id}")
+                try:
+                    profile = UserProfile.objects.get(user_id=actual_doctor_id)
+                    print(f"DEBUG: Found user with converted numeric ID: {actual_doctor_id}")
+                except UserProfile.DoesNotExist:
+                    print(f"DEBUG: User with converted numeric ID {actual_doctor_id} not found")
+                    pass
+        else:
+            # It's not a string, try directly as integer
+            try:
+                profile = UserProfile.objects.get(user_id=doctor_id)
+                print(f"DEBUG: Found user with original ID: {doctor_id}")
+            except UserProfile.DoesNotExist:
+                print(f"DEBUG: User with original ID {doctor_id} not found")
                 pass
-
-            profile = get_object_or_404(UserProfile, user_id=doctor_id)
-            doctor_profile = get_object_or_404(DoctorProfile, profile=profile)
+        
+        if profile is None:
+            print(f"DEBUG: Doctor with ID {doctor_id} not found in any format")
+            return Response(
+                {"detail": "Doctor not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Now get the doctor profile
+        try:
+            doctor_profile = DoctorProfile.objects.get(profile=profile)
+        except DoctorProfile.DoesNotExist:
+            print(f"DEBUG: Doctor profile does not exist for user {profile.user_id}")
+            return Response(
+                {"detail": "Doctor not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
         except:
             return Response(
                 {"detail": "Doctor not found"},
@@ -110,7 +153,7 @@ class DoctorAvailabilityInternalAPIView(APIView):
         is_onboarded = profile.onboarding_status == 100
         
         # Check if doctor has availability slots
-        has_availability = doctor_profile.profile.availability.exists()
+        has_availability = profile.availability.exists()
         
         # Doctor is available if approved, onboarded, and has availability
         is_available = is_approved and is_onboarded and has_availability
@@ -119,6 +162,7 @@ class DoctorAvailabilityInternalAPIView(APIView):
         print(f"DEBUG: Approved: {is_approved}")
         print(f"DEBUG: Onboarded: {is_onboarded}")
         print(f"DEBUG: Has Availability Slots: {has_availability}")
+        print(f"DEBUG: Final Available Status: {is_available}")
 
         response_data = {
             "approved": is_approved,
@@ -208,14 +252,27 @@ class CreateOrUpdateDoctorProfileAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        # Update onboarding status if profile is complete
+        is_profile_complete = (doctor_profile.specialization and profile.name and profile.phone)
+        if is_profile_complete:
+            profile.onboarding_status = 100
+            profile.save(update_fields=['onboarding_status'])
+
         # ✅ Notify admin when doctor completes profile for first time
-        is_now_complete = (doctor_profile.specialization and profile.name and profile.phone)
+        is_now_complete = is_profile_complete
         if doctor_profile.doctor_status == 'pending' and was_incomplete and is_now_complete:
             notify_admin_new_doctor.delay(
                 doctor_name=profile.name or profile.email.split('@')[0],
                 doctor_email=profile.email,
                 doctor_id=profile.user_id
             )
+            
+            # Auto-approve doctor in development mode
+            import os
+            if os.getenv('DJANGO_ENVIRONMENT') == 'development' or os.getenv('DJANGO_DEBUG', 'True') == 'True':
+                doctor_profile.doctor_status = 'approved'
+                doctor_profile.save()
+                print(f"DEBUG: Auto-approved doctor {profile.user_id} in development mode")
 
         return Response(serializer.data)
 
@@ -247,19 +304,36 @@ class ListDoctorDocumentsAPIView(APIView):
     def get(self, request, user_id):
         profile = get_object_or_404(UserProfile, user_id=user_id)
         
+        # Check if user_data exists in request
+        if not hasattr(request, 'user_data'):
+            return Response(
+                {'detail': 'Authentication required'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
         # Allow admin or the doctor themselves
         user_role = request.user_data.get('role')
         requesting_user_id = request.user_data.get('user_id')
         
+        # Debug: print user info to understand the issue
+        print(f"DEBUG: Requesting user role: {user_role}, requesting_user_id: {requesting_user_id}, target user_id: {user_id}")
+        
         if user_role == 'admin':
             # Admin can view any doctor's documents
             pass
-        elif user_role == 'doctor' and requesting_user_id == user_id:
+        elif user_role == 'doctor' and str(requesting_user_id) == str(user_id):
             # Doctor can view their own documents
+            # Ensure user_id comparison handles different formats
             pass
+        elif user_role == 'user':
+            # Regular users cannot access doctor documents
+            return Response(
+                {'detail': 'You don\'t have permission to view these documents'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
         else:
             return Response(
-                {"detail": "You don't have permission to view these documents"}, 
+                {'detail': 'You don\'t have permission to view these documents'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         

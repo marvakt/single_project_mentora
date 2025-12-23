@@ -311,6 +311,9 @@ class AppointmentAPIView(APIView):
             doctor_data = fetch_doctor_availability_and_fee(doctor_id)
             consultation_fee = doctor_data.get("consultation_fee")
         except UserServiceError as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"UserServiceError during appointment creation: {e}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
@@ -336,16 +339,23 @@ class AppointmentAPIView(APIView):
             notes=data.get("notes", "")
         )
 
-        # Publish event
-        publish_appointment_created.delay(
-            appointment_id=str(appointment.id),
-            user_id=str(user_id),
-            doctor_id=str(doctor_id),
-            scheduled_at=appointment.scheduled_at.isoformat(),
-            status=appointment.status,
-            severity_level=severity_level,
-            priority=priority,
-        )
+        # Publish event (fail gracefully if Celery/RabbitMQ unavailable)
+        try:
+            publish_appointment_created.delay(
+                appointment_id=str(appointment.id),
+                user_id=str(user_id),
+                doctor_id=str(doctor_id),
+                scheduled_at=appointment.scheduled_at.isoformat(),
+                status=appointment.status,
+                severity_level=severity_level,
+                priority=priority,
+            )
+        except Exception as e:
+            # Log the error but don't fail the appointment creation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to publish appointment created event: {e}")
+            # Continue with the response even if event publishing fails
 
         return Response(
             {
@@ -517,14 +527,21 @@ class AppointmentCancelAPIView(APIView):
         appointment.status = "cancelled"
         appointment.save(update_fields=["status", "updated_at"])
 
-        # Publish event
-        publish_appointment_cancelled.delay(
-            appointment_id=str(appointment.id),
-            user_id=str(appointment.user_id),
-            doctor_id=str(appointment.doctor_id),
-            scheduled_at=appointment.scheduled_at.isoformat(),
-            status=appointment.status,
-        )
+        # Publish event (fail gracefully if Celery/RabbitMQ unavailable)
+        try:
+            publish_appointment_cancelled.delay(
+                appointment_id=str(appointment.id),
+                user_id=str(appointment.user_id),
+                doctor_id=str(appointment.doctor_id),
+                scheduled_at=appointment.scheduled_at.isoformat(),
+                status=appointment.status,
+            )
+        except Exception as e:
+            # Log the error but don't fail the appointment cancellation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to publish appointment cancelled event: {e}")
+            # Continue with the response even if event publishing fails
 
         return Response({
             "status": "cancelled",
@@ -566,14 +583,21 @@ class AppointmentCompleteAPIView(APIView):
         appointment.status = "completed"
         appointment.save(update_fields=["status", "updated_at"])
 
-        # Publish event
-        publish_appointment_completed.delay(
-            appointment_id=str(appointment.id),
-            user_id=str(appointment.user_id),
-            doctor_id=str(appointment.doctor_id),
-            scheduled_at=appointment.scheduled_at.isoformat(),
-            status=appointment.status,
-        )
+        # Publish event (fail gracefully if Celery/RabbitMQ unavailable)
+        try:
+            publish_appointment_completed.delay(
+                appointment_id=str(appointment.id),
+                user_id=str(appointment.user_id),
+                doctor_id=str(appointment.doctor_id),
+                scheduled_at=appointment.scheduled_at.isoformat(),
+                status=appointment.status,
+            )
+        except Exception as e:
+            # Log the error but don't fail the appointment completion
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to publish appointment completed event: {e}")
+            # Continue with the response even if event publishing fails
 
         return Response({
             "status": "completed",

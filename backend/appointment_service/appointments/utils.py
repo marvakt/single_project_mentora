@@ -43,7 +43,7 @@ def fetch_doctor_availability_and_fee(doctor_id):
         raise UserServiceError("User service unavailable")
 
     if response.status_code != 200:
-        raise UserServiceError(f"Failed to fetch doctor data (Status: {response.status_code})")
+        raise UserServiceError(f"Failed to fetch doctor data (Status: {response.status_code}, Body: {response.text})")
 
     data = response.json()
 
