@@ -60,7 +60,7 @@ const PaymentProcessing = ({ appointmentId, amount, onSuccess, onCancel, setCurr
     if (!orderData) return;
 
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_RX3p5au36kGfhF',
+      key: process.env.REACT_APP_RAZORPAY_KEY_ID || 'YOUR_RAZORPAY_KEY_ID',
       amount: parseFloat(orderData.amount) * 100,
       currency: orderData.currency,
       name: 'Mentora',

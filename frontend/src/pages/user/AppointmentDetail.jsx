@@ -1,15 +1,15 @@
 // src/pages/user/AppointmentDetail.jsx - Complete Appointment Detail with Chat
 import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, Clock, User, ArrowLeft, Video, FileText, 
+import {
+  Calendar, Clock, User, ArrowLeft, Video, FileText,
   DollarSign, Activity, MessageSquare, Phone, Mail,
   CheckCircle, AlertCircle, XCircle, Heart
 } from 'lucide-react';
 import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
 
-const AppointmentDetail = ({ 
-  appointmentId, 
-  token, 
+const AppointmentDetail = ({
+  appointmentId,
+  token,
   setCurrentView,
   onProcessPayment,
   onJoinVideo,
@@ -38,7 +38,7 @@ const AppointmentDetail = ({
       if (response.ok) {
         const data = await response.json();
         setAppointment(data);
-        
+
         // Fetch doctor details
         if (data.doctor_id) {
           fetchDoctorDetails(data.doctor_id);
@@ -115,7 +115,7 @@ const AppointmentDetail = ({
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
         <div className="bg-white shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
-            <button 
+            <button
               onClick={() => setCurrentView('my-appointments')}
               className="flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-semibold"
             >
@@ -138,7 +138,7 @@ const AppointmentDetail = ({
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
         <div className="bg-white shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
-            <button 
+            <button
               onClick={() => setCurrentView('my-appointments')}
               className="flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-semibold"
             >
@@ -152,7 +152,7 @@ const AppointmentDetail = ({
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-gray-800 mb-2">Error Loading Appointment</h3>
             <p className="text-gray-600 mb-4">{error}</p>
-            <button 
+            <button
               onClick={() => setCurrentView('my-appointments')}
               className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition"
             >
@@ -169,7 +169,7 @@ const AppointmentDetail = ({
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <button 
+          <button
             onClick={() => setCurrentView('my-appointments')}
             className="flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-semibold"
           >
@@ -206,7 +206,7 @@ const AppointmentDetail = ({
               {/* Doctor Information */}
               <div className="md:col-span-2">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Doctor Information</h2>
-                
+
                 <div className="bg-gray-50 rounded-xl p-6 mb-8">
                   <div className="flex items-center space-x-4 mb-4">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center text-white text-2xl font-bold">
@@ -220,7 +220,7 @@ const AppointmentDetail = ({
                       )}
                     </div>
                   </div>
-                  
+
                   {doctor?.bio && (
                     <p className="text-gray-700 mt-4">{doctor.bio}</p>
                   )}
@@ -228,7 +228,7 @@ const AppointmentDetail = ({
 
                 {/* Appointment Details */}
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Appointment Details</h2>
-                
+
                 <div className="bg-gray-50 rounded-xl p-6 grid md:grid-cols-2 gap-6">
                   <div className="flex items-center space-x-3">
                     <Calendar className="w-6 h-6 text-purple-600" />
@@ -237,15 +237,15 @@ const AppointmentDetail = ({
                       <p className="font-semibold">{new Date(appointment.scheduled_at).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3">
                     <Clock className="w-6 h-6 text-purple-600" />
                     <div>
                       <p className="text-sm text-gray-600">Time</p>
-                      <p className="font-semibold">{new Date(appointment.scheduled_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                      <p className="font-semibold">{new Date(appointment.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3">
                     <DollarSign className="w-6 h-6 text-purple-600" />
                     <div>
@@ -253,7 +253,7 @@ const AppointmentDetail = ({
                       <p className="font-semibold">₹{appointment.amount || 'N/A'}</p>
                     </div>
                   </div>
-                  
+
                   {appointment.severity_level !== null && (
                     <div className="flex items-center space-x-3">
                       <Activity className="w-6 h-6 text-purple-600" />
@@ -279,11 +279,17 @@ const AppointmentDetail = ({
               {/* Actions Panel */}
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Actions</h2>
-                
+
                 <div className="space-y-4">
                   {/* Chat Button */}
                   <button
-                    onClick={() => setCurrentView('real-time-chat')}
+                    onClick={() => {
+                      if (onViewChat) {
+                        onViewChat(appointment.id);
+                      } else {
+                        setCurrentView('real-time-chat');
+                      }
+                    }}
                     className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-xl hover:shadow-lg transition flex items-center justify-center space-x-2"
                   >
                     <MessageSquare className="w-5 h-5" />

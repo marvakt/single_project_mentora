@@ -104,3 +104,82 @@ async def get_medical_summary(
             "success": False,
             "error": "Failed to generate medical summary"
         }
+
+
+@router.get("/user/{user_id}")
+async def get_user_medical_summary(user_id: str):
+    """
+    Get comprehensive medical summary for a specific user
+    Used by appointment service to provide patient data to doctors
+    
+    Args:
+        user_id: The patient's user ID
+    
+    Returns:
+        Medical summary including assessments, mood entries, and symptoms
+    """
+    db = get_database()
+    
+    try:
+        # Get all severity assessments
+        assessments_cursor = db.severity_logs.find(
+            {"user_id": user_id}
+        ).sort("created_at", -1)
+        
+        assessment_history = []
+        latest_assessment = None
+        
+        async for assessment in assessments_cursor:
+            assessment_data = {
+                "severity_level": assessment.get("raw_score"),
+                "created_at": assessment.get("created_at").isoformat() if assessment.get("created_at") else None,
+                "severity_category": assessment.get("severity_level")
+            }
+            assessment_history.append(assessment_data)
+            if latest_assessment is None:
+                latest_assessment = assessment_data
+        
+        # Get all mood entries
+        mood_cursor = db.mood_logs.find(
+            {"user_id": user_id}
+        ).sort("timestamp", -1)
+        
+        mood_entries = []
+        async for mood in mood_cursor:
+            mood_entries.append({
+                "mood_score": mood.get("mood_level"),
+                "anxiety_level": mood.get("anxiety_level", 5),
+                "sleep_hours": mood.get("sleep_hours", 7),
+                "energy_level": mood.get("energy_level", 5),
+                "notes": mood.get("notes", ""),
+                "created_at": mood.get("timestamp").isoformat() if mood.get("timestamp") else None
+            })
+        
+        # Get recent symptoms
+        symptoms_cursor = db.symptoms.find(
+            {"user_id": user_id}
+        ).sort("date", -1).limit(10)
+        
+        symptoms = []
+        async for symptom in symptoms_cursor:
+            symptoms.append({
+                "symptom": symptom.get("symptom"),
+                "severity": symptom.get("severity"),
+                "date": symptom.get("date").isoformat() if symptom.get("date") else None
+            })
+        
+        return {
+            "latest_assessment": latest_assessment,
+            "assessment_history": assessment_history,
+            "mood_entries": mood_entries,
+            "symptoms": symptoms
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching medical summary for user {user_id}: {e}")
+        return {
+            "latest_assessment": None,
+            "assessment_history": [],
+            "mood_entries": [],
+            "symptoms": []
+        }

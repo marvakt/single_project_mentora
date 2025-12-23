@@ -152,13 +152,13 @@
 
 // src/pages/user/MyAppointments.jsx - ENHANCED WITH RATINGS & MEDICAL CONTEXT
 import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, Clock, User, ArrowLeft, XCircle, CheckCircle, 
-  Star, Video, FileText, DollarSign, Activity, MessageSquare 
+import {
+  Calendar, Clock, User, ArrowLeft, XCircle, CheckCircle,
+  Star, Video, FileText, DollarSign, Activity, MessageSquare
 } from 'lucide-react';
 import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
 
-const MyAppointments = ({ user, token, setCurrentView }) => {
+const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPayment, onJoinVideo }) => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -178,7 +178,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
       if (response.ok) {
         const data = await response.json();
         // Sort by date (most recent first)
-        const sorted = data.appointments?.sort((a, b) => 
+        const sorted = data.appointments?.sort((a, b) =>
           new Date(b.scheduled_at) - new Date(a.scheduled_at)
         ) || [];
         setAppointments(sorted);
@@ -268,7 +268,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
 
   const getPriorityBadge = (appointment) => {
     if (!appointment.severity_level) return null;
-    
+
     if (appointment.severity_level >= 20) {
       return { bg: 'bg-red-50', text: 'text-red-700', label: 'High Priority' };
     } else if (appointment.severity_level >= 10) {
@@ -293,12 +293,11 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
               onClick={() => setRating(star)}
               className="focus:outline-none transform transition hover:scale-110"
             >
-              <Star 
-                className={`w-12 h-12 ${
-                  star <= rating 
-                    ? 'text-yellow-400 fill-current' 
+              <Star
+                className={`w-12 h-12 ${star <= rating
+                    ? 'text-yellow-400 fill-current'
                     : 'text-gray-300'
-                }`}
+                  }`}
               />
             </button>
           ))}
@@ -356,7 +355,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <button 
+          <button
             onClick={() => setCurrentView('user-dashboard')}
             className="flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-semibold"
           >
@@ -386,7 +385,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
           <div className="bg-white rounded-xl p-12 text-center">
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">No appointments yet</p>
-            <button 
+            <button
               onClick={() => setCurrentView('book-appointment')}
               className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition"
             >
@@ -399,7 +398,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
               const statusBadge = getStatusBadge(apt.status);
               const priorityBadge = getPriorityBadge(apt);
               const isPast = new Date(apt.scheduled_at) < new Date();
-              
+
               return (
                 <div key={apt.id} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition">
                   {/* Header */}
@@ -417,7 +416,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-col items-end space-y-2">
                       <span className={`px-4 py-1 rounded-full text-xs font-semibold ${statusBadge.bg} ${statusBadge.text}`}>
                         {statusBadge.label}
@@ -445,7 +444,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2 text-gray-700">
                       <Clock className="w-5 h-5 text-purple-600" />
                       <div>
@@ -494,7 +493,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
                   <div className="flex flex-wrap gap-3 pt-4 border-t">
                     {/* Cancel Button - Only for pending appointments */}
                     {apt.status === 'pending' && !isPast && (
-                      <button 
+                      <button
                         onClick={() => cancelAppointment(apt.id)}
                         className="flex items-center space-x-2 text-red-600 hover:text-red-800 font-semibold px-4 py-2 border border-red-300 rounded-lg hover:bg-red-50 transition"
                       >
@@ -505,7 +504,14 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
 
                     {/* Video Call Button - Only for confirmed appointments on the day */}
                     {apt.status === 'confirmed' && (
-                      <button 
+                      <button
+                        onClick={() => {
+                          if (onJoinVideo) {
+                            onJoinVideo(apt.id);
+                          } else {
+                            setCurrentView('video-consultation');
+                          }
+                        }}
                         className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 font-semibold px-4 py-2 border border-blue-300 rounded-lg hover:bg-blue-50 transition"
                       >
                         <Video className="w-4 h-4" />
@@ -515,7 +521,7 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
 
                     {/* Rate Doctor Button - Only for completed appointments */}
                     {apt.status === 'completed' && (
-                      <button 
+                      <button
                         onClick={() => openRatingModal(apt)}
                         className="flex items-center space-x-2 text-yellow-600 hover:text-yellow-800 font-semibold px-4 py-2 border border-yellow-300 rounded-lg hover:bg-yellow-50 transition"
                       >
@@ -525,7 +531,14 @@ const MyAppointments = ({ user, token, setCurrentView }) => {
                     )}
 
                     {/* View Details Button */}
-                    <button 
+                    <button
+                      onClick={() => {
+                        if (onViewDetail) {
+                          onViewDetail(apt.id);
+                        } else {
+                          setCurrentView('appointment-detail');
+                        }
+                      }}
                       className="flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-semibold px-4 py-2 border border-purple-300 rounded-lg hover:bg-purple-50 transition ml-auto"
                     >
                       <FileText className="w-4 h-4" />

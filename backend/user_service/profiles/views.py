@@ -181,7 +181,7 @@ class DoctorAvailabilityInternalAPIView(APIView):
 # =========================================================
 class GetProfileAPIView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticatedJWT, IsOwner]
+    permission_classes = [IsAuthenticatedJWT]
 
     def get(self, request, user_id):
         print(f"GetProfileAPIView called with user_id: {user_id}")
@@ -189,19 +189,82 @@ class GetProfileAPIView(APIView):
             print(f"Request user_data: {request.user_data}")
         else:
             print("No user_data in request")
-            
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        
+        # Handle user_id which might be UUID string or integer
+        actual_user_id = user_id
+        
+        # If it's a string UUID, convert it to integer
+        if isinstance(user_id, str) and len(user_id) == 36:
+            # It's a UUID string, convert to integer
+            try:
+                uuid_obj = uuid.UUID(user_id)
+                actual_user_id = uuid_obj.int
+                print(f"DEBUG: Converted UUID {user_id} to integer {actual_user_id}")
+            except ValueError:
+                print(f"DEBUG: Invalid UUID format: {user_id}")
+                return Response(
+                    {"detail": "Invalid user ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif isinstance(user_id, str) and user_id.isdigit():
+            # It's a numeric string, convert to integer
+            actual_user_id = int(user_id)
+            print(f"DEBUG: Converted numeric string {user_id} to integer {actual_user_id}")
+        
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         print("JWT user_id:", request.user_data["user_id"])
         print("Profile user_id:", profile.user_id)
         
         # Check if user is trying to access their own profile
-        if request.user_data["user_id"] != profile.user_id:
+        # Handle comparison of different ID formats
+        requesting_user_id = request.user_data["user_id"]
+        
+        # Convert both IDs to the same format for comparison
+        # If requesting_user_id is a UUID string, convert to integer
+        if isinstance(requesting_user_id, str) and len(requesting_user_id) == 36:
+            try:
+                requesting_user_id = uuid.UUID(requesting_user_id).int
+            except ValueError:
+                return Response(
+                    {"detail": "Invalid requesting user ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif isinstance(requesting_user_id, str) and requesting_user_id.isdigit():
+            # If requesting_user_id is a numeric string, convert to integer
+            requesting_user_id = int(requesting_user_id)
+        
+        # Convert profile.user_id to integer if it's a UUID string (though it should already be integer)
+        profile_user_id = profile.user_id
+        if isinstance(profile_user_id, str) and len(profile_user_id) == 36:
+            try:
+                profile_user_id = uuid.UUID(profile_user_id).int
+            except ValueError:
+                return Response(
+                    {"detail": "Invalid profile user ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif isinstance(profile_user_id, str) and profile_user_id.isdigit():
+            # If profile_user_id is a numeric string, convert to integer
+            profile_user_id = int(profile_user_id)
+        
+        # Allow access if:
+        # 1. User is accessing their own profile, OR
+        # 2. User is accessing a doctor's profile (for appointment-related functionality)
+        is_own_profile = (requesting_user_id == profile_user_id)
+        is_doctor_profile = (profile.role == 'doctor')
+        
+        if not is_own_profile and not is_doctor_profile:
             return Response(
-                {"detail": f"Access denied. You can only access your own profile. Requested user_id: {user_id}, Your user_id: {request.user_data['user_id']}"},
+                {"detail": f"Access denied. You can only access your own profile or doctor profiles. Requested user_id: {user_id}, Your user_id: {requesting_user_id}"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        self.check_object_permissions(request, profile)
+        # For doctor profiles, we don't need the IsOwner permission check
+        # For own profiles, we keep the IsOwner-like check
+        if is_own_profile:
+            # User accessing their own profile - apply ownership check
+            self.check_object_permissions(request, profile)
+        
         return Response(UserProfileSerializer(profile).data)
     
 

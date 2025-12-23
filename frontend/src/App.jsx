@@ -65,15 +65,15 @@
 //     if (currentView === 'landing') {
 //       return <LandingPage setCurrentView={setCurrentView} />;
 //     }
-    
+
 //     if (currentView === 'login') {
 //       return <LoginPage setCurrentView={setCurrentView} setUser={setUser} setToken={setToken} />;
 //     }
-    
+
 //     if (currentView === 'register') {
 //       return <RegisterPage setCurrentView={setCurrentView} />;
 //     }
-    
+
 //     if (currentView === 'doctor-register') {
 //       return <DoctorRegisterPage setCurrentView={setCurrentView} />;
 //     }
@@ -82,23 +82,23 @@
 //     if (currentView === 'user-dashboard') {
 //       return <UserDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
 //     }
-    
+
 //     if (currentView === 'user-profile') {
 //       return <UserProfile user={user} token={token} setCurrentView={setCurrentView} />;
 //     }
-    
+
 //     if (currentView === 'severity-assessment') {
 //       return <SeverityAssessment user={user} token={token} setCurrentView={setCurrentView} />;
 //     }
-    
+
 //     if (currentView === 'mood-tracker') {
 //       return <MoodTracker user={user} token={token} setCurrentView={setCurrentView} />;
 //     }
-    
+
 //     if (currentView === 'book-appointment') {
 //       return <BookAppointment user={user} token={token} setCurrentView={setCurrentView} />;
 //     }
-    
+
 //     if (currentView === 'my-appointments') {
 //       return <MyAppointments user={user} token={token} setCurrentView={setCurrentView} />;
 //     }
@@ -107,7 +107,7 @@
 //     if (currentView === 'doctor-dashboard') {
 //       return <DoctorDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
 //     }
-    
+
 //     if (currentView === 'doctor-profile') {
 //       return <DoctorProfile user={user} token={token} setCurrentView={setCurrentView} />;
 //     }
@@ -164,6 +164,7 @@ import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import DoctorProfile from './pages/doctor/DoctorProfile';
 import DoctorAvailability from './pages/doctor/DoctorAvailability';
 import DoctorAppointments from './pages/doctor/DoctorAppointments';
+import DoctorAppointmentDetail from './pages/doctor/DoctorAppointmentDetail';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -176,7 +177,7 @@ const App = () => {
   const [currentView, setCurrentView] = useState('landing');
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  
+
   // Appointment-related state
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
@@ -184,12 +185,12 @@ const App = () => {
   useEffect(() => {
     const savedToken = sessionStorage.getItem('access_token');
     const savedUser = sessionStorage.getItem('user');
-    
+
     if (savedToken && savedUser) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
       const role = JSON.parse(savedUser).role;
-      
+
       // Route to appropriate dashboard
       if (role === 'admin') {
         setCurrentView('admin-dashboard');
@@ -214,6 +215,16 @@ const App = () => {
     setCurrentView('appointment-detail');
   };
 
+  const viewDoctorAppointmentDetail = (appointmentId) => {
+    setSelectedAppointmentId(appointmentId);
+    setCurrentView('doctor-appointment-detail');
+  };
+
+  const openChat = (appointmentId) => {
+    setSelectedAppointmentId(appointmentId);
+    setCurrentView('real-time-chat');
+  };
+
   const processPayment = (appointmentId, amount) => {
     setPaymentData({ appointmentId, amount });
     setCurrentView('payment-processing');
@@ -231,21 +242,21 @@ const App = () => {
     if (currentView === 'landing') {
       return <LandingPage setCurrentView={setCurrentView} />;
     }
-    
+
     if (currentView === 'login') {
       return (
-        <LoginPage 
-          setCurrentView={setCurrentView} 
-          setUser={setUser} 
-          setToken={setToken} 
+        <LoginPage
+          setCurrentView={setCurrentView}
+          setUser={setUser}
+          setToken={setToken}
         />
       );
     }
-    
+
     if (currentView === 'register') {
       return <RegisterPage setCurrentView={setCurrentView} />;
     }
-    
+
     if (currentView === 'doctor-register') {
       return <DoctorRegisterPage setCurrentView={setCurrentView} />;
     }
@@ -255,61 +266,61 @@ const App = () => {
     // ==========================================
     if (currentView === 'user-dashboard') {
       return (
-        <UserDashboard 
-          user={user} 
-          token={token} 
-          handleLogout={handleLogout} 
-          setCurrentView={setCurrentView} 
+        <UserDashboard
+          user={user}
+          token={token}
+          handleLogout={handleLogout}
+          setCurrentView={setCurrentView}
         />
       );
     }
-    
+
     if (currentView === 'user-profile') {
       return (
-        <UserProfile 
-          user={user} 
-          token={token} 
-          setCurrentView={setCurrentView} 
+        <UserProfile
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
         />
       );
     }
-    
+
     if (currentView === 'severity-assessment') {
       return (
-        <SeverityAssessment 
-          user={user} 
-          token={token} 
-          setCurrentView={setCurrentView} 
+        <SeverityAssessment
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
         />
       );
     }
-    
+
     if (currentView === 'mood-tracker') {
       return (
-        <MoodTracker 
-          user={user} 
-          token={token} 
-          setCurrentView={setCurrentView} 
+        <MoodTracker
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
         />
       );
     }
-    
+
     if (currentView === 'ai-chat') {
       return (
-        <AIChat 
-          user={user} 
-          token={token} 
-          setCurrentView={setCurrentView} 
+        <AIChat
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
         />
       );
     }
-    
+
     if (currentView === 'treatment-plan') {
       return (
-        <TreatmentPlan 
-          user={user} 
-          token={token} 
-          setCurrentView={setCurrentView} 
+        <TreatmentPlan
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
         />
       );
     }
@@ -319,9 +330,9 @@ const App = () => {
     // ==========================================
     if (currentView === 'book-appointment') {
       return (
-        <BookAppointment 
-          user={user} 
-          token={token} 
+        <BookAppointment
+          user={user}
+          token={token}
           setCurrentView={setCurrentView}
           onBookingSuccess={(appointmentId, amount) => {
             // After booking, redirect to payment
@@ -330,12 +341,12 @@ const App = () => {
         />
       );
     }
-    
+
     if (currentView === 'my-appointments') {
       return (
-        <MyAppointments 
-          user={user} 
-          token={token} 
+        <MyAppointments
+          user={user}
+          token={token}
           setCurrentView={setCurrentView}
           onViewDetail={viewAppointmentDetail}
           onProcessPayment={processPayment}
@@ -352,6 +363,7 @@ const App = () => {
           setCurrentView={setCurrentView}
           onProcessPayment={processPayment}
           onJoinVideo={joinVideoCall}
+          onViewChat={openChat}
         />
       );
     }
@@ -363,12 +375,19 @@ const App = () => {
           user={user}
           token={token}
           setCurrentView={setCurrentView}
-          onBack={() => setCurrentView('appointment-detail')}
+          onBack={() => {
+            if (user?.role === 'doctor') {
+              setCurrentView('doctor-appointment-detail');
+            } else {
+              setCurrentView('appointment-detail');
+            }
+          }}
         />
       );
     }
 
-    if (currentView === 'payment-processing') {      return (
+    if (currentView === 'payment-processing') {
+      return (
         <PaymentProcessing
           appointmentId={paymentData?.appointmentId}
           amount={paymentData?.amount}
@@ -390,31 +409,31 @@ const App = () => {
     // ==========================================
     if (currentView === 'doctor-dashboard') {
       return (
-        <DoctorDashboard 
-          user={user} 
-          token={token} 
-          handleLogout={handleLogout} 
-          setCurrentView={setCurrentView} 
+        <DoctorDashboard
+          user={user}
+          token={token}
+          handleLogout={handleLogout}
+          setCurrentView={setCurrentView}
         />
       );
     }
-    
+
     if (currentView === 'doctor-profile') {
       return (
-        <DoctorProfile 
-          user={user} 
-          token={token} 
-          setCurrentView={setCurrentView} 
+        <DoctorProfile
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
         />
       );
     }
 
     if (currentView === 'doctor-availability') {
       return (
-        <DoctorAvailability 
-          user={user} 
-          token={token} 
-          setCurrentView={setCurrentView} 
+        <DoctorAvailability
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
         />
       );
     }
@@ -425,8 +444,20 @@ const App = () => {
           user={user}
           token={token}
           setCurrentView={setCurrentView}
-          onViewDetail={viewAppointmentDetail}
+          onViewDetail={viewDoctorAppointmentDetail}
           onJoinVideo={joinVideoCall}
+        />
+      );
+    }
+
+    if (currentView === 'doctor-appointment-detail') {
+      return (
+        <DoctorAppointmentDetail
+          appointmentId={selectedAppointmentId}
+          token={token}
+          setCurrentView={setCurrentView}
+          onJoinVideo={joinVideoCall}
+          onViewChat={openChat}
         />
       );
     }
@@ -458,21 +489,21 @@ const App = () => {
     // ==========================================
     if (currentView === 'admin-dashboard') {
       return (
-        <AdminDashboard 
-          user={user} 
-          token={token} 
-          handleLogout={handleLogout} 
-          setCurrentView={setCurrentView} 
+        <AdminDashboard
+          user={user}
+          token={token}
+          handleLogout={handleLogout}
+          setCurrentView={setCurrentView}
         />
       );
     }
 
     if (currentView === 'admin-users') {
       return (
-        <AdminUserManagement 
-          user={user} 
-          token={token} 
-          setCurrentView={setCurrentView} 
+        <AdminUserManagement
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
         />
       );
     }

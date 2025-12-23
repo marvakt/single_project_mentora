@@ -146,9 +146,9 @@
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Heart, Calendar, Users, CheckCircle, DollarSign, Bell, User, 
-  LogOut, Clock, Settings, FileText 
+import {
+  Heart, Calendar, Users, CheckCircle, DollarSign, Bell, User,
+  LogOut, Clock, Settings, FileText
 } from 'lucide-react';
 import { USER_API } from '../../config/api';
 
@@ -195,7 +195,7 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
       description: 'Check your scheduled sessions',
       icon: Calendar,
       color: 'green',
-      action: () => alert('Appointments view coming soon!')
+      action: () => setCurrentView('doctor-appointments')
     },
     {
       title: 'Patient Records',
@@ -218,15 +218,15 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
             </div>
             <div className="flex items-center space-x-4">
               <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-purple-600" />
-              <button 
-                onClick={() => setCurrentView('doctor-profile')} 
+              <button
+                onClick={() => setCurrentView('doctor-profile')}
                 className="flex items-center space-x-2 hover:bg-gray-100 px-3 py-2 rounded-lg transition"
               >
                 <User className="w-5 h-5" />
                 <span className="hidden md:inline">{profile?.name || 'Profile'}</span>
               </button>
-              <button 
-                onClick={handleLogout} 
+              <button
+                onClick={handleLogout}
                 className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition"
               >
                 <LogOut className="w-5 h-5" />
@@ -318,7 +318,7 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                 green: 'bg-green-100 text-green-600 hover:bg-green-200',
                 orange: 'bg-orange-100 text-orange-600 hover:bg-orange-200'
               };
-              
+
               return (
                 <button
                   key={idx}
