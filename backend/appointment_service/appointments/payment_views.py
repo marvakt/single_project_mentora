@@ -93,6 +93,7 @@ class PaymentCreateAPIView(APIView):
         amount_paise = int(Decimal(str(consultation_fee)) * 100)
 
         # Create Razorpay order
+        razorpay_order_id = None
         try:
             razorpay_order = create_razorpay_order(
                 amount_paise=amount_paise,
@@ -103,14 +104,28 @@ class PaymentCreateAPIView(APIView):
                     "doctor_id": str(appointment.doctor_id),
                 }
             )
+            razorpay_order_id = razorpay_order["id"]
         except Exception as e:
             logger.error(f"Razorpay order creation failed: {e}")
+            # In development, create a mock order ID if Razorpay is not configured
+            import os
+            if os.getenv('DJANGO_DEBUG', 'True') == 'True':
+                # Generate a mock Razorpay order ID for development
+                # uuid is already imported at the top of the file
+                razorpay_order_id = f"order_mock_{str(uuid.uuid4()).replace('-', '')[:10]}"
+                logger.info(f"Created mock Razorpay order ID for development: {razorpay_order_id}")
+            else:
+                return Response(
+                    {"error": "Failed to create payment order"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        # Check if razorpay_order_id was set
+        if razorpay_order_id is None:
             return Response(
                 {"error": "Failed to create payment order"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-        razorpay_order_id = razorpay_order["id"]
 
         # Create Payment record with status='created'
         payment = Payment.objects.create(
@@ -213,10 +228,15 @@ class RazorpayWebhookAPIView(APIView):
                 "amount": str(payment.amount),
             }
 
-            # Publish async event after DB commit
+            # Publish async event after DB commit (fail gracefully if Celery/RabbitMQ unavailable)
             # Using transaction.on_commit to ensure event is published after transaction
             def publish_event():
-                publish_appointment_paid.delay(**event_data)
+                try:
+                    publish_appointment_paid.delay(**event_data)
+                except Exception as e:
+                    # Log the error but don't fail the payment processing
+                    logger.error(f"Failed to publish appointment paid event: {e}")
+                    # Continue without failing the webhook
 
             transaction.on_commit(publish_event)
 
