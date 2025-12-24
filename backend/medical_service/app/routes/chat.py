@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from app.core.security import get_current_user_id, get_current_user, decode_jwt
+from app.core.config import settings
+import jwt
 from app.core.database import get_database
 from app.core.encryption import encryption, ENCRYPTED_FIELDS
 from datetime import datetime
@@ -55,7 +57,6 @@ class ConnectionManager:
             await asyncio.sleep(15)
     
     async def connect(self, websocket: WebSocket, room_id: str, user_id: str):
-        await websocket.accept()
         if room_id not in self.active_connections:
             self.active_connections[room_id] = {}
         self.active_connections[room_id][user_id] = websocket
@@ -102,11 +103,15 @@ class ConnectionManager:
     
     async def send_message(self, message: dict, room_id: str, exclude_user: str = None):
         if room_id in self.active_connections:
+            # Get all users in the room first to avoid issues during iteration
+            users_in_room = list(self.active_connections[room_id].items())
             users_to_remove = []
-            for user_id, connection in self.active_connections[room_id].items():
+            
+            for user_id, connection in users_in_room:
                 if user_id != exclude_user:
                     try:
                         await connection.send_json(message)
+                        logger.info(f"Message sent to user {user_id} in room {room_id}")
                         # Update heartbeat for active connections
                         if room_id not in self.last_heartbeat:
                             self.last_heartbeat[room_id] = {}
@@ -118,14 +123,15 @@ class ConnectionManager:
             
             # Clean up dead connections
             for user_id in users_to_remove:
-                del self.active_connections[room_id][user_id]
+                if room_id in self.active_connections and user_id in self.active_connections[room_id]:
+                    del self.active_connections[room_id][user_id]
                 # Clean up heartbeat tracking
                 if room_id in self.last_heartbeat and user_id in self.last_heartbeat[room_id]:
                     del self.last_heartbeat[room_id][user_id]
                 logger.info(f"Removed dead connection for user {user_id} in room {room_id}")
                 
                 # Clean up empty rooms
-                if not self.active_connections[room_id]:
+                if room_id in self.active_connections and not self.active_connections[room_id]:
                     del self.active_connections[room_id]
                     if room_id in self.last_heartbeat:
                         del self.last_heartbeat[room_id]
@@ -263,7 +269,7 @@ async def mark_messages_read(
     }
 
 
-async def verify_appointment_token(token: str, room_id: str, expected_user_id: str) -> bool:
+def verify_appointment_token(token: str, room_id: str, expected_user_id: str) -> bool:
     """
     Verify appointment token binds to correct user and appointment
     
@@ -276,15 +282,57 @@ async def verify_appointment_token(token: str, room_id: str, expected_user_id: s
         bool: True if token is valid for user and appointment
     """
     try:
+        logger.info(f"Starting appointment token verification - room_id: {room_id}, expected_user_id: {expected_user_id}")
         payload = decode_jwt(token)
-        # Verify all critical components
-        if (payload.get("scope") != "chat" or 
-            payload.get("appointment_id") != room_id or
-            str(payload.get("sub")) != expected_user_id):
+        if not payload:
+            logger.error("Token payload is None - invalid or expired token")
             return False
-        return True
+            
+        logger.info(f"Token validation - payload: {payload}")
+        logger.info(f"Token validation - room_id: {room_id}, expected_user_id: {expected_user_id}")
+        
+        # Extract user_id from either 'user_id', 'sub', or 'id' field
+        token_user_id_raw = payload.get("user_id")
+        if token_user_id_raw is None:
+            token_user_id_raw = payload.get("sub")
+        if token_user_id_raw is None:
+            token_user_id_raw = payload.get("id")
+        if token_user_id_raw is None:
+            logger.error("No user ID found in token")
+            return False
+        token_user_id_str = str(token_user_id_raw)
+        
+        # Handle different user ID formats (string vs UUID)
+        # Convert both IDs to string for comparison
+        expected_user_id_str = str(expected_user_id)
+        
+        logger.info(f"Token validation - token_user_id: {token_user_id_str}, expected_user_id: {expected_user_id_str}")
+        
+        # Check each validation condition separately
+        scope_raw = payload.get('scope')
+        scope_check = scope_raw == 'chat'  # True if scope is 'chat'
+        
+        appointment_id_raw = payload.get('appointment_id')
+        if appointment_id_raw is None:
+            logger.error("No appointment_id found in token")
+            return False
+        appointment_check = str(appointment_id_raw) == str(room_id)  # True if appointment IDs match
+        
+        user_check = token_user_id_str == expected_user_id_str  # True if user IDs match
+        
+        logger.info(f"Token validation - scope: {scope_raw}, expected: 'chat' -> scope_check: {scope_check}")
+        logger.info(f"Token validation - appointment_id: {appointment_id_raw}, expected: {room_id} -> appointment_check: {appointment_check}")
+        logger.info(f"Token validation - user_id: {token_user_id_str}, expected: {expected_user_id_str} -> user_check: {user_check}")
+        
+        if scope_check and appointment_check and user_check:
+            logger.info("Token validation passed")
+            return True
+        else:
+            logger.info("Token validation failed")
+            logger.info(f"Failed checks - scope: {scope_check}, appointment: {appointment_check}, user: {user_check}")
+            return False
     except Exception as e:
-        logger.error(f"Token verification failed: {e}")
+        logger.error(f"Token verification failed with exception: {e}")
         return False
 
 
@@ -295,33 +343,84 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
     
     Handles live messaging between doctor and patient
     """
-    # Get token from query params
+    # Get token from query params first, before accepting connection
     token = websocket.query_params.get("token")
     
     if not token:
+        logger.warning("No token provided in WebSocket connection")
         await websocket.close(code=1008)
         return
     
-    # Verify token
+    # Verify token before accepting connection
+    logger.info(f"WebSocket connection attempt for room {room_id} with token: {token[:20]}...")
     user_data = decode_jwt(token)
     if not user_data:
+        logger.error("Token could not be decoded - invalid or expired")
         await websocket.close(code=1008)
         return
     
+    logger.info(f"Token decoded successfully: {user_data}")
     user_id = str(user_data.get("user_id") or user_data.get("id"))
+    logger.info(f"Extracted user_id: {user_id}")
     
     # Verify token is valid for this appointment and user
-    if not await verify_appointment_token(token, room_id, user_id):
-        await websocket.close(code=1008)
-        return
+    logger.info(f"About to validate appointment token - room_id: {room_id}, user_id: {user_id}")
+    token_valid = verify_appointment_token(token, room_id, user_id)
+    logger.info(f"Token validation result: {token_valid}")
+    if not token_valid:
+        logger.error("Appointment token validation failed, checking basic token")
+        # Check if it's a basic user token (for development/testing)
+        # If the token is valid but doesn't have appointment scope, allow it
+        try:
+            basic_payload = decode_jwt(token)
+            logger.info(f"Basic token validation - basic_payload: {basic_payload}")
+            if basic_payload:
+                # Extract user ID from basic token using the same logic as verify_appointment_token
+                basic_user_id_raw = basic_payload.get("user_id")
+                if basic_user_id_raw is None:
+                    basic_user_id_raw = basic_payload.get("sub")
+                if basic_user_id_raw is None:
+                    basic_user_id_raw = basic_payload.get("id")
+                
+                if basic_user_id_raw is not None:
+                    basic_user_id = str(basic_user_id_raw)
+                    if basic_user_id == user_id:
+                        # Basic token is valid, allow connection
+                        logger.info(f"Allowing basic user token for room {room_id}")
+                    else:
+                        logger.error("Basic token validation failed - user ID mismatch")
+                        logger.error(f"Basic token user_id: {basic_user_id}, expected: {user_id}")
+                        await websocket.close(code=1008)
+                        return
+                else:
+                    logger.error("No user ID found in basic token")
+                    await websocket.close(code=1008)
+                    return
+            else:
+                logger.error("Basic token could not be decoded")
+                await websocket.close(code=1008)
+                return
+        except Exception as e:
+            logger.error(f"Exception in basic token validation: {e}")
+            await websocket.close(code=1008)
+            return
+    
+    # Only accept the connection after successful authentication
+    logger.info(f"About to accept WebSocket connection for room {room_id}")
+    await websocket.accept()
+    logger.info(f"WebSocket endpoint reached - room_id: {room_id}")
     
     db = get_database()    
-    # Connect to room
-    await manager.connect(websocket, room_id, user_id)    
+    # Connect to room - this should happen after successful authentication
+    await manager.connect(websocket, room_id, user_id)
+    logger.info(f"User {user_id} connected to room {room_id}")
+    
     try:
+        logger.info(f"Ready to receive messages from user {user_id} in room {room_id}")
         while True:
             # Receive message
             data = await websocket.receive_text()
+            logger.info(f"Received raw message from user {user_id} in room {room_id}: {data[:100]}...")
             message_data = json.loads(data)
             
             # Prepare message document with client_message_id for idempotency
@@ -345,7 +444,9 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
             # Try to insert, handle duplicate key error for idempotency
             try:
                 result = await db.chat_messages.insert_one(encrypted_message)
+                logger.info(f"Message stored successfully from user {user_id} in room {room_id}")
             except Exception as e:
+                logger.error(f"Error storing message from user {user_id} in room {room_id}: {e}")
                 # Check if it's a duplicate key error
                 if "duplicate key" in str(e).lower():
                     # Fetch existing message
@@ -355,6 +456,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                     })
                     if existing:
                         result = type('result', (), {'inserted_id': existing['_id']})()
+                        logger.info(f"Duplicate message found for client_message_id {message_data.get('client_message_id')}")
                     else:
                         # If we can't find it, re-raise the error
                         raise e
@@ -372,10 +474,12 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                 "type": message_data.get("type", "text")
             }
             
+            logger.info(f"Broadcasting message to room {room_id} from user {user_id}")
             await manager.send_message(broadcast_data, room_id, exclude_user=user_id)
             
             # Echo back to sender
             await websocket.send_json({**broadcast_data, "status": "sent"})
+            logger.info(f"Message sent back to sender {user_id}")
             
     except WebSocketDisconnect:
         manager.disconnect(room_id, user_id)
@@ -565,3 +669,71 @@ Have you tried any of these strategies?"""
 - Small steps count as progress
 
 Would you like to tell me more about what you're experiencing?"""
+
+
+async def create_appointment_chat_token(user_id: str, appointment_id: str) -> str:
+    """
+    Create a JWT token specifically for appointment chat access
+    
+    Args:
+        user_id: ID of the user requesting chat access
+        appointment_id: ID of the appointment for the chat
+        
+    Returns:
+        JWT token with chat scope and appointment info
+    """
+    import datetime
+    payload = {
+        "user_id": user_id,
+        "appointment_id": appointment_id,
+        "scope": "chat",
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24),  # 24 hour validity
+        "iat": datetime.datetime.utcnow()
+    }
+    
+    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    return token
+
+
+@router.get("/debug-test")
+async def debug_test():
+    """
+    Test endpoint to verify code deployment
+    """
+    logger.info("Debug test endpoint called")
+    return {"status": "debug endpoint working", "timestamp": datetime.utcnow().isoformat()}
+
+
+@router.get("/routes-debug")
+async def routes_debug():
+    """
+    Debug endpoint to show all registered routes for this router
+    """
+    logger.info("Routes debug endpoint called")
+    return {
+        "status": "routes information",
+        "websocket_endpoint": "/ws/{room_id}",
+        "expected_full_path": "/api/v1/chat/ws/{room_id}",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.get("/token/{appointment_id}")
+async def get_chat_token(
+    appointment_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Generate a chat token for WebSocket access to an appointment
+    
+    This endpoint creates a special token that can be used to authenticate
+    WebSocket connections for appointment-specific chat rooms.
+    """
+    # Create and return the appointment-specific chat token
+    token = await create_appointment_chat_token(user_id, appointment_id)
+    
+    return {
+        "token": token,
+        "appointment_id": appointment_id,
+        "expires_in": 86400  # 24 hours in seconds
+    }

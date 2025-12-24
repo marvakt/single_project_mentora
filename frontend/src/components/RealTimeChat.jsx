@@ -16,20 +16,60 @@ const RealTimeChat = ({
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const messagesEndRef = useRef(null);
   const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
   const messageIdsRef = useRef(new Set()); // Track message IDs to prevent duplicates
 
   useEffect(() => {
     if (appointmentId && token) {
-      connectToWebSocket();
-      fetchChatHistory();
+      initializeChat();
     }
 
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
       }
+      
+      // Clear any reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     };
   }, [appointmentId, token]);
+  
+  const initializeChat = async () => {
+    // Fetch appointment-specific chat token
+    try {
+      const response = await fetch(
+        `${MEDICAL_API}/chat/token/${appointmentId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        const chatToken = data.token;
+        
+        // Connect to WebSocket with appointment-specific token
+        connectToWebSocket(chatToken);
+        fetchChatHistory();
+      } else {
+        console.error('Failed to get chat token, using regular token as fallback');
+        // Fallback to regular token
+        connectToWebSocket(token);
+        fetchChatHistory();
+      }
+    } catch (err) {
+      console.error('Error fetching chat token:', err);
+      // Fallback to regular token
+      connectToWebSocket(token);
+      fetchChatHistory();
+    }
+  };
   
   useEffect(() => {
     scrollToBottom();
@@ -39,14 +79,23 @@ const RealTimeChat = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const connectToWebSocket = () => {
+  const connectToWebSocket = (useToken = token) => {
     try {
+      // Clear any existing reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      
       // Close existing connection if any
       if (wsRef.current) {
         wsRef.current.close();
       }
       
-      const wsUrl = `${MEDICAL_API.replace('http', 'ws').replace('/api/v1', '')}/api/v1/chat/ws/${appointmentId}?token=${token}`;
+      setConnectionStatus('connecting');
+      
+      // Convert HTTP API URL to WebSocket URL - include the full chat path
+      const wsUrl = `${MEDICAL_API.replace('http://', 'ws://').replace('https://', 'wss://')}/chat/ws/${appointmentId}?token=${useToken}`;
       console.log('Connecting to WebSocket:', wsUrl);
       
       const ws = new WebSocket(wsUrl);
@@ -96,9 +145,20 @@ const RealTimeChat = ({
         }
       };      
       
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason);
         setConnectionStatus('disconnected');
+        
+        // Only attempt to reconnect if the disconnection was abnormal
+        // 1000 = Normal closure, 1001-1004 = Normal closures, 1005 = No status, 1006 = Abnormal closure
+        // Only reconnect on abnormal closures (1005, 1006) or error codes (1007+)
+        if (event.code === 1005 || event.code === 1006 || event.code >= 1007) {
+          // Attempt to reconnect after a delay
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log('Attempting to reconnect to WebSocket...');
+            connectToWebSocket(useToken);
+          }, 3000); // Reconnect after 3 seconds
+        }
       };
       
       ws.onerror = (error) => {
@@ -234,7 +294,16 @@ const RealTimeChat = ({
   };
 
   const isCurrentUser = (senderId) => {
-    return senderId === user?.user_id?.toString() || senderId === user?.id?.toString();
+    // Check multiple possible user ID fields from the user object
+    const userIds = [
+      user?.user_id?.toString(),
+      user?.id?.toString(),
+      user?.sub?.toString(),
+      user?.user?.user_id?.toString(),
+      user?.user?.id?.toString()
+    ];
+    
+    return userIds.some(id => id && senderId === id);
   };
 
   return (
