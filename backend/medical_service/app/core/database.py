@@ -79,6 +79,15 @@ async def create_indexes():
         await database.crisis_events.create_index([("user_id", 1), ("timestamp", -1)])
         await database.crisis_events.create_index("timestamp")
         
+        # AI conversations indexes (for fallback if AI chat was used)
+        await database.ai_conversations.create_index("user_id")
+        await database.ai_conversations.create_index([("user_id", 1), ("timestamp", -1)])
+        
+        # Session summaries indexes (for if/when session summaries are added)
+        await database.session_summaries.create_index("appointment_id")
+        await database.session_summaries.create_index("doctor_id")
+        await database.session_summaries.create_index([("appointment_id", 1), ("created_at", -1)])
+        
         logger.info("✅ Database indexes created")        
     except Exception as e:
         logger.error(f"❌ Failed to create indexes: {e}")

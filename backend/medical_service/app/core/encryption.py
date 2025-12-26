@@ -1,129 +1,125 @@
 """
-app/core/encryption.py - Field-Level Encryption for Medical Data
-Healthcare-grade encryption for sensitive patient information
+app/core/encryption.py - Field-level encryption for sensitive data
 """
 
-from cryptography.fernet import Fernet
-from app.core.config import settings
 import base64
-import hashlib
-import logging
-
-logger = logging.getLogger(__name__)
+import os
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import json
+from typing import Dict, Any, Union
 
 
 class FieldEncryption:
-    """Field-level encryption for sensitive medical data"""
-    
-    def __init__(self):
-        """Initialize encryption with key from settings"""
-        # Derive a proper 32-byte key from the encryption key
-        key = hashlib.sha256(settings.ENCRYPTION_KEY.encode()).digest()
-        self.cipher = Fernet(base64.urlsafe_b64encode(key))
+    def __init__(self, encryption_key: str = None):
+        """
+        Initialize field encryption with a key.
+        
+        Args:
+            encryption_key: Base64-encoded 32-byte key, or will generate one if not provided
+        """
+        if encryption_key:
+            # Use provided key
+            self.key = encryption_key.encode() if isinstance(encryption_key, str) else encryption_key
+        else:
+            # Generate a default key (in production, this should come from environment)
+            self.key = Fernet.generate_key()
+        
+        self.cipher = Fernet(self.key)
     
     def encrypt(self, data: str) -> str:
-        """
-        Encrypt a string
-        
-        Args:
-            data: Plain text string to encrypt
-            
-        Returns:
-            Encrypted string (base64 encoded)
-        """
-        if not data:
-            return data
-        
-        try:
-            encrypted = self.cipher.encrypt(data.encode())
-            return encrypted.decode()
-        except Exception as e:
-            logger.error(f"Encryption failed: {e}")
-            raise
+        """Encrypt a string value"""
+        if data is None:
+            return None
+        encrypted_data = self.cipher.encrypt(data.encode())
+        return base64.b64encode(encrypted_data).decode()
     
     def decrypt(self, encrypted_data: str) -> str:
-        """
-        Decrypt a string
-        
-        Args:
-            encrypted_data: Encrypted string (base64 encoded)
-            
-        Returns:
-            Decrypted plain text string
-        """
-        if not encrypted_data:
-            return encrypted_data
-        
-        try:
-            decrypted = self.cipher.decrypt(encrypted_data.encode())
-            return decrypted.decode()
-        except Exception as e:
-            logger.error(f"Decryption failed: {e}")
-            raise
+        """Decrypt an encrypted string value"""
+        if encrypted_data is None:
+            return None
+        encrypted_bytes = base64.b64decode(encrypted_data.encode())
+        decrypted_bytes = self.cipher.decrypt(encrypted_bytes)
+        return decrypted_bytes.decode()
     
-    def encrypt_dict(self, data: dict, fields_to_encrypt: list) -> dict:
+    def encrypt_dict(self, data: Dict[str, Any], fields_to_encrypt: list) -> Dict[str, Any]:
         """
         Encrypt specific fields in a dictionary
         
         Args:
-            data: Dictionary containing data
+            data: Dictionary to encrypt
             fields_to_encrypt: List of field names to encrypt
             
         Returns:
-            Dictionary with encrypted fields
+            Dictionary with specified fields encrypted
         """
         encrypted_data = data.copy()
         
         for field in fields_to_encrypt:
-            if field in encrypted_data and encrypted_data[field]:
-                if isinstance(encrypted_data[field], str):
-                    encrypted_data[field] = self.encrypt(encrypted_data[field])
-                elif isinstance(encrypted_data[field], (list, dict)):
-                    # Convert to string, encrypt, then we'll decrypt back when needed
-                    import json
-                    encrypted_data[field] = self.encrypt(json.dumps(encrypted_data[field]))
+            if field in encrypted_data and encrypted_data[field] is not None:
+                # Handle nested fields specified as 'parent.child'
+                if '.' in field:
+                    parent, child = field.split('.', 1)
+                    if parent in encrypted_data and isinstance(encrypted_data[parent], dict):
+                        if child in encrypted_data[parent]:
+                            encrypted_data[parent][child] = self.encrypt(str(encrypted_data[parent][child]))
+                else:
+                    encrypted_data[field] = self.encrypt(str(encrypted_data[field]))
         
         return encrypted_data
     
-    def decrypt_dict(self, data: dict, fields_to_decrypt: list) -> dict:
+    def decrypt_dict(self, data: Dict[str, Any], fields_to_decrypt: list) -> Dict[str, Any]:
         """
         Decrypt specific fields in a dictionary
         
         Args:
-            data: Dictionary containing encrypted data
+            data: Dictionary with encrypted fields
             fields_to_decrypt: List of field names to decrypt
             
         Returns:
-            Dictionary with decrypted fields
+            Dictionary with specified fields decrypted
         """
         decrypted_data = data.copy()
         
         for field in fields_to_decrypt:
-            if field in decrypted_data and decrypted_data[field]:
-                try:
-                    decrypted_data[field] = self.decrypt(decrypted_data[field])
-                except Exception:
-                    # If decryption fails, might be a JSON object
+            if field in decrypted_data and decrypted_data[field] is not None:
+                # Handle nested fields specified as 'parent.child'
+                if '.' in field:
+                    parent, child = field.split('.', 1)
+                    if parent in decrypted_data and isinstance(decrypted_data[parent], dict):
+                        if child in decrypted_data[parent]:
+                            try:
+                                decrypted_data[parent][child] = self.decrypt(str(decrypted_data[parent][child]))
+                            except:
+                                # If decryption fails, keep original value
+                                pass
+                else:
                     try:
-                        import json
-                        decrypted_str = self.decrypt(decrypted_data[field])
-                        decrypted_data[field] = json.loads(decrypted_str)
-                    except Exception:
+                        decrypted_data[field] = self.decrypt(str(decrypted_data[field]))
+                    except:
+                        # If decryption fails, keep original value
                         pass
         
         return decrypted_data
 
 
-# Global encryption instance
-encryption = FieldEncryption()
+# Default encryption instance
+# In production, the key should come from environment variables
+ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY", "LzlwTnH4mrqLt7lZs_YcvSEUwN2Jl6hzZZCU8iBK9V0=")
+
+encryption = FieldEncryption(ENCRYPTION_KEY)
 
 
-# Fields that should be encrypted in each collection
+# Define which fields should be encrypted for different collections
 ENCRYPTED_FIELDS = {
-    "severity_logs": ["symptoms", "notes"],
-    "mood_logs": ["notes", "triggers"],
-    "symptoms": ["description", "notes"],
     "chat_messages": ["message"],
-    "treatment_plans": ["plan_details", "goals", "recommendations"],
-    "session_notes": ["notes", "diagnosis", "recommendations", "prescription"]
+    "ai_conversations": ["user_message", "ai_response"],
+    "severity_logs": ["raw_responses"],  # Responses to questionnaire items
+    "mood_logs": ["notes"],
+    "session_notes": ["notes", "summary"],
+    "treatment_plans": ["notes", "recommendations"],
+    "symptoms": ["notes"],
+    "crisis_events": ["message"],
+    "session_summaries": ["summary", "doctor_notes", "chat_transcript"]
 }

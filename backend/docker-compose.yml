@@ -454,6 +454,7 @@ services:
       MONGO_DB: mentora_medical
       JWT_SECRET: mentora-jwt-secret-2025-change-this
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+
     depends_on:
       mongo_medical:
         condition: service_started

@@ -156,7 +156,7 @@ import BookAppointment from './pages/user/BookAppointment';
 import MyAppointments from './pages/user/MyAppointments';
 import AppointmentDetail from './pages/user/AppointmentDetail';
 import PaymentProcessing from './pages/user/PaymentProcessing';
-import AIChat from './pages/user/AIChat';
+
 import TreatmentPlan from './pages/user/TreatmentPlan';
 
 // Doctor Pages
@@ -165,6 +165,7 @@ import DoctorProfile from './pages/doctor/DoctorProfile';
 import DoctorAvailability from './pages/doctor/DoctorAvailability';
 import DoctorAppointments from './pages/doctor/DoctorAppointments';
 import DoctorAppointmentDetail from './pages/doctor/DoctorAppointmentDetail';
+
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -181,6 +182,7 @@ const App = () => {
   // Appointment-related state
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
 
   useEffect(() => {
     const savedToken = sessionStorage.getItem('access_token');
@@ -305,15 +307,7 @@ const App = () => {
       );
     }
 
-    if (currentView === 'ai-chat') {
-      return (
-        <AIChat
-          user={user}
-          token={token}
-          setCurrentView={setCurrentView}
-        />
-      );
-    }
+
 
     if (currentView === 'treatment-plan') {
       return (
@@ -324,6 +318,8 @@ const App = () => {
         />
       );
     }
+
+
 
     // ==========================================
     // APPOINTMENT VIEWS (USER)

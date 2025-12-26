@@ -455,14 +455,7 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
             )}
           </button>
 
-          <button
-            onClick={() => setCurrentView('ai-chat')}
-            className="bg-gradient-to-br from-pink-600 to-rose-600 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition text-left transform hover:scale-105"
-          >
-            <MessageSquare className="w-10 h-10 mb-3" />
-            <h3 className="text-xl font-bold mb-2">AI Mental Health Chat</h3>
-            <p className="text-pink-100 text-sm">24/7 support with AI-powered guidance</p>
-          </button>
+
 
           <button
             onClick={() => setCurrentView('treatment-plan')}
