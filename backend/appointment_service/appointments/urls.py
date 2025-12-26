@@ -35,6 +35,7 @@ from .views import (
     AppointmentDetailAPIView,
     AppointmentCancelAPIView,
     AppointmentCompleteAPIView,
+    AvailableSlotsAPIView,
 )
 from .payment_views import (
     PaymentCreateAPIView,
@@ -58,6 +59,9 @@ urlpatterns = [
     # Video session endpoints
     path("<uuid:appointment_id>/video/create/", VideoSessionCreateAPIView.as_view(), name="video-create"),
     path("<uuid:appointment_id>/video/", VideoSessionDetailAPIView.as_view(), name="video-detail"),
+    
+    # Available slots endpoint
+    path("doctors/<uuid:doctor_id>/available-slots/", AvailableSlotsAPIView.as_view(), name="available-slots"),
     
     
     

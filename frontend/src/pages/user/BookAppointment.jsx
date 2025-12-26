@@ -34,9 +34,12 @@ const BookAppointment = ({ user, token, setCurrentView }) => {
 
   useEffect(() => {
     if (appointmentDate && availability.length > 0) {
-      const slots = getAvailableSlots(appointmentDate, availability);
-      setAvailableSlots(slots);
-      setAppointmentTime(''); // Reset time when date changes
+      const fetchSlots = async () => {
+        const slots = await getAvailableSlots(appointmentDate, availability);
+        setAvailableSlots(slots);
+        setAppointmentTime(''); // Reset time when date changes
+      };
+      fetchSlots();
     }
   }, [appointmentDate, availability]);
 
@@ -118,7 +121,7 @@ const BookAppointment = ({ user, token, setCurrentView }) => {
     }
   };
 
-  const getAvailableSlots = (dateString, availabilityData) => {
+  const getAvailableSlots = async (dateString, availabilityData) => {
     if (!availabilityData || availabilityData.length === 0) return [];
 
     const date = new Date(dateString);
@@ -136,7 +139,8 @@ const BookAppointment = ({ user, token, setCurrentView }) => {
 
     if (!daySchedule) return [];
 
-    const slots = [];
+    // First, get all possible time slots based on doctor's availability
+    const allPossibleSlots = [];
     // Parse start and end times including minutes (format could be HH:MM:SS or HH:MM)
     const timeParts = daySchedule.start_time.split(':');
     const [startHour, startMinute] = [parseInt(timeParts[0]), parseInt(timeParts[1])];
@@ -150,7 +154,7 @@ const BookAppointment = ({ user, token, setCurrentView }) => {
     while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
       // Add current time slot
       const timeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
-      slots.push(timeString);
+      allPossibleSlots.push(timeString);
       
       // Increment by 30 minutes
       currentMinute += 30;
@@ -165,7 +169,23 @@ const BookAppointment = ({ user, token, setCurrentView }) => {
       }
     }
 
-    return slots;
+    // Then, fetch the actually available slots from the backend
+    try {
+      const response = await apiCall(`${APPOINTMENT_API}/doctors/${selectedDoctor.user_id}/available-slots/?date=${dateString}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Return only the slots that are actually available
+        return data.available_slots;
+      } else {
+        // If the API call fails, return the original calculated slots as fallback
+        console.error('Failed to fetch available slots from backend, using fallback');
+        return allPossibleSlots;
+      }
+    } catch (error) {
+      console.error('Error fetching available slots:', error);
+      // Return the original calculated slots as fallback
+      return allPossibleSlots;
+    }
   };
 
   const handleDoctorSelect = (doctor) => {

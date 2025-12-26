@@ -329,6 +329,19 @@ class AppointmentAPIView(APIView):
             elif severity_level == "moderate":
                 priority = "medium"
 
+        # Check if the time slot is already booked (including pending appointments)
+        conflicting_appointments = Appointment.objects.filter(
+            doctor_id=doctor_id,
+            scheduled_at=data["scheduled_at"],
+            status__in=["pending", "confirmed"]  # Don't allow booking if there's already a pending or confirmed appointment
+        )
+        
+        if conflicting_appointments.exists():
+            return Response(
+                {"error": "This time slot is already booked. Please select another time."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Create appointment
         appointment = Appointment.objects.create(
             user_id=user_uuid,
@@ -603,6 +616,50 @@ class AppointmentCompleteAPIView(APIView):
             "status": "completed",
             "message": "Appointment marked as completed"
         })
+
+
+class AvailableSlotsAPIView(APIView):
+    """
+    GET /doctors/{doctor_id}/available-slots/?date={date}
+    
+    Get available time slots for a specific doctor on a specific date.
+    Excludes already booked slots (pending and confirmed appointments).
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedJWT]
+    
+    def get(self, request, doctor_id):
+        date_str = request.GET.get('date')
+        if not date_str:
+            return Response(
+                {"error": "Date parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Convert date string to date object
+            from datetime import datetime
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from .utils import get_available_slots_for_date
+            available_slots = get_available_slots_for_date(doctor_id, date)
+            
+            return Response({
+                "available_slots": available_slots,
+                "date": date_str,
+                "doctor_id": doctor_id
+            })
+        except Exception as e:
+            return Response(
+                {"error": "Failed to fetch available slots"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # Helper function to fetch medical summary

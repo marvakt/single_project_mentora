@@ -38,6 +38,9 @@ class UserProfile(models.Model):
 
     # Activity tracking
     last_activity = models.DateTimeField(blank=True, null=True)
+    
+    # Mood tracking preferences
+    receive_mood_notifications = models.BooleanField(default=True, help_text="Whether user wants to receive daily mood notifications")
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

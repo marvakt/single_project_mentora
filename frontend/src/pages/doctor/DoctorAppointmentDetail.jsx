@@ -87,6 +87,30 @@ const DoctorAppointmentDetail = ({
             setCompleting(false);
         }
     };
+    
+    const approveVideoSession = async () => {
+      try {
+        const response = await apiCall(
+          `${APPOINTMENT_API}/appointments/${appointmentId}/video/`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ approve: true })
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          alert('✅ Video session approved successfully! Patient can now join the call.');
+          fetchAppointmentDetail(); // Refresh to update the UI
+        } else {
+          const errorData = await response.json();
+          alert(errorData.error || 'Failed to approve video session');
+        }
+      } catch (err) {
+        console.error('Error approving video session:', err);
+        alert('Error approving video session');
+      }
+    };
 
     const getStatusBadge = (status) => {
         const badges = {
@@ -568,21 +592,40 @@ const DoctorAppointmentDetail = ({
                             <h2 className="text-xl font-bold text-gray-800 mb-6">Quick Actions</h2>
 
                             <div className="space-y-3">
-                                {/* Join Video Call */}
+                                {/* Video Call Approval/Join */}
                                 {appointment.status === 'confirmed' && (
-                                    <button
-                                        onClick={() => {
-                                            if (onJoinVideo) {
-                                                onJoinVideo(appointment.id);
-                                            } else {
-                                                setCurrentView('video-consultation');
-                                            }
-                                        }}
-                                        className="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white p-4 rounded-xl hover:shadow-lg transition flex items-center justify-center space-x-2"
-                                    >
-                                        <Video className="w-5 h-5" />
-                                        <span className="font-semibold">Join Video Call</span>
-                                    </button>
+                                    <div className="space-y-3">
+                                        {/* Doctor can always join the video call, but can also approve for the patient */}
+                                        <button
+                                            onClick={() => {
+                                                if (onJoinVideo) {
+                                                    onJoinVideo(appointment.id);
+                                                } else {
+                                                    setCurrentView('video-consultation');
+                                                }
+                                            }}
+                                            className="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white p-4 rounded-xl hover:shadow-lg transition flex items-center justify-center space-x-2"
+                                        >
+                                            <Video className="w-5 h-5" />
+                                            <span className="font-semibold">Join Video Call</span>
+                                        </button>
+                                        
+                                        {/* Video Call Approval Button - Show if not yet approved for patient */}
+                                        {!appointment.video_session || !appointment.video_session.doctor_approved ? (
+                                            <button
+                                                onClick={approveVideoSession}
+                                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-xl hover:shadow-lg transition flex items-center justify-center space-x-2"
+                                            >
+                                                <Video className="w-5 h-5" />
+                                                <span className="font-semibold">Approve for Patient</span>
+                                            </button>
+                                        ) : (
+                                            <div className="bg-green-100 text-green-800 p-3 rounded-xl text-center text-sm">
+                                                <CheckCircle className="w-5 h-5 mx-auto mb-1" />
+                                                <p>Video call approved for patient</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
                                 {/* Chat with Patient */}

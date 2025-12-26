@@ -135,6 +135,11 @@ class PaymentCreateAPIView(APIView):
             razorpay_order_id=razorpay_order_id,
             status="created"
         )
+        
+        # Immediately update appointment status to 'confirmed'
+        # This ensures the video call option becomes available right after payment initiation
+        appointment.status = "confirmed"
+        appointment.save(update_fields=["status"])
 
         return Response(
             {

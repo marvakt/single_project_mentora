@@ -263,6 +263,12 @@ class VideoSession(models.Model):
     # Doctor and user tokens (for separate access)
     doctor_token = models.TextField(blank=True, help_text="Doctor's video token")
     user_token = models.TextField(blank=True, help_text="User's video token")
+    
+    # Whether the doctor has approved the video session
+    doctor_approved = models.BooleanField(default=False, help_text="Whether doctor has approved this video session")
+    
+    # WebRTC connection details
+    room_name = models.CharField(max_length=255, blank=True, help_text="WebRTC room name for the video session")
 
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)

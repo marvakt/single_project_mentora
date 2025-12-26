@@ -155,6 +155,128 @@ async def get_mood_insights(
     }
 
 
+@router.post("/quick-mood")
+async def log_quick_mood(
+    mood_emoji: str = Field(..., description="Mood emoji: happy, sad, calm, angry, anxious, tired, excited, upset"),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Quick mood logging using emoji selection
+    
+    Maps emojis to mood levels for quick daily tracking
+    """
+    db = get_database()
+    
+    # Map emojis to mood levels
+    mood_mapping = {
+        "happy": {"mood_level": 9, "energy_level": 8, "stress_level": 2, "sleep_quality": 8},
+        "calm": {"mood_level": 7, "energy_level": 6, "stress_level": 3, "sleep_quality": 7},
+        "sad": {"mood_level": 3, "energy_level": 4, "stress_level": 5, "sleep_quality": 5},
+        "angry": {"mood_level": 2, "energy_level": 7, "stress_level": 9, "sleep_quality": 4},
+        "anxious": {"mood_level": 3, "energy_level": 5, "stress_level": 8, "sleep_quality": 4},
+        "tired": {"mood_level": 4, "energy_level": 3, "stress_level": 4, "sleep_quality": 6},
+        "excited": {"mood_level": 8, "energy_level": 9, "stress_level": 3, "sleep_quality": 7},
+        "upset": {"mood_level": 2, "energy_level": 4, "stress_level": 7, "sleep_quality": 5},
+    }
+    
+    if mood_emoji not in mood_mapping:
+        raise HTTPException(status_code=400, detail=f"Invalid mood emoji. Valid options: {list(mood_mapping.keys())}")
+    
+    mood_data = mood_mapping[mood_emoji]
+    
+    # Prepare mood log document
+    mood_log = {
+        "user_id": user_id,
+        "mood_level": mood_data["mood_level"],
+        "energy_level": mood_data["energy_level"],
+        "stress_level": mood_data["stress_level"],
+        "sleep_quality": mood_data["sleep_quality"],
+        "notes": f"Quick mood entry: {mood_emoji}",
+        "triggers": "",
+        "timestamp": datetime.utcnow(),
+        "entry_type": "quick_mood"  # Mark as quick mood entry
+    }
+    
+    # Encrypt sensitive fields
+    encrypted_log = encryption.encrypt_dict(
+        mood_log,
+        ENCRYPTED_FIELDS.get("mood_logs", [])
+    )
+    
+    # Store in database
+    result = await db.mood_logs.insert_one(encrypted_log)
+    
+    logger.info(f"Quick mood logged for user {user_id}: {mood_emoji}")
+    
+    return {
+        "mood_log_id": str(result.inserted_id),
+        "message": f"Mood '{mood_emoji}' logged successfully",
+        "timestamp": mood_log["timestamp"].isoformat()
+    }
+
+
+@router.get("/quick-mood")
+async def log_quick_mood_get(
+    mood: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    GET endpoint for quick mood logging via email links
+    
+    Allows users to click mood links directly from emails
+    """
+    # This calls the same logic as the POST endpoint
+    db = get_database()
+    
+    # Map emojis to mood levels
+    mood_mapping = {
+        "happy": {"mood_level": 9, "energy_level": 8, "stress_level": 2, "sleep_quality": 8},
+        "calm": {"mood_level": 7, "energy_level": 6, "stress_level": 3, "sleep_quality": 7},
+        "sad": {"mood_level": 3, "energy_level": 4, "stress_level": 5, "sleep_quality": 5},
+        "angry": {"mood_level": 2, "energy_level": 7, "stress_level": 9, "sleep_quality": 4},
+        "anxious": {"mood_level": 3, "energy_level": 5, "stress_level": 8, "sleep_quality": 4},
+        "tired": {"mood_level": 4, "energy_level": 3, "stress_level": 4, "sleep_quality": 6},
+        "excited": {"mood_level": 8, "energy_level": 9, "stress_level": 3, "sleep_quality": 7},
+        "upset": {"mood_level": 2, "energy_level": 4, "stress_level": 7, "sleep_quality": 5},
+    }
+    
+    if mood not in mood_mapping:
+        raise HTTPException(status_code=400, detail=f"Invalid mood. Valid options: {list(mood_mapping.keys())}")
+    
+    mood_data = mood_mapping[mood]
+    
+    # Prepare mood log document
+    mood_log = {
+        "user_id": user_id,
+        "mood_level": mood_data["mood_level"],
+        "energy_level": mood_data["energy_level"],
+        "stress_level": mood_data["stress_level"],
+        "sleep_quality": mood_data["sleep_quality"],
+        "notes": f"Quick mood entry: {mood}",
+        "triggers": "",
+        "timestamp": datetime.utcnow(),
+        "entry_type": "quick_mood"  # Mark as quick mood entry
+    }
+    
+    # Encrypt sensitive fields
+    encrypted_log = encryption.encrypt_dict(
+        mood_log,
+        ENCRYPTED_FIELDS.get("mood_logs", [])
+    )
+    
+    # Store in database
+    result = await db.mood_logs.insert_one(encrypted_log)
+    
+    logger.info(f"Quick mood logged for user {user_id}: {mood}")
+    
+    # Return a response that can be shown in browser
+    return {
+        "mood_log_id": str(result.inserted_id),
+        "message": f"Mood '{mood}' logged successfully! Thank you for tracking your mood.",
+        "timestamp": mood_log["timestamp"].isoformat()
+    }
+
+
 def _calculate_mood_analytics(logs: List[dict]) -> dict:
     """Calculate mood analytics from logs"""
     if not logs:

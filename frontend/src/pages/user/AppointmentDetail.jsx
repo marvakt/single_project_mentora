@@ -298,13 +298,24 @@ const AppointmentDetail = ({
 
                   {/* Video Call Button */}
                   {appointment.status === 'confirmed' && (
-                    <button
-                      onClick={() => onJoinVideo(appointment.id)}
-                      className="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white p-4 rounded-xl hover:shadow-lg transition flex items-center justify-center space-x-2"
-                    >
-                      <Video className="w-5 h-5" />
-                      <span>Join Video Call</span>
-                    </button>
+                    <div className="space-y-3">
+                      {/* Show appropriate message based on video session approval */}
+                      {appointment.video_session && appointment.video_session.doctor_approved ? (
+                        <button
+                          onClick={() => onJoinVideo(appointment.id)}
+                          className="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white p-4 rounded-xl hover:shadow-lg transition flex items-center justify-center space-x-2"
+                        >
+                          <Video className="w-5 h-5" />
+                          <span>Join Video Call</span>
+                        </button>
+                      ) : (
+                        <div className="bg-yellow-100 text-yellow-800 p-4 rounded-xl text-center">
+                          <AlertCircle className="w-6 h-6 mx-auto mb-2" />
+                          <p className="font-semibold">Video Call Pending Approval</p>
+                          <p className="text-sm mt-1">Please wait for the doctor to approve the video session</p>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Payment Button */}
