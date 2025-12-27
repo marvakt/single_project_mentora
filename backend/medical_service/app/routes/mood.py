@@ -157,7 +157,7 @@ async def get_mood_insights(
 
 @router.post("/quick-mood")
 async def log_quick_mood(
-    mood_emoji: str = Field(..., description="Mood emoji: happy, sad, calm, angry, anxious, tired, excited, upset"),
+    mood_emoji: str,
     user_id: str = Depends(get_current_user_id)
 ):
     """

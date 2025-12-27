@@ -1,0 +1,74 @@
+{
+  "knowledge_base": [
+    {
+      "id": "anxiety_1",
+      "category": "mental_health_concepts",
+      "title": "Understanding Anxiety",
+      "content": "Anxiety is a normal emotion characterized by feelings of tension, worried thoughts, and physical changes like increased blood pressure. Everyone experiences anxiety sometimes, and it can be a normal and even useful emotion. However, when anxiety becomes excessive and persists for long periods, it may become an anxiety disorder. Anxiety disorders affect nearly 30% of adults at some point in their lives. Common symptoms include restlessness, fatigue, difficulty concentrating, irritability, muscle tension, and sleep problems. This educational information is provided for general awareness and should not be used for self-diagnosis.",
+      "tags": ["anxiety", "mental health", "emotions", "stress"]
+    },
+    {
+      "id": "depression_1",
+      "category": "mental_health_concepts",
+      "title": "Understanding Depression",
+      "content": "Depression is a common and serious medical illness that negatively affects how you feel, the way you think and how you act. It causes feelings of sadness and/or a loss of interest in activities you once enjoyed. Depression affects how you feel, think, and handle daily activities, like sleeping, eating, or working. Depression is among the leading causes of disability worldwide. Symptoms include persistent sadness, loss of interest in activities, changes in appetite, trouble sleeping or oversleeping, loss of energy, feelings of worthlessness, difficulty concentrating, and thoughts of death or suicide. This educational information is provided for general awareness and should not be used for self-diagnosis.",
+      "tags": ["depression", "mental health", "mood", "sadness"]
+    },
+    {
+      "id": "stress_1",
+      "category": "mental_health_concepts",
+      "title": "Understanding Stress",
+      "content": "Stress is your body's reaction to any change that requires an adjustment or response. The body responds to these changes with physical, mental, and emotional responses. Stress is a normal part of life and can be positive or negative. Positive stress can motivate us to work harder, be more alert, and perform better. Negative stress, or distress, occurs when stress becomes excessive and causes problems. Chronic stress can affect physical and mental health. Common stress symptoms include headaches, muscle tension, fatigue, irritability, difficulty sleeping, and changes in appetite. This educational information is provided for general awareness and should not be used for self-diagnosis.",
+      "tags": ["stress", "mental health", "emotions", "coping"]
+    },
+    {
+      "id": "cbt_1",
+      "category": "therapeutic_approaches",
+      "title": "Cognitive Behavioral Therapy (CBT) - Educational Overview",
+      "content": "Cognitive Behavioral Therapy (CBT) is a type of psychotherapy that helps people identify and change destructive or disturbing thought patterns that have a negative influence on behavior and emotions. CBT focuses on challenging and changing cognitive distortions and behaviors, improving emotional regulation, and developing personal coping strategies that target solving current problems. CBT is often used to treat anxiety and depression, but it can help with other mental and physical health problems. The therapy is based on the idea that thoughts, feelings, and behaviors are interconnected. This educational information is provided for general awareness and should not be used as therapy instructions.",
+      "tags": ["CBT", "therapy", "cognitive", "behavioral", "techniques"]
+    },
+    {
+      "id": "dbt_1",
+      "category": "therapeutic_approaches",
+      "title": "Dialectical Behavior Therapy (DBT) - Educational Overview",
+      "content": "Dialectical Behavior Therapy (DBT) is a type of cognitive behavioral therapy that emphasizes the psychosocial aspects of treatment. DBT includes skills for distress tolerance, mindfulness, emotion regulation, and interpersonal effectiveness. The therapy was originally developed to treat people with borderline personality disorder, but it has been adapted to help people with other mental health conditions. DBT teaches people how to live in the moment, develop healthy ways to cope with stress, regulate their emotions, and improve their relationships with others. This educational information is provided for general awareness and should not be used as therapy instructions.",
+      "tags": ["DBT", "therapy", "dialectical", "behavioral", "techniques"]
+    },
+    {
+      "id": "grounding_1",
+      "category": "coping_exercises",
+      "title": "5-4-3-2-1 Grounding Technique",
+      "content": "The 5-4-3-2-1 grounding technique is an evidence-based exercise to help manage anxiety, stress, or overwhelming emotions. The technique involves identifying: 5 things you can see, 4 things you can touch, 3 things you can hear, 2 things you can smell, 1 thing you can taste. This technique helps bring attention to the present moment and can be particularly helpful when feeling disconnected or overwhelmed. To practice: Take a slow, deep breath, then notice 5 things you can see around you. Next, touch 4 things you can feel with your hands. Listen for 3 sounds in your environment. Notice 2 scents around you. Finally, identify 1 taste in your mouth or something you could eat. This exercise can be done anywhere and helps reconnect with the present moment. This educational information is provided for general awareness and should not be used as medical advice.",
+      "tags": ["grounding", "5-4-3-2-1", "anxiety", "coping", "technique"]
+    },
+    {
+      "id": "breathing_1",
+      "category": "coping_exercises",
+      "title": "Box Breathing Technique",
+      "content": "Box breathing is a simple yet effective breathing exercise that can help reduce stress, anxiety, and promote relaxation. The technique involves inhaling, holding, exhaling, and holding again for equal counts, forming a 'box' pattern. To practice: Find a comfortable position, breathe in through your nose for 4 counts, hold your breath for 4 counts, exhale through your mouth for 4 counts, and hold empty for 4 counts. Repeat this pattern for several cycles. This technique helps activate the parasympathetic nervous system, promoting a sense of calm. Box breathing can be practiced anywhere and is particularly helpful during moments of stress or before sleep. This educational information is provided for general awareness and should not be used as medical advice.",
+      "tags": ["breathing", "box breathing", "anxiety", "coping", "relaxation"]
+    },
+    {
+      "id": "mindfulness_1",
+      "category": "coping_exercises",
+      "title": "Mindfulness Meditation - Basic Practice",
+      "content": "Mindfulness meditation is a practice that involves focusing your awareness on the present moment while acknowledging and accepting your feelings, thoughts, and bodily sensations. To practice basic mindfulness meditation: Find a quiet space, sit comfortably with your back straight, close your eyes or focus softly on a spot in front of you, bring your attention to your breath, notice when your mind wanders and gently return to your breath, continue for 5-20 minutes depending on your comfort level. Regular practice of mindfulness can help reduce stress, improve focus, and increase emotional regulation. This educational information is provided for general awareness and should not be used as medical advice.",
+      "tags": ["mindfulness", "meditation", "awareness", "stress", "technique"]
+    },
+    {
+      "id": "sleep_hygiene_1",
+      "category": "self_care",
+      "title": "Sleep Hygiene Guidelines",
+      "content": "Sleep hygiene refers to a series of healthy sleep habits that can improve your ability to fall asleep and stay asleep. Good sleep hygiene includes: maintaining a consistent sleep schedule, creating a comfortable sleep environment, avoiding caffeine and large meals before bedtime, limiting screen time before bed, getting regular physical activity, managing stress and worry, and creating a relaxing bedtime routine. Adults typically need 7-9 hours of sleep per night. Poor sleep can affect mood, cognitive function, and overall health. If sleep problems persist, it's important to speak with a healthcare provider. This educational information is provided for general awareness and should not be used as medical advice.",
+      "tags": ["sleep", "hygiene", "health", "wellness", "routine"]
+    },
+    {
+      "id": "crisis_resources_1",
+      "category": "resources",
+      "title": "Crisis Support Resources",
+      "content": "If you are experiencing a mental health crisis, help is available. The 988 Suicide & Crisis Lifeline provides 24/7, free and confidential support for people in distress. You can call or text 988. Other resources include: National Suicide Prevention Lifeline at 988 or 1-800-273-8255, Crisis Text Line by texting HOME to 741741, National Domestic Violence Hotline at 1-800-799-7233, National Child Abuse Hotline at 1-800-4-a-child. Remember, seeking help is a sign of strength, not weakness. If you are in immediate danger, call 911. This information is provided for general awareness and should not replace professional medical advice.",
+      "tags": ["crisis", "resources", "hotline", "emergency", "support"]
+    }
+  ]
+}
