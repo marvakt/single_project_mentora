@@ -263,6 +263,12 @@ services:
   redis:
     image: redis:7
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   ############################
   # RABBITMQ
@@ -271,15 +277,16 @@ services:
     image: rabbitmq:3-management
     restart: always
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5673:5672"
+      - "15673:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 20
+      start_period: 30s
 
   ############################
   # POSTGRES — AUTH
@@ -295,9 +302,10 @@ services:
       - auth_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
 
   ############################
   # POSTGRES — USER
@@ -313,9 +321,10 @@ services:
       - user_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user_user -d user_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
 
   ############################
   # POSTGRES — APPOINTMENT
@@ -331,9 +340,10 @@ services:
       - appointment_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U appointment_user -d appointment_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
 
   ############################
   # MONGO — MEDICAL
