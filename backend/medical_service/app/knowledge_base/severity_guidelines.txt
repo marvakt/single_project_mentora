@@ -1,0 +1,295 @@
+MENTAL HEALTH SEVERITY CLASSIFICATION GUIDELINES
+
+This document provides evidence-based guidelines for classifying mental health symptom severity levels. These guidelines are based on DSM-5 criteria, PHQ-9 scoring, and clinical best practices.
+
+================================================================================
+SEVERITY LEVELS OVERVIEW
+================================================================================
+
+MILD SEVERITY
+- Symptoms present but manageable
+- Minimal impact on daily functioning
+- Can maintain work, school, and social activities
+- May experience occasional distress
+- Responds well to self-care and counseling
+
+MODERATE SEVERITY
+- Noticeable symptoms affecting quality of life
+- Some difficulty with daily functioning
+- Work/school performance may be impaired
+- Social withdrawal or relationship strain
+- Requires professional therapeutic intervention
+
+SEVERE SEVERITY
+- Significant symptoms causing major distress
+- Substantial impairment in daily functioning
+- Unable to maintain normal work/school/social activities
+- May include crisis symptoms or safety concerns
+- Requires immediate professional intervention, possibly medication
+
+================================================================================
+DEPRESSION SEVERITY INDICATORS
+================================================================================
+
+MILD DEPRESSION:
+- Depressed mood on some days
+- Reduced interest in 1-2 activities
+- Sleep disturbances (difficulty falling asleep or occasional oversleeping)
+- Mild fatigue or low energy
+- Can still engage in most activities with effort
+- Negative thoughts present but not overwhelming
+- Duration: 2+ weeks of symptoms
+
+MODERATE DEPRESSION:
+- Depressed mood most days
+- Loss of interest in multiple previously enjoyed activities (anhedonia)
+- Significant sleep problems (insomnia or hypersomnia most nights)
+- Persistent fatigue and low energy
+- Concentration difficulties affecting work/school
+- Feelings of worthlessness or excessive guilt
+- Appetite changes (significant weight loss or gain)
+- Psychomotor changes (restlessness or slowing)
+- Duration: 2+ weeks with consistent symptoms
+
+SEVERE DEPRESSION:
+- Persistent depressed mood nearly every day
+- Complete loss of interest in almost all activities
+- Severe sleep disturbances (chronic insomnia or excessive sleeping)
+- Extreme fatigue, inability to complete basic tasks
+- Severe concentration problems, indecisiveness
+- Strong feelings of worthlessness or inappropriate guilt
+- Significant appetite/weight changes
+- Thoughts of death or suicidal ideation
+- Inability to function in work, school, or relationships
+- Duration: 2+ weeks with severe, persistent symptoms
+
+================================================================================
+ANXIETY SEVERITY INDICATORS
+================================================================================
+
+MILD ANXIETY:
+- Occasional worry or nervousness
+- Mild physical symptoms (slight tension, occasional rapid heartbeat)
+- Can manage symptoms with relaxation techniques
+- Anxiety doesn't significantly interfere with activities
+- Able to redirect worried thoughts
+- Duration: Symptoms present but manageable
+
+MODERATE ANXIETY:
+- Frequent worry that's difficult to control
+- Multiple physical symptoms (muscle tension, restlessness, fatigue)
+- Difficulty concentrating due to worry
+- Sleep disturbances from anxiety
+- Avoidance of some situations
+- Noticeable impact on work, school, or social life
+- Duration: Symptoms present more days than not for 6+ months (GAD) or persistent in specific situations
+
+SEVERE ANXIETY:
+- Constant, overwhelming worry or fear
+- Intense physical symptoms (panic attacks, chest pain, dizziness, nausea)
+- Severe avoidance behaviors
+- Inability to function normally
+- Significant impairment in multiple life areas
+- May include panic disorder, severe social anxiety, or agoraphobia
+- Duration: Persistent and debilitating symptoms
+
+================================================================================
+COMBINED SYMPTOM PATTERNS
+================================================================================
+
+MILD SEVERITY PATTERN:
+- 2-4 symptoms present
+- Symptoms occur occasionally or intermittently
+- Minimal functional impairment
+- Can still work, study, and maintain relationships
+- Responds to lifestyle changes and self-help strategies
+- PHQ-9 Score: 5-9
+
+MODERATE SEVERITY PATTERN:
+- 5-7 symptoms present
+- Symptoms occur frequently (more than half the days)
+- Moderate functional impairment
+- Difficulty maintaining normal routines
+- Requires professional therapy (counseling or psychology)
+- May benefit from structured interventions (CBT, DBT)
+- PHQ-9 Score: 10-14
+
+MODERATELY SEVERE PATTERN:
+- 7-9 symptoms present
+- Symptoms occur most days
+- Significant functional impairment
+- Struggling to maintain work, school, or relationships
+- Requires intensive therapy
+- May need medication evaluation
+- PHQ-9 Score: 15-19
+
+SEVERE PATTERN:
+- 8-10 symptoms present
+- Symptoms occur nearly every day
+- Severe functional impairment or inability to function
+- May include suicidal thoughts or self-harm ideation
+- Requires immediate psychiatric intervention
+- Medication management likely needed
+- Crisis support may be necessary
+- PHQ-9 Score: 20-27
+
+================================================================================
+DURATION AND FREQUENCY CRITERIA
+================================================================================
+
+ACUTE (Short-term):
+- Symptoms present for 2 weeks to 3 months
+- May be related to specific stressor or life event
+- Often responds well to brief intervention
+
+PERSISTENT (Chronic):
+- Symptoms present for 3+ months
+- May indicate chronic condition requiring ongoing treatment
+- Needs comprehensive treatment plan
+
+RECURRENT:
+- History of previous episodes
+- Current episode represents relapse
+- May need maintenance treatment to prevent future episodes
+
+================================================================================
+FUNCTIONAL IMPAIRMENT ASSESSMENT
+================================================================================
+
+MINIMAL IMPAIRMENT (Mild):
+- Can perform job/school duties with some extra effort
+- Maintains most relationships
+- Self-care intact
+- Participates in some social activities
+
+MODERATE IMPAIRMENT (Moderate):
+- Reduced productivity at work/school
+- Some relationship strain
+- Self-care sometimes neglected
+- Limited social engagement
+
+SEVERE IMPAIRMENT (Severe):
+- Unable to work or attend school
+- Relationship breakdown or isolation
+- Self-care significantly compromised
+- Complete social withdrawal
+
+CRITICAL IMPAIRMENT (Severe/Crisis):
+- Cannot perform basic daily activities
+- Complete isolation
+- Self-care absent
+- Safety concerns present
+
+================================================================================
+RISK FACTORS REQUIRING SEVERITY ESCALATION
+================================================================================
+
+IMMEDIATE ESCALATION TO SEVERE:
+- Suicidal ideation with plan or intent
+- Self-harm behaviors
+- Psychotic symptoms (hallucinations, delusions)
+- Severe substance abuse complicating mental health
+- Inability to care for self (hygiene, eating, safety)
+- Homicidal thoughts
+- Severe agitation or aggression
+
+ESCALATION TO MODERATE-SEVERE:
+- Passive suicidal thoughts without plan
+- History of self-harm
+- Significant substance use
+- Rapid deterioration in functioning
+- Multiple previous episodes
+- Poor response to previous treatment
+- Limited social support
+
+================================================================================
+SPECIALIST ROUTING GUIDELINES
+================================================================================
+
+COUNSELOR (Mild Severity):
+- Adjustment issues and life transitions
+- Mild stress, anxiety, or depression
+- Relationship or family issues
+- Grief and loss (uncomplicated)
+- Self-esteem and personal growth
+- Preventive mental health care
+
+PSYCHOLOGIST (Moderate Severity):
+- Moderate depression or anxiety
+- Trauma and PTSD
+- Eating disorders
+- OCD and related disorders
+- Personality disorders
+- Complex grief
+- Requires evidence-based therapy (CBT, DBT, EMDR)
+- Psychological testing and assessment
+
+PSYCHIATRIST (Severe Severity):
+- Severe depression or anxiety
+- Bipolar disorder
+- Schizophrenia and psychotic disorders
+- Treatment-resistant conditions
+- Medication management needed
+- Suicidal ideation or self-harm risk
+- Hospitalization consideration
+- Complex cases requiring medical oversight
+
+================================================================================
+SPECIAL CONSIDERATIONS
+================================================================================
+
+COMORBIDITY:
+- Multiple conditions increase severity
+- Anxiety + Depression = Higher severity classification
+- Substance use + Mental health = Requires specialized treatment
+
+TRAUMA HISTORY:
+- PTSD or trauma may elevate severity
+- Requires trauma-informed care approach
+
+AGE FACTORS:
+- Adolescents: Consider developmental context
+- Elderly: Consider medical comorbidities and isolation
+
+CULTURAL FACTORS:
+- Cultural expression of symptoms varies
+- Consider cultural context in assessment
+- Language barriers may affect symptom reporting
+
+SOCIAL DETERMINANTS:
+- Homelessness, poverty, or lack of support increases severity
+- Access to care affects treatment planning
+
+================================================================================
+CRISIS INDICATORS (IMMEDIATE INTERVENTION REQUIRED)
+================================================================================
+
+RED FLAGS:
+- Active suicidal ideation with plan
+- Recent suicide attempt
+- Self-harm with increasing frequency
+- Psychotic symptoms
+- Severe agitation or inability to ensure safety
+- Acute substance intoxication affecting judgment
+- Homicidal ideation
+
+IMMEDIATE ACTIONS:
+- Contact emergency services (911)
+- Crisis hotline: 988 (Suicide & Crisis Lifeline)
+- Emergency room evaluation
+- Mobile crisis team
+- Do not leave person alone
+
+================================================================================
+NOTES ON ASSESSMENT
+================================================================================
+
+This document provides guidelines for educational purposes and to support clinical decision-making tools. It should NOT replace professional clinical judgment. All severity assessments should be:
+
+1. Individualized to the person's unique situation
+2. Culturally sensitive and contextually appropriate
+3. Reviewed by qualified mental health professionals
+4. Updated regularly as symptoms change
+5. Integrated with comprehensive clinical assessment
+
+Severity classification is a starting point for treatment planning, not a definitive diagnosis. Always err on the side of caution and escalate care when uncertain.

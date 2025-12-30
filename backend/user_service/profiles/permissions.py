@@ -59,3 +59,16 @@ class IsInternalService(BasePermission):
         print(f"Provided token: {provided_token}")
         
         return provided_token == expected_token
+
+
+class IsAuthenticatedJWTOrInternalService(BasePermission):
+    def has_permission(self, request, view):
+        # Check if it's an internal service request first
+        expected_token = getattr(settings, "INTERNAL_SERVICE_TOKEN", "dev-internal")
+        provided_token = request.headers.get("X-INTERNAL-TOKEN")
+        
+        if provided_token == expected_token:
+            return True
+        
+        # If not internal service, check JWT authentication
+        return hasattr(request, "user_data")

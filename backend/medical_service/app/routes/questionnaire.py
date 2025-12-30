@@ -124,13 +124,15 @@ async def get_questions():
 @router.post("/submit", response_model=SeverityResult)
 async def submit_questionnaire(
     questionnaire_data: QuestionnaireResponse,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    enable_rag: bool = True  # Optional RAG enhancement
 ):
     """
     Submit questionnaire and calculate severity score
     
     - Validates responses
     - Calculates SRTS severity score
+    - Optionally enhances with RAG insights
     - Stores encrypted assessment
     - Triggers high-risk alerts if needed
     - Returns specialist recommendation and suggested doctors based on ratings
@@ -157,6 +159,18 @@ async def submit_questionnaire(
     # Calculate severity using SRTS engine
     severity_result = SRTSEngine.calculate_severity(responses)
     
+    # Optionally enhance with RAG insights
+    rag_insights = None
+    if enable_rag:
+        try:
+            from app.ai_engine.langchain_rag_engine import get_langchain_rag_engine
+            rag_engine = get_langchain_rag_engine()
+            rag_insights = rag_engine.enhance_questionnaire_results(responses, severity_result)
+            logger.info(f"RAG insights generated for questionnaire submission")
+        except Exception as e:
+            logger.warning(f"RAG enhancement failed, continuing with SRTS only: {e}")
+            rag_insights = None
+    
     # Prepare severity log document - convert dict keys to strings for MongoDB
     responses_str_keys = {str(k): v for k, v in responses.items()}
     
@@ -169,7 +183,8 @@ async def submit_questionnaire(
         "high_risk": severity_result["high_risk"],
         "recommendations": severity_result["recommendations"],
         "notes": questionnaire_data.notes,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
+        "rag_insights": rag_insights  # Add RAG insights if available
     }
     
     # Encrypt sensitive fields
@@ -197,10 +212,16 @@ async def submit_questionnaire(
     try:
         async with httpx.AsyncClient() as client:
             # Call user service to get doctor suggestions
+            # Use internal service authentication token
+            headers = {
+                "Content-Type": "application/json",
+                "X-INTERNAL-TOKEN": settings.INTERNAL_SERVICE_TOKEN
+            }
+            
             response = await client.post(
                 f"{settings.USER_SERVICE_URL}/api/doctors/suggest/",
                 json={"severity_score": severity_result["raw_score"]},
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 timeout=10.0
             )
             
@@ -211,8 +232,10 @@ async def submit_questionnaire(
         logger.error(f"Failed to fetch doctor suggestions: {e}")
         # Continue without doctor suggestions if service is unavailable
     
-    # Add suggested doctors to the response
+    # Add suggested doctors and RAG insights to the response
     severity_result["suggested_doctors"] = suggested_doctors
+    if rag_insights:
+        severity_result["rag_insights"] = rag_insights
     
     return SeverityResult(
         severity_id=severity_id,

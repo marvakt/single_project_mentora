@@ -10,6 +10,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import os
 import re
+from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 

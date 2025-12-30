@@ -32,6 +32,7 @@ from .permissions import (
     IsDoctor,
     IsAdmin,
     IsInternalService,
+    IsAuthenticatedJWTOrInternalService,
 )
 from .authentication import JWTAuthentication
 
@@ -615,7 +616,7 @@ class RateDoctorAPIView(APIView):
 # =========================================================
 class DoctorSuggestionAPIView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticatedJWT]
+    permission_classes = [IsAuthenticatedJWTOrInternalService]
 
     def post(self, request):
         # Get severity score from request
