@@ -165,11 +165,14 @@ import DoctorProfile from './pages/doctor/DoctorProfile';
 import DoctorAvailability from './pages/doctor/DoctorAvailability';
 import DoctorAppointments from './pages/doctor/DoctorAppointments';
 import DoctorAppointmentDetail from './pages/doctor/DoctorAppointmentDetail';
+import DoctorPatients from './pages/doctor/DoctorPatients';
 
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUserManagement from './pages/admin/AdminUserManagement';
+import AdminSystemLogs from './pages/admin/AdminSystemLogs';
+import AdminSettings from './pages/admin/AdminSettings';
 
 // Shared Components
 import VideoConsultation from './components/VideoConsultation';
@@ -461,6 +464,17 @@ const App = () => {
       );
     }
 
+    if (currentView === 'doctor-patients') {
+      return (
+        <DoctorPatients
+          user={user}
+          token={token}
+          handleLogout={handleLogout}
+          setCurrentView={setCurrentView}
+        />
+      );
+    }
+
     // ==========================================
     // VIDEO CONSULTATION (SHARED)
     // ==========================================
@@ -503,6 +517,28 @@ const App = () => {
           user={user}
           token={token}
           setCurrentView={setCurrentView}
+        />
+      );
+    }
+
+    if (currentView === 'admin-logs') {
+      return (
+        <AdminSystemLogs
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
+          handleLogout={handleLogout}
+        />
+      );
+    }
+
+    if (currentView === 'admin-settings') {
+      return (
+        <AdminSettings
+          user={user}
+          token={token}
+          setCurrentView={setCurrentView}
+          handleLogout={handleLogout}
         />
       );
     }

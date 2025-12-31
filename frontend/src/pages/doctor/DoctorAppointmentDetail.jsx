@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import {
     Calendar, Clock, User, ArrowLeft, Video, FileText,
     DollarSign, Activity, MessageSquare, Phone, Mail,
     CheckCircle, AlertCircle, XCircle, Heart, Stethoscope,
-    Clipboard, TrendingUp, AlertTriangle, Info, Menu, Home, Settings, LogOut, Shield, Sparkles
+    Clipboard, TrendingUp, AlertTriangle, Info, Menu, Home, Settings, LogOut, Shield, Sparkles, Users
 } from 'lucide-react';
 import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
 
@@ -12,7 +11,7 @@ const DoctorAppointmentDetail = ({
     appointmentId,
     token,
     setCurrentView,
-    handleLogout, // Added handleLogout
+    handleLogout,
     onJoinVideo,
     onViewChat
 }) => {
@@ -114,6 +113,27 @@ const DoctorAppointmentDetail = ({
         } catch (err) {
             console.error('Error approving video session:', err);
             alert('Error approving video session');
+        }
+    };
+
+    const createVideoSession = async () => {
+        try {
+            const response = await apiCall(
+                `${APPOINTMENT_API}/appointments/${appointmentId}/video/create`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ provider: 'twilio' })
+                }
+            );
+            if (response.ok) {
+                fetchAppointmentDetail();
+            } else {
+                const errorData = await response.json();
+                alert(errorData.error || 'Failed to create video session');
+            }
+        } catch (err) {
+            console.error('Error creating video session:', err);
+            alert('Failed to create video session');
         }
     };
 
@@ -282,19 +302,30 @@ const DoctorAppointmentDetail = ({
                                 </button>
                                 {appointment.status === 'confirmed' && (
                                     <>
-                                        <button
-                                            onClick={() => onJoinVideo(appointment.id)}
-                                            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-lg shadow-teal-500/20 hover:scale-[1.02] transition flex items-center gap-2"
-                                        >
-                                            <Video className="w-4 h-4" /> Join Session
-                                        </button>
-                                        {!appointment.video_session?.doctor_approved && (
+                                        {!appointment.video_session ? (
                                             <button
-                                                onClick={approveVideoSession}
-                                                className="px-6 py-3 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 font-bold hover:bg-amber-100 transition flex items-center gap-2"
+                                                onClick={createVideoSession}
+                                                className="px-6 py-3 rounded-2xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-2"
                                             >
-                                                <Shield className="w-4 h-4" /> Grant Entry
+                                                <Video className="w-4 h-4" /> Create Session
                                             </button>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => onJoinVideo(appointment.id)}
+                                                    className="px-6 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-lg shadow-teal-500/20 hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-2"
+                                                >
+                                                    <Video className="w-4 h-4" /> Join Session
+                                                </button>
+                                                {!appointment.video_session.doctor_approved && (
+                                                    <button
+                                                        onClick={approveVideoSession}
+                                                        className="px-6 py-3 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 font-bold hover:bg-amber-100 transition flex items-center gap-2"
+                                                    >
+                                                        <Shield className="w-4 h-4" /> Grant Entry
+                                                    </button>
+                                                )}
+                                            </>
                                         )}
                                     </>
                                 )}

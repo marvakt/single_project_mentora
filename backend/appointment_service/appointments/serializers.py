@@ -330,6 +330,7 @@ class AppointmentDetailSerializer(serializers.ModelSerializer):
                 'session_id': vs.session_id,
                 'started_at': vs.started_at.isoformat() if vs.started_at else None,
                 'is_active': vs.is_active,
+                'doctor_approved': vs.doctor_approved,
             }
         return None
     

@@ -7,11 +7,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, LogOut, CheckCircle, XCircle, FileText, Eye, X, 
-  User, Mail, Phone, Award, Briefcase, DollarSign, Calendar 
+  User, Mail, Phone, Award, Briefcase, DollarSign, Calendar,
+  Menu, Home, Users, Settings, Activity, Search, Filter, ChevronRight
 } from 'lucide-react';
 import { USER_API } from '../../config/api';
 
-const AdminDashboard = ({ user, token, handleLogout }) => {
+const AdminDashboard = ({ user, token, handleLogout, setCurrentView }) => {
   const [pendingDoctors, setPendingDoctors] = useState([]);
   const [allDoctors, setAllDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +20,8 @@ const AdminDashboard = ({ user, token, handleLogout }) => {
   const [doctorDocuments, setDoctorDocuments] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
-  const [currentView, setCurrentView] = useState('pending'); // pending, approved, rejected, all
+  const [currentViewFilter, setCurrentViewFilter] = useState('pending'); // pending, approved, rejected, all
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchAllDoctors();
@@ -48,7 +50,7 @@ const AdminDashboard = ({ user, token, handleLogout }) => {
   };
 
   const getFilteredDoctors = () => {
-    switch(currentView) {
+    switch(currentViewFilter) {
       case 'pending':
         return allDoctors.filter(d => d.doctor?.doctor_status === 'pending');
       case 'approved':
@@ -145,13 +147,15 @@ const AdminDashboard = ({ user, token, handleLogout }) => {
 
   const getStatusBadge = (status) => {
     const badges = {
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: '⏳ Pending' },
-      approved: { bg: 'bg-green-100', text: 'text-green-800', label: '✅ Approved' },
-      rejected: { bg: 'bg-red-100', text: 'text-red-800', label: '❌ Rejected' },
+      pending: { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Pending Review', icon: Activity },
+      approved: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: 'Approved', icon: CheckCircle },
+      rejected: { bg: 'bg-rose-100', text: 'text-rose-800', label: 'Rejected', icon: XCircle },
     };
     const badge = badges[status] || badges.pending;
+    const Icon = badge.icon;
     return (
-      <span className={`px-3 py-1 ${badge.bg} ${badge.text} text-xs font-semibold rounded-full`}>
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1 ${badge.bg} ${badge.text} text-xs font-bold uppercase tracking-wider rounded-lg`}>
+        <Icon className="w-3.5 h-3.5" />
         {badge.label}
       </span>
     );
@@ -159,427 +163,352 @@ const AdminDashboard = ({ user, token, handleLogout }) => {
 
   const filteredDoctors = getFilteredDoctors();
 
+  // Sidebar Nav Item Helper
+  const NavItem = ({ icon: Icon, label, view, active }) => (
+    <button
+        onClick={() => { if(view) setCurrentView(view); setSidebarOpen(false); }}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
+            ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+    >
+        <Icon className={`w-5 h-5 ${active ? 'text-teal-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+        <span>{label}</span>
+        {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-teal-500"></div>}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <nav className="bg-white shadow-lg sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <Shield className="w-8 h-8 text-purple-600" />
-              <span className="text-xl font-bold text-gray-800">Mentora Admin</span>
+    <div className="flex min-h-screen bg-[#F8FAFC]">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/20 z-40 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>}
+
+      {/* Sidebar Navigation */}
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 shadow-xl lg:shadow-none transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="flex flex-col h-full">
+            <div className="p-6 flex items-center gap-3 border-b border-gray-50">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <Shield className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent tracking-tight">Mentora</h1>
+                    <p className="text-xs text-gray-400 font-medium">Admin Portal</p>
+                </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:block text-sm text-gray-600">
-                Logged in as: <span className="font-semibold">{user?.email}</span>
-              </div>
-              <button 
-                onClick={handleLogout} 
-                className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition flex items-center space-x-2"
-              >
-                <LogOut className="w-5 h-5" />
-                <span className="hidden md:inline">Logout</span>
-              </button>
+            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+                <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Platform</p>
+                <NavItem icon={Home} label="Overview" view="admin-dashboard" active={true} />
+                <NavItem icon={Users} label="User Management" view="admin-users" />
+                <NavItem icon={Activity} label="System Logs" view="admin-logs" />
+                <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-8">Configuration</p>
+                <NavItem icon={Settings} label="Settings" view="admin-settings" />
+            </nav>
+            <div className="p-4 border-t border-gray-100">
+                <div className="bg-gradient-to-b from-gray-50 to-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm">
+                        AD
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-900 truncate">Admin</p>
+                        <button onClick={handleLogout} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
+                            <LogOut className="w-3 h-3" /> Sign Out
+                        </button>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
-      </nav>
+      </aside>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8 text-gray-800">Doctor Management</h1>
-
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-lg">
-            <p className="text-gray-600 text-sm font-medium">Total Doctors</p>
-            <p className="text-3xl font-bold text-blue-600 mt-2">{allDoctors.length}</p>
-          </div>
-          <div 
-            className="bg-white rounded-xl p-6 shadow-lg cursor-pointer hover:shadow-xl transition"
-            onClick={() => setCurrentView('approved')}
-          >
-            <p className="text-gray-600 text-sm font-medium">Approved</p>
-            <p className="text-3xl font-bold text-green-600 mt-2">
-              {allDoctors.filter(d => d.doctor?.doctor_status === 'approved').length}
-            </p>
-          </div>
-          <div 
-            className="bg-white rounded-xl p-6 shadow-lg cursor-pointer hover:shadow-xl transition"
-            onClick={() => setCurrentView('pending')}
-          >
-            <p className="text-gray-600 text-sm font-medium">Pending Approval</p>
-            <p className="text-3xl font-bold text-yellow-600 mt-2">
-              {pendingDoctors.length}
-            </p>
-          </div>
-          <div 
-            className="bg-white rounded-xl p-6 shadow-lg cursor-pointer hover:shadow-xl transition"
-            onClick={() => setCurrentView('rejected')}
-          >
-            <p className="text-gray-600 text-sm font-medium">Rejected</p>
-            <p className="text-3xl font-bold text-red-600 mt-2">
-              {allDoctors.filter(d => d.doctor?.doctor_status === 'rejected').length}
-            </p>
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="bg-white rounded-xl shadow-lg mb-6">
-          <div className="border-b border-gray-200">
-            <div className="flex space-x-8 px-6">
-              {['pending', 'approved', 'rejected', 'all'].map(view => (
-                <button
-                  key={view}
-                  onClick={() => setCurrentView(view)}
-                  className={`py-4 border-b-2 font-semibold transition capitalize ${
-                    currentView === view
-                      ? 'border-purple-600 text-purple-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-800'
-                  }`}
-                >
-                  {view} ({view === 'all' ? allDoctors.length : 
-                    view === 'pending' ? pendingDoctors.length :
-                    view === 'approved' ? allDoctors.filter(d => d.doctor?.doctor_status === 'approved').length :
-                    allDoctors.filter(d => d.doctor?.doctor_status === 'rejected').length})
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Doctors List */}
-          <div className="p-6">
-            {loading ? (
-              <p className="text-center text-gray-600 py-8">Loading doctors...</p>
-            ) : filteredDoctors.length === 0 ? (
-              <div className="text-center py-12">
-                <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 text-lg">No doctors found in this category</p>
+      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative">
+          {/* Mobile Header */}
+          <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+              <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center"><Shield className="w-4 h-4 text-white" /></div>
+                  <span className="font-bold text-gray-800">Mentora Admin</span>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredDoctors.map((doctor, idx) => (
-                  <div 
-                    key={idx} 
-                    className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition bg-white"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                            <User className="w-6 h-6 text-purple-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-lg text-gray-800">
-                              {doctor.name || 'Name not provided'}
-                            </h3>
-                            {getStatusBadge(doctor.doctor?.doctor_status)}
-                          </div>
-                        </div>
-                        
-                        <div className="grid md:grid-cols-2 gap-3 text-sm ml-15">
-                          <div className="flex items-center space-x-2 text-gray-600">
-                            <Mail className="w-4 h-4" />
-                            <span>{doctor.email}</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-gray-600">
-                            <Phone className="w-4 h-4" />
-                            <span>{doctor.phone || 'Not provided'}</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-gray-600">
-                            <Award className="w-4 h-4" />
-                            <span>{doctor.doctor?.specialization || 'Not specified'}</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-gray-600">
-                            <Briefcase className="w-4 h-4" />
-                            <span>{doctor.doctor?.experience_years || 0} years experience</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-gray-600">
-                            <DollarSign className="w-4 h-4" />
-                            <span>₹{doctor.doctor?.consultation_fee || 0} per session</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-gray-600">
-                            <Calendar className="w-4 h-4" />
-                            <span>Registered: {new Date(doctor.created_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <button
-                        onClick={() => viewDoctorDetails(doctor)}
-                        className="bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700 transition flex items-center space-x-2 font-semibold"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>Review Details</span>
-                      </button>
+              <button onClick={() => setSidebarOpen(true)} className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg"><Menu className="w-6 h-6" /></button>
+          </header>
+
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+            <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none -z-10"></div>
+            
+            <div className="max-w-6xl mx-auto">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+                    <div>
+                        <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Admin Overview</h2>
+                        <p className="text-gray-500 font-medium mt-1">Manage doctors and platform validation</p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Doctor Details Modal */}
-      {showModal && selectedDoctor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-5xl w-full my-8">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">Doctor Verification Review</h2>
-                <p className="text-sm text-gray-600 mt-1">Complete profile and document verification</p>
-              </div>
-              <button 
-                onClick={closeModal} 
-                className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-              
-              {/* Status Banner */}
-              <div className={`p-4 rounded-lg border-l-4 ${
-                selectedDoctor.doctor?.doctor_status === 'approved' 
-                  ? 'bg-green-50 border-green-500' 
-                  : selectedDoctor.doctor?.doctor_status === 'rejected'
-                  ? 'bg-red-50 border-red-500'
-                  : 'bg-yellow-50 border-yellow-500'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      Current Status: {getStatusBadge(selectedDoctor.doctor?.doctor_status)}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {selectedDoctor.doctor?.doctor_status === 'approved' 
-                        ? 'This doctor is approved and can accept appointments'
-                        : selectedDoctor.doctor?.doctor_status === 'rejected'
-                        ? 'This application has been rejected'
-                        : 'Please review all information and documents before approval'}
-                    </p>
-                  </div>
                 </div>
-              </div>
 
-              {/* Doctor Profile Information */}
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-lg border border-purple-200">
-                <h3 className="font-bold text-xl mb-4 text-gray-800 flex items-center space-x-2">
-                  <User className="w-6 h-6 text-purple-600" />
-                  <span>Doctor Profile Information</span>
-                </h3>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Full Name</p>
-                      <p className="text-lg font-semibold text-gray-800">
-                        {selectedDoctor.name || '❌ Not provided'}
-                      </p>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group hover:shadow-lg transition">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><Users className="w-16 h-16 text-indigo-600" /></div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Doctors</p>
+                        <p className="text-3xl font-black text-indigo-900">{allDoctors.length}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Email Address</p>
-                      <p className="text-lg font-semibold text-gray-800">{selectedDoctor.email}</p>
+                    <div 
+                        onClick={() => setCurrentViewFilter('pending')}
+                        className={`bg-white p-5 rounded-3xl border shadow-sm relative overflow-hidden group cursor-pointer transition ${currentViewFilter === 'pending' ? 'ring-2 ring-amber-400 border-amber-200' : 'border-gray-100 hover:shadow-lg'}`}
+                    >
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><Activity className="w-16 h-16 text-amber-600" /></div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Pending</p>
+                        <p className="text-3xl font-black text-amber-600">{pendingDoctors.length}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Phone Number</p>
-                      <p className="text-lg font-semibold text-gray-800">
-                        {selectedDoctor.phone || '❌ Not provided'}
-                      </p>
+                    <div 
+                        onClick={() => setCurrentViewFilter('approved')}
+                        className={`bg-white p-5 rounded-3xl border shadow-sm relative overflow-hidden group cursor-pointer transition ${currentViewFilter === 'approved' ? 'ring-2 ring-emerald-500 border-emerald-200' : 'border-gray-100 hover:shadow-lg'}`}
+                    >
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><CheckCircle className="w-16 h-16 text-emerald-600" /></div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Approved</p>
+                        <p className="text-3xl font-black text-emerald-600">
+                             {allDoctors.filter(d => d.doctor?.doctor_status === 'approved').length}
+                        </p>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Gender</p>
-                      <p className="text-lg font-semibold text-gray-800 capitalize">
-                        {selectedDoctor.gender || '❌ Not provided'}
-                      </p>
+                    <div 
+                        onClick={() => setCurrentViewFilter('rejected')}
+                        className={`bg-white p-5 rounded-3xl border shadow-sm relative overflow-hidden group cursor-pointer transition ${currentViewFilter === 'rejected' ? 'ring-2 ring-rose-500 border-rose-200' : 'border-gray-100 hover:shadow-lg'}`}
+                    >
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><XCircle className="w-16 h-16 text-rose-600" /></div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Rejected</p>
+                        <p className="text-3xl font-black text-rose-600">
+                            {allDoctors.filter(d => d.doctor?.doctor_status === 'rejected').length}
+                        </p>
                     </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Specialization</p>
-                      <p className="text-lg font-semibold text-gray-800">
-                        {selectedDoctor.doctor?.specialization || '❌ Not specified'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Years of Experience</p>
-                      <p className="text-lg font-semibold text-gray-800">
-                        {selectedDoctor.doctor?.experience_years || 0} years
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Consultation Fee</p>
-                      <p className="text-lg font-semibold text-green-600">
-                        ₹{selectedDoctor.doctor?.consultation_fee || 0} per session
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Registration Date</p>
-                      <p className="text-lg font-semibold text-gray-800">
-                        {new Date(selectedDoctor.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
                 </div>
-                {selectedDoctor.doctor?.bio && (
-                  <div className="mt-4 pt-4 border-t border-purple-200">
-                    <p className="text-sm text-gray-600 font-medium mb-2">Professional Bio</p>
-                    <p className="text-gray-700 leading-relaxed">{selectedDoctor.doctor.bio}</p>
-                  </div>
-                )}
-              </div>
 
-              {/* Documents Section */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6">
-                <h3 className="font-bold text-xl mb-4 text-gray-800 flex items-center space-x-2">
-                  <FileText className="w-6 h-6 text-purple-600" />
-                  <span>Submitted Documents for Verification</span>
-                </h3>
-                
-                {loadingDocs ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-                    <p className="text-gray-600 mt-4">Loading documents...</p>
-                  </div>
-                ) : doctorDocuments.length === 0 ? (
-                  <div className="bg-red-50 border-2 border-red-200 p-6 rounded-lg text-center">
-                    <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                    <p className="text-red-800 font-semibold text-lg">⚠️ No Documents Uploaded</p>
-                    <p className="text-red-600 text-sm mt-2">
-                      This doctor has not uploaded any verification documents yet.
-                    </p>
-                    <p className="text-red-600 text-sm font-semibold mt-2">
-                      ❌ Cannot approve without documents!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {doctorDocuments.map((doc, idx) => (
-                      <div key={idx} className="border-2 border-gray-300 rounded-lg p-4 hover:border-purple-400 hover:bg-purple-50 transition">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4 flex-1">
-                            <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                              <FileText className="w-6 h-6 text-purple-600" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-bold text-gray-800 capitalize text-lg">
-                                {doc.doc_type.replace(/_/g, ' ')}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()} at {new Date(doc.uploaded_at).toLocaleTimeString()}
-                              </p>
-                              {doc.verified ? (
-                                <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm font-semibold rounded-full mt-2">
-                                  <CheckCircle className="w-4 h-4 mr-1" />
-                                  Verified by Admin
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-semibold rounded-full mt-2">
-                                  ⏳ Awaiting Verification
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <a
-                            href={doc.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition flex items-center space-x-2 font-semibold"
-                          >
-                            <Eye className="w-5 h-5" />
-                            <span>View Document</span>
-                          </a>
-                        </div>
-                      </div>
+                {/* Filter Tabs */}
+                <div className="flex space-x-2 overflow-x-auto pb-2 mb-6">
+                    {['pending', 'approved', 'rejected', 'all'].map(view => (
+                        <button
+                            key={view}
+                            onClick={() => setCurrentViewFilter(view)}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap ${
+                                currentViewFilter === view
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'
+                            }`}
+                        >
+                            {view.charAt(0).toUpperCase() + view.slice(1)} ({view === 'all' ? allDoctors.length : 
+                            view === 'pending' ? pendingDoctors.length :
+                            view === 'approved' ? allDoctors.filter(d => d.doctor?.doctor_status === 'approved').length :
+                            allDoctors.filter(d => d.doctor?.doctor_status === 'rejected').length})
+                        </button>
                     ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Verification Checklist */}
-              <div className="bg-blue-50 border border-blue-200 p-5 rounded-lg">
-                <h4 className="font-bold text-blue-900 mb-3 flex items-center space-x-2">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>Verification Checklist</span>
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" checked={!!selectedDoctor.name} readOnly className="rounded" />
-                    <span className="text-blue-800">Full name provided</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" checked={!!selectedDoctor.phone} readOnly className="rounded" />
-                    <span className="text-blue-800">Phone number provided</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" checked={!!selectedDoctor.doctor?.specialization} readOnly className="rounded" />
-                    <span className="text-blue-800">Specialization specified</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" checked={doctorDocuments.length >= 3} readOnly className="rounded" />
-                    <span className="text-blue-800">Minimum 3 documents uploaded</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input type="checkbox" checked={!!selectedDoctor.doctor?.bio} readOnly className="rounded" />
-                    <span className="text-blue-800">Professional bio provided</span>
-                  </label>
                 </div>
-              </div>
 
-              {/* Action Buttons */}
-              {selectedDoctor.doctor?.doctor_status === 'pending' && (
-                <div className="flex items-center space-x-4 pt-4 border-t-2">
-                  <button
-                    onClick={() => handleApprove(selectedDoctor.user_id)}
-                    disabled={doctorDocuments.length === 0}
-                    className="flex-1 bg-green-600 text-white px-6 py-4 rounded-xl hover:bg-green-700 transition flex items-center justify-center space-x-2 font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                  >
-                    <CheckCircle className="w-6 h-6" />
-                    <span>Approve Doctor</span>
-                  </button>
-                  <button
-                    onClick={() => handleReject(selectedDoctor.user_id)}
-                    className="flex-1 bg-red-600 text-white px-6 py-4 rounded-xl hover:bg-red-700 transition flex items-center justify-center space-x-2 font-bold text-lg shadow-lg"
-                  >
-                    <XCircle className="w-6 h-6" />
-                    <span>Reject Application</span>
-                  </button>
+                {/* Doctors Grid */}
+                <div className="grid gap-4">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
+                            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Loading Doctors...</p>
+                        </div>
+                    ) : filteredDoctors.length === 0 ? (
+                        <div className="bg-white rounded-3xl p-20 text-center border-2 border-dashed border-gray-100">
+                             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Shield className="w-10 h-10 text-gray-300" />
+                            </div>
+                            <h4 className="text-xl font-bold text-gray-900 mb-2">No doctors found</h4>
+                            <p className="text-gray-500 max-w-sm mx-auto">No doctors match the current filter.</p>
+                        </div>
+                    ) : (
+                        filteredDoctors.map((doctor) => (
+                            <div key={doctor.user_id} className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition flex flex-col md:flex-row md:items-center justify-between gap-6 group">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-lg">
+                                        {doctor.name ? doctor.name.charAt(0) : 'D'}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-lg">{doctor.name || 'Unknown Doctor'}</h3>
+                                        <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
+                                            <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {doctor.email}</span>
+                                            {doctor.doctor?.specialization && <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" /> {doctor.doctor.specialization}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 self-end md:self-auto">
+                                    {getStatusBadge(doctor.doctor?.doctor_status)}
+                                    <button 
+                                        onClick={() => viewDoctorDetails(doctor)}
+                                        className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-bold text-sm hover:bg-indigo-100 transition flex items-center gap-2"
+                                    >
+                                        <Eye className="w-4 h-4" /> Review
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
-              )}
-
-              {selectedDoctor.doctor?.doctor_status === 'approved' && (
-                <div className="bg-green-50 border border-green-300 p-4 rounded-lg text-center">
-                  <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                  <p className="text-green-800 font-bold text-lg">This doctor is already approved!</p>
-                  <p className="text-green-700 text-sm mt-1">They can accept appointments on the platform.</p>
-                </div>
-              )}
-
-              {selectedDoctor.doctor?.doctor_status === 'rejected' && (
-                <div className="bg-red-50 border border-red-300 p-4 rounded-lg text-center">
-                  <XCircle className="w-12 h-12 text-red-600 mx-auto mb-2" />
-                  <p className="text-red-800 font-bold text-lg">This application has been rejected</p>
-                </div>
-              )}
-
-              {/* Important Notice */}
-              <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-700">
-                <p className="font-semibold mb-2">⚠️ Important:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Verify all documents carefully before approval</li>
-                  <li>Check medical license validity and registration number</li>
-                  <li>Ensure degree certificates are from recognized institutions</li>
-                  <li>Approved doctors will be visible to patients immediately</li>
-                  <li>An email notification will be sent to the doctor upon approval/rejection</li>
-                </ul>
-              </div>
             </div>
           </div>
-        </div>
-      )}
+
+          {/* DETAIL MODAL */}
+          {showModal && selectedDoctor && (
+             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                    {/* Header */}
+                    <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                <Shield className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">Doctor Verification</h2>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Target:</span>
+                                    <span className="text-sm font-semibold text-gray-700">{selectedDoctor.name}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={closeModal} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-xl transition text-gray-400">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+
+                    {/* Scrollable Content */}
+                    <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                         {/* Status Banner */}
+                         <div className={`p-4 rounded-xl border ${
+                            selectedDoctor.doctor?.doctor_status === 'approved' 
+                            ? 'bg-emerald-50 border-emerald-100' 
+                            : selectedDoctor.doctor?.doctor_status === 'rejected'
+                            ? 'bg-rose-50 border-rose-100'
+                            : 'bg-amber-50 border-amber-100'
+                        }`}>
+                            <div className="flex items-center gap-3">
+                                {selectedDoctor.doctor?.doctor_status === 'approved' ? <CheckCircle className="text-emerald-600" /> : 
+                                 selectedDoctor.doctor?.doctor_status === 'rejected' ? <XCircle className="text-rose-600" /> : 
+                                 <Activity className="text-amber-600" />}
+                                <div>
+                                    <h4 className={`font-bold ${
+                                        selectedDoctor.doctor?.doctor_status === 'approved' ? 'text-emerald-900' : 
+                                        selectedDoctor.doctor?.doctor_status === 'rejected' ? 'text-rose-900' : 'text-amber-900'
+                                    }`}>
+                                        Status: {selectedDoctor.doctor?.doctor_status.toUpperCase()}
+                                    </h4>
+                                    <p className="text-sm opacity-80 mt-1">
+                                        {selectedDoctor.doctor?.doctor_status === 'approved' 
+                                            ? 'This doctor is verified and listed publicly.'
+                                            : selectedDoctor.doctor?.doctor_status === 'rejected'
+                                            ? 'This application has been denied.'
+                                            : 'Please audit the submitted documents below before approving.'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Profile Data */}
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Personal Info</h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="text-xs text-gray-500 mb-1">Full Name</p>
+                                        <p className="font-semibold text-gray-900 text-lg">{selectedDoctor.name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 mb-1">Contact</p>
+                                        <p className="font-semibold text-gray-900">{selectedDoctor.email}</p>
+                                        <p className="font-semibold text-gray-900">{selectedDoctor.phone || 'No phone'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-6">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Professional Profile</h3>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs text-gray-500 mb-1">Specialization</p>
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold">
+                                                <Award className="w-3.5 h-3.5" />
+                                                {selectedDoctor.doctor?.specialization || 'N/A'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 mb-1">Experience</p>
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-sm font-bold">
+                                                <Briefcase className="w-3.5 h-3.5" />
+                                                {selectedDoctor.doctor?.experience_years || 0} Years
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 mb-1">Consultation Fee</p>
+                                        <p className="font-black text-2xl text-gray-900">₹{selectedDoctor.doctor?.consultation_fee || 0}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Documents */}
+                        <div>
+                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2 mb-6">Verification Documents</h3>
+                             {loadingDocs ? (
+                                <div className="py-8 text-center text-gray-500">Loading documents...</div>
+                             ) : doctorDocuments.length === 0 ? (
+                                <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 text-center">
+                                    <p className="text-gray-500 font-medium">No documents uploaded.</p>
+                                </div>
+                             ) : (
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    {doctorDocuments.map((doc, idx) => (
+                                        <div key={idx} className="p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition bg-white group">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                                        <FileText className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-gray-900 capitalize">{doc.doc_type.replace(/_/g, ' ')}</p>
+                                                        <p className="text-xs text-gray-400">{new Date(doc.uploaded_at).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 rounded-lg transition">
+                                                    <Eye className="w-4 h-4" />
+                                                </a>
+                                            </div>
+                                            <div className="mt-3">
+                                                 {doc.verified ? (
+                                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                                                         <CheckCircle className="w-3 h-3" /> Verified
+                                                     </span>
+                                                 ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                                                        <Activity className="w-3 h-3" /> Awaiting
+                                                    </span>
+                                                 )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                             )}
+                        </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    {selectedDoctor.doctor?.doctor_status === 'pending' && (
+                        <div className="p-6 border-t border-gray-100 bg-gray-50 flex gap-4">
+                            <button 
+                                onClick={() => handleReject(selectedDoctor.user_id)}
+                                className="flex-1 py-4 rounded-xl font-bold bg-white border border-gray-200 text-gray-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition shadow-sm"
+                            >
+                                Reject Application
+                            </button>
+                            <button 
+                                onClick={() => handleApprove(selectedDoctor.user_id)}
+                                className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 transition"
+                            >
+                                Approve Doctor
+                            </button>
+                        </div>
+                    )}
+                </div>
+             </div>
+          )}
+      </main>
     </div>
   );
 };

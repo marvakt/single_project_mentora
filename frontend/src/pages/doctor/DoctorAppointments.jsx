@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import {
-  Calendar, Clock, User, Video, CheckCircle, AlertCircle,
+  Calendar, Clock, User, Users, Video, CheckCircle, AlertCircle,
   Activity, FileText, Filter, Search, ArrowLeft, XCircle,
   DollarSign, Heart, MessageSquare, Phone, Mail, Menu, Home, Settings, LogOut
 } from 'lucide-react';
@@ -184,6 +183,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Mobile Header */}
         <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-teal-500 flex items-center justify-center"><Heart className="w-4 h-4 text-white" fill="white" /></div>
@@ -203,7 +203,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group">
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group hover:shadow-md transition">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center group-hover:scale-110 transition">
                     <Calendar className="w-6 h-6 text-teal-600" />
@@ -215,7 +215,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group">
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group hover:shadow-md transition">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center group-hover:scale-110 transition">
                     <Clock className="w-6 h-6 text-emerald-600" />
@@ -227,7 +227,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group col-span-2 lg:col-span-1">
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group col-span-2 lg:col-span-1 hover:shadow-md transition">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition">
                     <FileText className="w-6 h-6 text-indigo-600" />
@@ -241,19 +241,19 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
             </div>
 
             {/* Filters & Search */}
-            <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-8">
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-8 sticky top-0 z-20">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
                   <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Search by patient ID or notes..."
-                    className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-teal-100 rounded-2xl pl-11 pr-4 py-3 text-sm font-medium transition outline-none"
+                    className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-teal-300 focus:ring-4 focus:ring-teal-500/10 rounded-2xl pl-11 pr-4 py-3 text-sm font-bold text-gray-700 transition outline-none"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div className="flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-2">
+                <div className="flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-2 border border-transparent focus-within:bg-white focus-within:border-teal-300 focus-within:ring-4 focus-within:ring-teal-500/10 transition">
                   <Filter className="w-4 h-4 text-gray-400" />
                   <select
                     className="bg-transparent text-sm font-bold text-gray-600 outline-none cursor-pointer pr-4"
@@ -277,15 +277,15 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
                 <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Synchronizing Records...</p>
               </div>
             ) : filteredAppointments.length === 0 ? (
-              <div className="bg-white rounded-3xl p-20 text-center border border-dashed border-gray-200">
+              <div className="bg-white rounded-3xl p-20 text-center border-2 border-dashed border-gray-100">
                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Calendar className="w-10 h-10 text-gray-200" />
+                  <Calendar className="w-10 h-10 text-gray-300" />
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 mb-2">No matching appointments</h4>
-                <p className="text-gray-500 max-w-sm mx-auto mb-8 font-medium italic">We couldn't find any appointment records for this view.</p>
+                <p className="text-gray-500 max-w-sm mx-auto mb-8 font-medium">We couldn't find any appointment records for this view.</p>
                 <button
                   onClick={() => { setSearchTerm(''); setFilter('all'); }}
-                  className="text-teal-600 font-bold text-sm hover:underline uppercase tracking-widest"
+                  className="text-teal-600 font-bold text-sm hover:text-teal-800 uppercase tracking-widest transition"
                 >
                   Reset All Filters
                 </button>
@@ -307,12 +307,12 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
                       <div className="flex flex-col lg:flex-row lg:items-center gap-8">
                         {/* Patient Info */}
                         <div className="flex items-center gap-4 lg:w-72 shrink-0">
-                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-teal-500/10">
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-teal-500/10 shrink-0">
                             {apt.user_id?.charAt(0)?.toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <h4 className="font-bold text-gray-900 truncate">Patient {apt.user_id?.substring(0, 8)}</h4>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ID: {apt.user_id?.substring(0, 12)}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">ID: {apt.user_id?.substring(0, 12)}</p>
                             <div className="flex gap-2 mt-2">
                               <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border ${status.border} ${status.bg} ${status.text}`}>
                                 {status.label}
@@ -366,7 +366,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
                         <div className="shrink-0 flex items-center gap-3">
                           <button
                             onClick={() => onViewDetail(apt.id)}
-                            className="w-10 h-10 rounded-xl border border-gray-100 flex items-center justify-center text-gray-400 hover:text-teal-600 hover:border-teal-100 hover:bg-teal-50 transition shadow-sm"
+                            className="w-10 h-10 rounded-xl border border-gray-100 flex items-center justify-center text-gray-400 hover:text-teal-600 hover:border-teal-200 hover:bg-teal-50 transition shadow-sm"
                             title="View Details"
                           >
                             <FileText className="w-5 h-5" />
@@ -375,7 +375,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
                           {apt.status === 'confirmed' && !isPast && (
                             <button
                               onClick={() => onJoinVideo(apt.id)}
-                              className="bg-teal-600 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-teal-500/20 hover:scale-[1.02] transition"
+                              className="bg-teal-600 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-teal-500/20 hover:scale-[1.02] active:scale-[0.98] transition"
                             >
                               <Video className="w-4 h-4" /> Join Call
                             </button>

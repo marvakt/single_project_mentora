@@ -676,6 +676,7 @@ class AppointmentCancelAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedJWT]
 
+    @transaction.atomic
     def post(self, request, id):
         """Cancel an appointment."""
         try:
@@ -720,6 +721,7 @@ class AppointmentCompleteAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedJWT, IsDoctorRole]
 
+    @transaction.atomic
     def post(self, request, id):
         """Mark appointment as completed (Doctor only)."""
         try:

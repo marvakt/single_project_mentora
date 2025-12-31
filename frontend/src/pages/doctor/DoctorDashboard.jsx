@@ -1,18 +1,20 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Heart, Calendar, Users, CheckCircle, DollarSign, Bell, User,
   LogOut, Clock, Settings, FileText, Menu, Home, Activity, Sparkles, TrendingUp, AlertCircle
 } from 'lucide-react';
-import { USER_API } from '../../config/api';
+import { USER_API, APPOINTMENT_API, apiCall } from '../../config/api';
 
 const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
   const [profile, setProfile] = useState(null);
   const [doctorProfile, setDoctorProfile] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchProfile();
+    fetchAppointments();
   }, []);
 
   const fetchProfile = async () => {
@@ -30,6 +32,42 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
     }
   };
 
+  const fetchAppointments = async () => {
+    setLoading(true);
+    try {
+      const response = await apiCall(`${APPOINTMENT_API}/appointments/`);
+      if (response.ok) {
+        const data = await response.json();
+        const appointmentsList = data.appointments || data || [];
+        setAppointments(appointmentsList);
+      }
+    } catch (err) {
+      console.error('Failed to fetch appointments:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getUpcomingAppointments = () => {
+    const now = new Date();
+    return appointments
+      .filter(apt => new Date(apt.scheduled_at) > now && apt.status === 'confirmed')
+      .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
+      .slice(0, 3);
+  };
+
+  const getTodayCount = () => {
+    const today = new Date().toDateString();
+    return appointments.filter(apt =>
+      new Date(apt.scheduled_at).toDateString() === today && apt.status === 'confirmed'
+    ).length;
+  };
+
+  const getTotalPatients = () => {
+    const uniquePatients = new Set(appointments.map(apt => apt.user_id));
+    return uniquePatients.size;
+  };
+
   // Sidebar Nav Item Helper
   const NavItem = ({ icon: Icon, label, view, active }) => (
     <button
@@ -44,6 +82,8 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
       {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-teal-500"></div>}
     </button>
   );
+
+  const upcomingAppointments = getUpcomingAppointments();
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
@@ -156,7 +196,7 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                   </span>
                   <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-2">Welcome, Dr. {profile?.name || 'Doctor'}</h1>
                   <p className="text-gray-500 font-medium text-lg max-w-lg leading-relaxed">
-                    Your clinical summary for today. We've got 0 appointments waiting for your attention.
+                    Your clinical summary for today. We've got {getTodayCount()} appointments waiting for your attention.
                   </p>
 
                   <div className="flex flex-wrap gap-4 mt-8">
@@ -195,7 +235,7 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                   <Calendar className="w-6 h-6 text-teal-600" />
                 </div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Sessions Today</p>
-                <h4 className="text-3xl font-black text-gray-900 tracking-tighter">0</h4>
+                <h4 className="text-3xl font-black text-gray-900 tracking-tighter">{getTodayCount()}</h4>
               </div>
 
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
@@ -203,7 +243,7 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                   <Users className="w-6 h-6 text-emerald-600" />
                 </div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Patients</p>
-                <h4 className="text-3xl font-black text-gray-900 tracking-tighter">0</h4>
+                <h4 className="text-3xl font-black text-gray-900 tracking-tighter">{getTotalPatients()}</h4>
               </div>
 
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
@@ -211,7 +251,7 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                   <Clock className="w-6 h-6 text-amber-600" />
                 </div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Hours Logged</p>
-                <h4 className="text-3xl font-black text-gray-900 tracking-tighter">0</h4>
+                <h4 className="text-3xl font-black text-gray-900 tracking-tighter">--</h4>
               </div>
 
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
@@ -219,7 +259,7 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                   <TrendingUp className="w-6 h-6 text-indigo-600" />
                 </div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Earnings</p>
-                <h4 className="text-3xl font-black text-gray-900 tracking-tighter">₹0</h4>
+                <h4 className="text-3xl font-black text-gray-900 tracking-tighter">--</h4>
               </div>
             </div>
 
@@ -236,13 +276,48 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                     <button onClick={() => setCurrentView('doctor-appointments')} className="text-sm font-bold text-teal-600 hover:underline">View All</button>
                   </div>
 
-                  <div className="flex flex-col items-center justify-center py-20 text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
-                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm mb-6">
-                      <Calendar className="w-10 h-10 text-gray-200" />
+                  {loading ? (
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mb-2"></div>
+                      <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Loading...</p>
                     </div>
-                    <h4 className="text-lg font-bold text-gray-400 tracking-tight">Your schedule is currently empty</h4>
-                    <p className="text-sm text-gray-400 max-w-xs mx-auto mt-2">New appointments will appear here once you're approved and visible to patients.</p>
-                  </div>
+                  ) : upcomingAppointments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
+                      <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm mb-6">
+                        <Calendar className="w-10 h-10 text-gray-200" />
+                      </div>
+                      <h4 className="text-lg font-bold text-gray-400 tracking-tight">Your schedule is currently empty</h4>
+                      <p className="text-sm text-gray-400 max-w-xs mx-auto mt-2">New appointments will appear here once you're approved and visible to patients.</p>
+                      <button onClick={() => setCurrentView('doctor-availability')} className="mt-6 text-teal-600 font-bold text-sm tracking-widest uppercase hover:underline">
+                        Setup Availability
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {upcomingAppointments.map(apt => (
+                        <div key={apt.id} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:shadow-sm transition cursor-pointer" onClick={() => setCurrentView('doctor-appointments')}>
+                          <div className="w-16 h-16 rounded-xl bg-teal-100 flex flex-col items-center justify-center text-teal-700 shrink-0">
+                            <span className="text-sm font-bold">{new Date(apt.scheduled_at).toLocaleDateString(undefined, { month: 'short' })}</span>
+                            <span className="text-xl font-black leading-none">{new Date(apt.scheduled_at).getDate()}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-gray-900 truncate">Patient {apt.user_id?.substring(0, 8)}...</h4>
+                            <div className="flex items-center gap-3 text-xs text-gray-500 font-medium mt-1">
+                              <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(apt.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {apt.severity_level && (
+                                <span className={`px-2 py-0.5 rounded-md ${apt.severity_level >= 20 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                  Severity: {apt.severity_level}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            <span className="px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold border border-teal-100">Confirmed</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -278,12 +353,12 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                     </div>
                     <h3 className="text-lg font-bold text-gray-900">Reach Goal</h3>
                   </div>
-                  <p className="text-xs text-gray-500 font-medium mb-4">You're at 0% of your patient monthly target. Need help scaling?</p>
+                  <p className="text-xs text-gray-500 font-medium mb-4">You're at {Math.min(100, (getTotalPatients() / 20) * 100).toFixed(0)}% of your patient monthly target. Need help scaling?</p>
                   <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2">
-                    <div className="bg-teal-500 h-full w-0 transition-all duration-1000"></div>
+                    <div className="bg-teal-500 h-full transition-all duration-1000" style={{ width: `${Math.min(100, (getTotalPatients() / 20) * 100)}%` }}></div>
                   </div>
                   <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    <span>0 Patients</span>
+                    <span>{getTotalPatients()} Patients</span>
                     <span>Target: 20</span>
                   </div>
                 </div>
