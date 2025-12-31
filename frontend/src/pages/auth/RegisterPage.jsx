@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Heart } from 'lucide-react';
-import { AUTH_API } from '../../config/api'; 
+import { Heart, Mail, Lock, Key, ArrowRight } from 'lucide-react';
+import { AUTH_API } from '../../config/api';
 
 const RegisterPage = ({ setCurrentView }) => {
   const [email, setEmail] = useState('');
@@ -65,74 +65,92 @@ const RegisterPage = ({ setCurrentView }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
-        <div className="text-center mb-8">
-          <Heart className="w-12 h-12 text-purple-600 mx-auto mb-4" />
-          <h2 className="text-3xl font-bold text-gray-800">Create Account</h2>
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Decorative Elements */}
+      <div className="absolute top-20 left-20 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
+      <div className="absolute bottom-20 right-20 w-72 h-72 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
+
+      <div className="max-w-md w-full bg-white/60 backdrop-blur-xl border border-teal-100 rounded-3xl shadow-2xl p-8 relative z-10">
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center mx-auto mb-4 shadow-lg transform hover:scale-105 transition duration-300">
+            <Heart className="w-8 h-8 text-white" fill="white" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-800">
+            {step === 1 ? 'Start Your Journey' : 'Verify Email'}
+          </h2>
           <p className="text-gray-600 mt-2">
-            {step === 1 ? 'Join Mentora today' : 'Verify your email'}
+            {step === 1 ? 'Join Mentora for better mental health' : `We sent a code to ${email}`}
           </p>
         </div>
 
         {step === 1 ? (
           <form onSubmit={handleRegister} className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                 {error}
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                required
-              />
-            </div>
+            <div className="space-y-4">
+              <div className="relative group">
+                <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-teal-500 transition-colors" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400"
+                  placeholder="Email Address"
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                required
-                minLength={8}
-              />
+              <div className="relative group">
+                <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-teal-500 transition-colors" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400"
+                  placeholder="Create Password"
+                  required
+                  minLength={8}
+                />
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-linear-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 text-white py-3.5 rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
             >
-              {loading ? 'Sending OTP...' : 'Continue'}
+              {loading ? (
+                'Sending OTP...'
+              ) : (
+                <>
+                  Continue Registration
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </form>
         ) : (
           <form onSubmit={handleVerifyOTP} className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                 {error}
               </div>
             )}
 
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
-              OTP sent to {email}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Enter OTP</label>
+            <div className="relative group">
+              <Key className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-teal-500 transition-colors" />
               <input
                 type="text"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full pl-12 pr-4 py-3 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400 tracking-widest text-center text-lg font-bold text-gray-700"
+                placeholder="0 0 0 0 0 0"
                 required
                 maxLength={6}
               />
@@ -141,26 +159,26 @@ const RegisterPage = ({ setCurrentView }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-linear-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 text-white py-3.5 rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
             >
-              {loading ? 'Verifying...' : 'Verify & Register'}
+              {loading ? 'Verifying...' : 'Verify & Complete'}
             </button>
           </form>
         )}
 
-        <div className="mt-6 text-center">
+        <div className="mt-8 text-center space-y-4">
           <p className="text-gray-600">
             Already have an account?{' '}
-            <button 
-              onClick={() => setCurrentView('login')} 
-              className="text-purple-600 font-semibold hover:underline"
+            <button
+              onClick={() => setCurrentView('login')}
+              className="text-teal-600 font-bold hover:text-teal-800 hover:underline transition"
             >
               Login
             </button>
           </p>
-          <button 
-            onClick={() => setCurrentView('landing')} 
-            className="text-gray-500 hover:text-gray-700 text-sm mt-2"
+          <button
+            onClick={() => setCurrentView('landing')}
+            className="text-gray-400 hover:text-teal-600 text-sm transition flex items-center justify-center gap-1 mx-auto"
           >
             ← Back to Home
           </button>

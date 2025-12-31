@@ -347,6 +347,7 @@ const App = () => {
           onViewDetail={viewAppointmentDetail}
           onProcessPayment={processPayment}
           onJoinVideo={joinVideoCall}
+          onViewChat={openChat}
         />
       );
     }
@@ -439,6 +440,7 @@ const App = () => {
         <DoctorAppointments
           user={user}
           token={token}
+          handleLogout={handleLogout}
           setCurrentView={setCurrentView}
           onViewDetail={viewDoctorAppointmentDetail}
           onJoinVideo={joinVideoCall}
@@ -451,6 +453,7 @@ const App = () => {
         <DoctorAppointmentDetail
           appointmentId={selectedAppointmentId}
           token={token}
+          handleLogout={handleLogout}
           setCurrentView={setCurrentView}
           onJoinVideo={joinVideoCall}
           onViewChat={openChat}
@@ -511,7 +514,7 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
       {renderView()}
     </div>
   );
