@@ -40,6 +40,11 @@ from .views import (
     # Ratings and Suggestions
     RateDoctorAPIView,
     DoctorSuggestionAPIView,
+    
+    # Mood Tracking
+    SubmitMoodEntryAPIView,
+    GetMoodHistoryAPIView,
+    GetMoodTrendsAPIView,
 )
 
 urlpatterns = [
@@ -79,4 +84,9 @@ urlpatterns = [
    # Ratings and Suggestions
    path("doctor/<str:doctor_id>/rate/", RateDoctorAPIView.as_view(), name="rate-doctor"),
    path("doctors/suggest/", DoctorSuggestionAPIView.as_view(), name="suggest-doctors"),
+   
+   # Mood Tracking
+   path("mood-entries/", SubmitMoodEntryAPIView.as_view(), name="submit-mood-entry"),
+   path("mood-entries/<str:user_id>/history/", GetMoodHistoryAPIView.as_view(), name="get-mood-history"),
+   path("mood-entries/<str:user_id>/trends/", GetMoodTrendsAPIView.as_view(), name="get-mood-trends"),
 ]

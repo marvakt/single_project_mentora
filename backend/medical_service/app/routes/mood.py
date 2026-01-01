@@ -11,10 +11,50 @@ from app.core.database import get_database
 from app.core.encryption import encryption, ENCRYPTED_FIELDS
 from datetime import datetime, timedelta
 import logging
+import httpx
+import os
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Function to send mood data to user service for AWS processing
+async def send_mood_to_aws_service(user_id: str, mood_data: dict):
+    """Send mood data to user service for AWS processing"""
+    user_service_url = os.getenv("USER_SERVICE_URL", "http://user-service:8001")
+    aws_mood_endpoint = f"{user_service_url}/api/mood-entries/"
+    
+    # Convert mood data to match user service format
+    aws_payload = {
+        "mood_score": mood_data.get("mood_level", 5),
+        "anxiety_level": mood_data.get("stress_level", 5),
+        "energy_level": mood_data.get("energy_level", 5),
+        "sleep_hours": mood_data.get("sleep_quality", 7),  # Assuming 7 hours for quality 7
+        "notes": mood_data.get("notes", "")
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # In a real implementation, you would use proper authentication
+            # For now, we assume internal service communication is allowed
+            response = await client.post(
+                aws_mood_endpoint,
+                json=aws_payload,
+                headers={
+                    "Content-Type": "application/json",
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code in [200, 201]:
+                logger.info(f"Mood data successfully sent to AWS service for user {user_id}")
+            else:
+                logger.error(f"Failed to send mood data to AWS service: {response.status_code} - {response.text}")
+                
+    except Exception as e:
+        logger.error(f"Error sending mood data to AWS service: {str(e)}")
+        # Don't let this error affect the main mood logging process
+        pass
 
 
 # Request/Response Models
@@ -62,6 +102,9 @@ async def create_mood_log(
     result = await db.mood_logs.insert_one(encrypted_log)
     
     logger.info(f"Mood log created for user {user_id}")
+    
+    # Send mood data to user service for AWS processing
+    await send_mood_to_aws_service(user_id, mood_data.dict())
     
     return {
         "mood_log_id": str(result.inserted_id),
@@ -208,6 +251,16 @@ async def log_quick_mood(
     
     logger.info(f"Quick mood logged for user {user_id}: {mood_emoji}")
     
+    # Send mood data to user service for AWS processing
+    await send_mood_to_aws_service(user_id, {
+        "mood_level": mood_log["mood_level"],
+        "energy_level": mood_log["energy_level"],
+        "stress_level": mood_log["stress_level"],
+        "sleep_quality": mood_log["sleep_quality"],
+        "notes": mood_log["notes"],
+        "triggers": mood_log["triggers"]
+    })
+    
     return {
         "mood_log_id": str(result.inserted_id),
         "message": f"Mood '{mood_emoji}' logged successfully",
@@ -268,6 +321,16 @@ async def log_quick_mood_get(
     result = await db.mood_logs.insert_one(encrypted_log)
     
     logger.info(f"Quick mood logged for user {user_id}: {mood}")
+    
+    # Send mood data to user service for AWS processing
+    await send_mood_to_aws_service(user_id, {
+        "mood_level": mood_log["mood_level"],
+        "energy_level": mood_log["energy_level"],
+        "stress_level": mood_log["stress_level"],
+        "sleep_quality": mood_log["sleep_quality"],
+        "notes": mood_log["notes"],
+        "triggers": mood_log["triggers"]
+    })
     
     # Return a response that can be shown in browser
     return {

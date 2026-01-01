@@ -143,6 +143,24 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 
 # ==================================================
+# AWS CONFIGURATION
+# ==================================================
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+AWS_SES_REGION = os.getenv("AWS_SES_REGION", "us-east-1")
+
+# SQS Configuration
+MOOD_TRACKING_SQS_QUEUE_URL = os.getenv("MOOD_TRACKING_SQS_QUEUE_URL")
+
+# S3 Configuration
+MOOD_REPORTS_S3_BUCKET = os.getenv("MOOD_REPORTS_S3_BUCKET", "mentora-mood-reports")
+
+# SNS Configuration
+MOOD_NOTIFICATION_TOPIC_ARN = os.getenv("MOOD_NOTIFICATION_TOPIC_ARN")
+
+# SES Configuration
+SES_SENDER_EMAIL = os.getenv("SES_SENDER_EMAIL", "noreply@mentora.com")
+
+# ==================================================
 # EMAIL
 # ==================================================
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

@@ -13,6 +13,7 @@ from .models import (
     DoctorAvailability,
     DoctorRating,
     Notification,
+    MoodEntry,
 )
 
 from .serializers import (
@@ -23,6 +24,7 @@ from .serializers import (
     DoctorRatingSerializer,
     DoctorProfileWithRatingSerializer,
     NotificationSerializer,
+    MoodEntrySerializer,
 )
 
 from .tasks import send_doctor_status_email, notify_admin_new_doctor
@@ -35,6 +37,7 @@ from .permissions import (
     IsAuthenticatedJWTOrInternalService,
 )
 from .authentication import JWTAuthentication
+from .services import MoodTrackingService
 
 # Event producer
 from .producer import publish_doctor_approved, publish_doctor_rejected
@@ -719,3 +722,139 @@ class DoctorSuggestionAPIView(APIView):
             })
         
         return Response(result)
+
+
+# =========================================================
+# MOOD TRACKING
+# =========================================================
+class SubmitMoodEntryAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedJWT]
+
+    def post(self, request):
+        # Add user profile to the request data
+        if not hasattr(request, 'user_data'):
+            return Response(
+                {'detail': 'Authentication required'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        user_id = request.user_data['user_id']
+        try:
+            user_profile = UserProfile.objects.get(user_id=user_id)
+        except UserProfile.DoesNotExist:
+            return Response(
+                {'detail': 'User profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Add user profile to serializer data
+        data = request.data.copy()
+        data['user_profile'] = user_profile.id
+        
+        serializer = MoodEntrySerializer(data=data)
+        if serializer.is_valid():
+            mood_entry = serializer.save(user_profile=user_profile)
+            
+            # Publish event to SQS for Lambda processing
+            service = MoodTrackingService()
+            mood_data = {
+                'user_id': str(user_profile.user_id),
+                'user_email': user_profile.email,
+                'mood_score': mood_entry.mood_score,
+                'anxiety_level': mood_entry.anxiety_level,
+                'energy_level': mood_entry.energy_level,
+                'sleep_hours': mood_entry.sleep_hours,
+                'notes': mood_entry.notes,
+                'created_at': mood_entry.created_at.isoformat()
+            }
+            
+            service.publish_mood_event(mood_data)
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetMoodHistoryAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedJWT]
+
+    def get(self, request, user_id):
+        try:
+            user_profile = UserProfile.objects.get(user_id=user_id)
+        except UserProfile.DoesNotExist:
+            return Response(
+                {'detail': 'User profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if user is trying to access their own profile
+        if request.user_data['user_id'] != user_profile.user_id:
+            return Response(
+                {'detail': 'You can only access your own mood history'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        mood_entries = MoodEntry.objects.filter(user_profile=user_profile).order_by('-created_at')
+        serializer = MoodEntrySerializer(mood_entries, many=True)
+        return Response(serializer.data)
+
+
+class GetMoodTrendsAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedJWT]
+
+    def get(self, request, user_id):
+        try:
+            user_profile = UserProfile.objects.get(user_id=user_id)
+        except UserProfile.DoesNotExist:
+            return Response(
+                {'detail': 'User profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if user is trying to access their own profile
+        if request.user_data['user_id'] != user_profile.user_id:
+            return Response(
+                {'detail': 'You can only access your own mood trends'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        mood_entries = MoodEntry.objects.filter(user_profile=user_profile).order_by('-created_at')
+        
+        # Calculate trends
+        if mood_entries.count() == 0:
+            return Response({'message': 'No mood data available for trend analysis'})
+        
+        # Calculate average mood scores
+        avg_mood = sum(entry.mood_score for entry in mood_entries) / mood_entries.count()
+        avg_anxiety = sum(entry.anxiety_level for entry in mood_entries) / mood_entries.count()
+        avg_energy = sum(entry.energy_level for entry in mood_entries) / mood_entries.count()
+        
+        # Determine trend (simple implementation - last 3 vs first 3 entries)
+        entries_list = list(mood_entries)
+        recent_entries = entries_list[:3]  # Last 3 entries (most recent)
+        older_entries = entries_list[-3:]  # First 3 entries (oldest in the period)
+        
+        if len(recent_entries) >= 1 and len(older_entries) >= 1:
+            recent_avg = sum(e.mood_score for e in recent_entries) / len(recent_entries)
+            older_avg = sum(e.mood_score for e in older_entries) / len(older_entries)
+            
+            if recent_avg > older_avg + 1:
+                trend = 'improving'
+            elif recent_avg < older_avg - 1:
+                trend = 'declining'
+            else:
+                trend = 'stable'
+        else:
+            trend = 'insufficient_data'
+        
+        trends_data = {
+            'average_mood_score': round(avg_mood, 2),
+            'average_anxiety_level': round(avg_anxiety, 2),
+            'average_energy_level': round(avg_energy, 2),
+            'trend': trend,
+            'total_entries': mood_entries.count(),
+        }
+        
+        return Response(trends_data)

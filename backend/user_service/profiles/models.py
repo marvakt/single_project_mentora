@@ -175,6 +175,27 @@ class DoctorSpecializationCategory(models.Model):
 
 
 # ============================================================
+# MOOD TRACKING
+# ============================================================
+class MoodEntry(models.Model):
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="mood_entries")
+    
+    mood_score = models.IntegerField(help_text="Mood score from 1-10")  # 1-10 scale
+    anxiety_level = models.IntegerField(help_text="Anxiety level from 1-10")  # 1-10 scale
+    energy_level = models.IntegerField(help_text="Energy level from 1-10")  # 1-10 scale
+    sleep_hours = models.FloatField(help_text="Hours of sleep")
+    notes = models.TextField(blank=True, null=True, help_text="Additional notes about mood")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Mood for {self.user_profile.email} on {self.created_at}"
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+# ============================================================
 # NOTIFICATION SYSTEM
 # ============================================================
 class Notification(models.Model):

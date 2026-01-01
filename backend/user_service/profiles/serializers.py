@@ -7,7 +7,8 @@ from .models import (
     DoctorDocument,
     DoctorAvailability,
     DoctorRating,
-    Notification
+    Notification,
+    MoodEntry
 )
 
 # ============================================================
@@ -169,6 +170,16 @@ class DoctorProfileWithRatingSerializer(serializers.ModelSerializer):
     
     def get_total_ratings(self, obj):
         return obj.total_ratings
+
+
+# ============================================================
+# MOOD ENTRY SERIALIZER
+# ============================================================
+class MoodEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MoodEntry
+        fields = ["id", "mood_score", "anxiety_level", "energy_level", "sleep_hours", "notes", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 # ============================================================
