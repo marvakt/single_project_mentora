@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
     Calendar, Clock, User, Heart, Activity, FileText,
     Search, Filter, ChevronRight, MessageSquare, Phone, Mail,
@@ -6,21 +7,40 @@ import {
     Sparkles, X, Menu, Settings, LogOut, Home
 } from 'lucide-react';
 import { APPOINTMENT_API, USER_API, medicalApiCall, apiCall } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchDoctorPatients } from '../../store/slices/doctorProfileSlice';
 
-const DoctorPatients = ({ user, token, handleLogout, setCurrentView }) => {
-    const [patients, setPatients] = useState([]);
-    const [loading, setLoading] = useState(true);
+
+const DoctorPatients = () => {
+    const dispatch = useDispatch();
+
+    // Redux selectors
+    const { user } = useSelector((state) => state.auth);
+    const { patients: reduxPatients, doctorProfile, loading } = useSelector((state) => state.doctorProfile);
+
+    // Local state
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [patientDetails, setPatientDetails] = useState(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
-    const [profile, setProfile] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    const patients = reduxPatients || [];
+
     useEffect(() => {
-        fetchPatients();
-        fetchProfile();
-    }, []);
+        dispatch(fetchDoctorPatients());
+    }, [dispatch]);
+
+    const handleLogout = () => {
+        dispatch(logout());
+        dispatch(setCurrentView('landing'));
+    };
+
+    const handleNavigation = (view) => {
+        dispatch(setCurrentView(view));
+        setSidebarOpen(false);
+    };
 
     const fetchProfile = async () => {
         try {
@@ -130,7 +150,7 @@ const DoctorPatients = ({ user, token, handleLogout, setCurrentView }) => {
     // Sidebar Nav Item Helper
     const NavItem = ({ icon: Icon, label, view, active }) => (
         <button
-            onClick={() => { setCurrentView(view); setSidebarOpen(false); }}
+            onClick={() => handleNavigation(view)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
                 ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -174,14 +194,14 @@ const DoctorPatients = ({ user, token, handleLogout, setCurrentView }) => {
                     <div className="p-4 border-t border-gray-100">
                         <div className="bg-gradient-to-b from-gray-50 to-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold border-2 border-white shadow-sm overflow-hidden">
-                                {profile?.avatar ? (
-                                    <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                                {doctorProfile?.avatar ? (
+                                    <img src={doctorProfile.avatar} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
-                                    profile?.name?.charAt(0) || 'D'
+                                    doctorProfile?.name?.charAt(0) || 'D'
                                 )}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-900 truncate">{profile?.name || 'Doctor'}</p>
+                                <p className="text-sm font-bold text-gray-900 truncate">{doctorProfile?.name || 'Doctor'}</p>
                                 <button onClick={handleLogout} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
                                     <LogOut className="w-3 h-3" /> Sign Out
                                 </button>
@@ -266,7 +286,7 @@ const DoctorPatients = ({ user, token, handleLogout, setCurrentView }) => {
                                                 <div>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Last Seen</p>
                                                     <p className="text-sm font-bold text-gray-900">
-                                                        {patient.last_seen.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                        {new Date(patient.last_seen).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                                     </p>
                                                 </div>
                                                 <div>

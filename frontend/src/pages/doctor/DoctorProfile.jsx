@@ -1,14 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   ChevronRight, Upload, FileText, CheckCircle, Clock, Trash2,
   User, Mail, Phone, MapPin, Award, Heart, Shield, Edit2, Save, X,
   Menu, Home, Calendar, Users, Settings, LogOut, AlertCircle
 } from 'lucide-react';
-import { USER_API } from '../../config/api';
+import { USER_API, apiCall } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchDoctorProfile, updateDoctorProfile } from '../../store/slices/doctorProfileSlice';
 
-const DoctorProfile = ({ user, token, handleLogout, setCurrentView }) => {
+
+const DoctorProfile = () => {
+  const dispatch = useDispatch();
+
+  // Redux selectors
+  const { user } = useSelector((state) => state.auth);
+  const { doctorProfile } = useSelector((state) => state.doctorProfile);
+
+  // Local state
   const [activeTab, setActiveTab] = useState('info');
-  const [profile, setProfile] = useState(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [specialization, setSpecialization] = useState('');
@@ -17,17 +28,38 @@ const DoctorProfile = ({ user, token, handleLogout, setCurrentView }) => {
   const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Document states
   const [documents, setDocuments] = useState([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState('license');
   const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
-    fetchProfile();
-    fetchDocuments();
-  }, []);
+    if (user?.user_id) {
+      dispatch(fetchDoctorProfile(user.user_id));
+      fetchDocuments();
+    }
+  }, [user?.user_id, dispatch]);
+
+  useEffect(() => {
+    if (doctorProfile) {
+      setName(doctorProfile.name || '');
+      setPhone(doctorProfile.phone || '');
+      setSpecialization(doctorProfile.specialization || '');
+      setExperience(doctorProfile.experience_years || '');
+      setFee(doctorProfile.consultation_fee || '');
+      setBio(doctorProfile.bio || '');
+    }
+  }, [doctorProfile]);
+
+  const handleLogout = () => {
+    dispatch(logout());
+    dispatch(setCurrentView('landing'));
+  };
+
+  const handleNavigation = (view) => {
+    dispatch(setCurrentView(view));
+    setSidebarOpen(false);
+  };
 
   const fetchProfile = async () => {
     try {
@@ -51,9 +83,7 @@ const DoctorProfile = ({ user, token, handleLogout, setCurrentView }) => {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch(`${USER_API}/doctor/${user.user_id}/documents/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await apiCall(`${USER_API}/doctor/${user.user_id}/documents/`);
       if (response.ok) {
         const data = await response.json();
         setDocuments(data);
@@ -171,7 +201,7 @@ const DoctorProfile = ({ user, token, handleLogout, setCurrentView }) => {
   // Sidebar Nav Item Helper
   const NavItem = ({ icon: Icon, label, view, active }) => (
     <button
-      onClick={() => { setCurrentView(view); setSidebarOpen(false); }}
+      onClick={() => handleNavigation(view)}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
         ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -215,14 +245,14 @@ const DoctorProfile = ({ user, token, handleLogout, setCurrentView }) => {
           <div className="p-4 border-t border-gray-100">
             <div className="bg-gradient-to-b from-gray-50 to-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold border-2 border-white shadow-sm overflow-hidden">
-                {profile?.avatar ? (
-                  <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                {doctorProfile?.avatar ? (
+                  <img src={doctorProfile.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  profile?.name?.charAt(0) || 'D'
+                  doctorProfile?.name?.charAt(0) || 'D'
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900 truncate">{profile?.name || 'Doctor'}</p>
+                <p className="text-sm font-bold text-gray-900 truncate">{doctorProfile?.name || 'Doctor'}</p>
                 <button onClick={handleLogout} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
                   <LogOut className="w-3 h-3" /> Sign Out
                 </button>
@@ -252,7 +282,7 @@ const DoctorProfile = ({ user, token, handleLogout, setCurrentView }) => {
             </div>
 
             {/* Status Alert */}
-            {profile?.doctor?.doctor_status === 'pending' && (
+            {doctorProfile?.doctor_status === 'pending' && (
               <div className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl mb-8 flex items-start gap-4 shadow-sm">
                 <div className="bg-amber-100 rounded-xl p-2 shrink-0">
                   <AlertCircle className="w-6 h-6 text-amber-600" />

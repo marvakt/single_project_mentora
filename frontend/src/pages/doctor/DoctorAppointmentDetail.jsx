@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
     Calendar, Clock, User, ArrowLeft, Video, FileText,
     DollarSign, Activity, MessageSquare, Phone, Mail,
@@ -6,68 +7,51 @@ import {
     Clipboard, TrendingUp, AlertTriangle, Info, Menu, Home, Settings, LogOut, Shield, Sparkles, Users
 } from 'lucide-react';
 import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchAppointmentDetail } from '../../store/slices/appointmentsSlice';
+import { fetchDoctorProfile } from '../../store/slices/doctorProfileSlice';
+
 
 const DoctorAppointmentDetail = ({
     appointmentId,
-    token,
-    setCurrentView,
-    handleLogout,
     onJoinVideo,
     onViewChat
 }) => {
-    const [appointment, setAppointment] = useState(null);
+    const dispatch = useDispatch();
+
+    // Redux selectors
+    const { user } = useSelector((state) => state.auth);
+    const { selectedAppointment, loading: appointmentsLoading } = useSelector((state) => state.appointments);
+    const { doctorProfile } = useSelector((state) => state.doctorProfile);
+
+    // Local state
     const [patient, setPatient] = useState(null);
-    const [doctorProfileData, setDoctorProfileData] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [completing, setCompleting] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    useEffect(() => {
-        if (appointmentId) {
-            fetchAppointmentDetail();
-            fetchDoctorProfile();
-        }
-    }, [appointmentId]);
+    // Use selectedAppointment from Redux
+    const appointment = selectedAppointment?.id === appointmentId ? selectedAppointment : null;
 
-    const fetchDoctorProfile = async () => {
-        try {
-            const savedUser = JSON.parse(sessionStorage.getItem('user'));
-            const response = await fetch(`${USER_API}/profile/${savedUser.user_id}/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setDoctorProfileData(data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch doctor profile', err);
+    useEffect(() => {
+        if (appointmentId && !appointment) {
+            dispatch(fetchAppointmentDetail(appointmentId));
         }
+        if (user?.user_id && !doctorProfile) {
+            dispatch(fetchDoctorProfile(user.user_id));
+        }
+    }, [appointmentId, appointment, user?.user_id, doctorProfile, dispatch]);
+
+
+    const handleLogout = () => {
+        dispatch(logout());
+        dispatch(setCurrentView('landing'));
     };
 
-    const fetchAppointmentDetail = async () => {
-        setLoading(true);
-        try {
-            const response = await apiCall(
-                `${APPOINTMENT_API}/appointments/${appointmentId}/`
-            );
-
-            if (response.ok) {
-                const data = await response.json();
-                setAppointment(data);
-                setPatient({
-                    name: `Patient ${data.user_id.substring(0, 8)}`,
-                    user_id: data.user_id
-                });
-            } else {
-                setError('Failed to load appointment details');
-            }
-        } catch (err) {
-            console.error('Error fetching appointment:', err);
-            setError('Something went wrong');
-        } finally {
-            setLoading(false);
-        }
+    const handleNavigation = (view) => {
+        dispatch(setCurrentView(view));
+        setSidebarOpen(false);
     };
 
     const completeAppointment = async () => {
@@ -166,7 +150,7 @@ const DoctorAppointmentDetail = ({
     // Sidebar Nav Item Helper
     const NavItem = ({ icon: Icon, label, view, active }) => (
         <button
-            onClick={() => { setCurrentView(view); setSidebarOpen(false); }}
+            onClick={() => handleNavigation(view)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
                 ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -178,7 +162,7 @@ const DoctorAppointmentDetail = ({
         </button>
     );
 
-    if (loading) {
+    if (!appointment || appointmentsLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
                 <div className="flex flex-col items-center gap-4">
@@ -246,14 +230,14 @@ const DoctorAppointmentDetail = ({
                     <div className="p-4 border-t border-gray-100">
                         <div className="bg-gradient-to-b from-gray-50 to-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold border-2 border-white shadow-sm overflow-hidden">
-                                {doctorProfileData?.avatar ? (
-                                    <img src={doctorProfileData.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                                {doctorProfile?.avatar ? (
+                                    <img src={doctorProfile.avatar} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
-                                    doctorProfileData?.name?.charAt(0) || 'D'
+                                    doctorProfile?.name?.charAt(0) || 'D'
                                 )}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-900 truncate">Dr. {doctorProfileData?.name || 'Doctor'}</p>
+                                <p className="text-sm font-bold text-gray-900 truncate">Dr. {doctorProfile?.name || 'Doctor'}</p>
                                 <button onClick={handleLogout} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
                                     <LogOut className="w-3 h-3" /> Sign Out
                                 </button>

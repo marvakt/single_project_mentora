@@ -1,9 +1,12 @@
 
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { Heart, Mail, Lock, ArrowRight } from 'lucide-react';
 import { AUTH_API } from '../../config/api';
+import { login } from '../../store/slices/authSlice';
 
-const LoginPage = ({ setCurrentView, setUser, setToken }) => {
+const LoginPage = ({ setCurrentView }) => {
+  const dispatch = useDispatch();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -24,12 +27,10 @@ const LoginPage = ({ setCurrentView, setUser, setToken }) => {
       const data = await response.json();
 
       if (response.ok) {
-        sessionStorage.setItem('access_token', data.access);
-        sessionStorage.setItem('refresh_token', data.refresh);
-        sessionStorage.setItem('user', JSON.stringify(data.user));
-        setToken(data.access);
-        setUser(data.user);
+        // Dispatch Redux login action
+        dispatch(login({ user: data.user, token: data.access }));
 
+        // Navigate based on role
         if (data.user.role === 'admin') setCurrentView('admin-dashboard');
         else if (data.user.role === 'doctor') setCurrentView('doctor-dashboard');
         else setCurrentView('user-dashboard');

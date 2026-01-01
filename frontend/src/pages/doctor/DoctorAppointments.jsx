@@ -1,62 +1,37 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Calendar, Clock, User, Users, Video, CheckCircle, AlertCircle,
   Activity, FileText, Filter, Search, ArrowLeft, XCircle,
   DollarSign, Heart, MessageSquare, Phone, Mail, Menu, Home, Settings, LogOut
 } from 'lucide-react';
 import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchAppointments } from '../../store/slices/appointmentsSlice';
+import { fetchDoctorProfile } from '../../store/slices/doctorProfileSlice';
 
-const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewDetail, onJoinVideo }) => {
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
+const DoctorAppointments = ({ onViewDetail, onJoinVideo }) => {
+  const dispatch = useDispatch();
+
+  // Redux selectors
+  const { user } = useSelector((state) => state.auth);
+  const { appointments, loading: appointmentsLoading } = useSelector((state) => state.appointments);
+  const { doctorProfile } = useSelector((state) => state.doctorProfile);
+
+  // Local state
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [profile, setProfile] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    fetchAppointments();
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch(`${USER_API}/profile/${user.user_id}/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch profile', err);
+    if (user?.user_id) {
+      dispatch(fetchAppointments());
+      dispatch(fetchDoctorProfile(user.user_id));
     }
-  };
+  }, [user?.user_id, dispatch]);
 
-  const fetchAppointments = async () => {
-    setLoading(true);
-    try {
-      const response = await apiCall(`${APPOINTMENT_API}/appointments/`);
-
-      if (response.ok) {
-        const data = await response.json();
-        const appointmentsList = data.appointments || data || [];
-
-        // Sort by date (upcoming first)
-        const sorted = appointmentsList.sort((a, b) =>
-          new Date(a.scheduled_at) - new Date(b.scheduled_at)
-        );
-
-        setAppointments(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch appointments:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const completeAppointment = async (appointmentId) => {
+  const handleCompleteAppointment = async (appointmentId) => {
     if (!window.confirm('Mark this appointment as completed?')) return;
 
     try {
@@ -66,7 +41,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
       );
 
       if (response.ok) {
-        fetchAppointments();
+        dispatch(fetchAppointments());
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to complete appointment');
@@ -75,6 +50,16 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
       console.error('Complete error:', err);
       alert('Something went wrong');
     }
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    dispatch(setCurrentView('landing'));
+  };
+
+  const handleNavigation = (view) => {
+    dispatch(setCurrentView(view));
+    setSidebarOpen(false);
   };
 
   const getStatusConfig = (status) => {
@@ -93,7 +78,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
     return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Normal' };
   };
 
-  const filteredAppointments = appointments.filter(apt => {
+  const filteredAppointments = (appointments || []).filter(apt => {
     if (filter !== 'all' && apt.status !== filter) return false;
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
@@ -106,14 +91,14 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
 
   const getUpcomingCount = () => {
     const now = new Date();
-    return appointments.filter(apt =>
+    return (appointments || []).filter(apt =>
       new Date(apt.scheduled_at) > now && apt.status === 'confirmed'
     ).length;
   };
 
   const getTodayCount = () => {
     const today = new Date().toDateString();
-    return appointments.filter(apt =>
+    return (appointments || []).filter(apt =>
       new Date(apt.scheduled_at).toDateString() === today && apt.status === 'confirmed'
     ).length;
   };
@@ -121,7 +106,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
   // Sidebar Nav Item Helper
   const NavItem = ({ icon: Icon, label, view, active }) => (
     <button
-      onClick={() => { setCurrentView(view); setSidebarOpen(false); }}
+      onClick={() => handleNavigation(view)}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
         ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -165,14 +150,14 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
           <div className="p-4 border-t border-gray-100">
             <div className="bg-gradient-to-b from-gray-50 to-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold border-2 border-white shadow-sm overflow-hidden">
-                {profile?.avatar ? (
-                  <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                {doctorProfile?.avatar ? (
+                  <img src={doctorProfile.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  profile?.name?.charAt(0) || 'D'
+                  doctorProfile?.name?.charAt(0) || 'D'
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900 truncate">{profile?.name || 'Doctor'}</p>
+                <p className="text-sm font-bold text-gray-900 truncate">{doctorProfile?.name || 'Doctor'}</p>
                 <button onClick={handleLogout} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
                   <LogOut className="w-3 h-3" /> Sign Out
                 </button>
@@ -271,7 +256,7 @@ const DoctorAppointments = ({ user, token, handleLogout, setCurrentView, onViewD
             </div>
 
             {/* List Section */}
-            {loading ? (
+            {appointmentsLoading ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-600 mb-4"></div>
                 <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Synchronizing Records...</p>

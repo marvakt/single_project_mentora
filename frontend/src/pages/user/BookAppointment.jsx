@@ -39,6 +39,13 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
 
   useEffect(() => {
     if (appointmentDate && availability.length > 0) {
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(appointmentDate)) {
+        console.error('Invalid date format:', appointmentDate);
+        return;
+      }
+
       const fetchSlots = async () => {
         const slots = await getAvailableSlots(appointmentDate, availability);
         setAvailableSlots(slots);

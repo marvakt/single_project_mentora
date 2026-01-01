@@ -1,14 +1,25 @@
 
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Heart, Calendar, Clock, Bell, User, LogOut, Smile,
   FileText, TrendingUp, Activity, Sparkles,
   ChevronRight, ArrowUpRight, Menu, X, Home, Settings
 } from 'lucide-react';
 import { USER_API, MEDICAL_API, apiCall } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchUserProfile } from '../../store/slices/userProfileSlice';
 
-const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
-  const [profile, setProfile] = useState(null);
+
+const UserDashboard = () => {
+  const dispatch = useDispatch();
+
+  // Redux selectors
+  const { user, token } = useSelector((state) => state.auth);
+  const { profile } = useSelector((state) => state.userProfile);
+
+  // Local state for dashboard data
   const [doctors, setDoctors] = useState([]);
   const [latestAssessment, setLatestAssessment] = useState(null);
   const [moodSummary, setMoodSummary] = useState(null);
@@ -17,26 +28,16 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    fetchProfile();
-    fetchDoctors();
-    fetchLatestAssessment();
-    fetchMoodSummary();
-    fetchTreatmentPlan();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch(`${USER_API}/profile/${user.user_id}/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch profile', err);
+    if (user?.user_id) {
+      dispatch(fetchUserProfile(user.user_id));
+      fetchDoctors();
+      fetchLatestAssessment();
+      fetchMoodSummary();
+      fetchTreatmentPlan();
     }
-  };
+  }, [user?.user_id, dispatch]);
+
+
 
   const fetchDoctors = async () => {
     try {
@@ -69,9 +70,12 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
 
   const fetchSuggestedDoctors = async (score) => {
     try {
+      // Ensure score is a valid integer between 0-10
+      const severityScore = score !== null && score !== undefined ? Math.min(Math.max(Math.floor(score), 0), 10) : 5;
+
       const response = await apiCall(`${USER_API}/doctors/suggest/`, {
         method: 'POST',
-        body: JSON.stringify({ severity_score: score })
+        body: JSON.stringify({ severity_score: severityScore })
       });
       if (response.ok) {
         const data = await response.json();
@@ -121,16 +125,23 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
     return { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', dot: 'bg-emerald-500' };
   };
 
+  const handleLogout = () => {
+    dispatch(logout());
+    dispatch(setCurrentView('landing'));
+  };
+
+  const handleNavigation = (view) => {
+    dispatch(setCurrentView(view));
+    setActiveTab(view);
+    setSidebarOpen(false);
+  };
+
   const NavItem = ({ icon: Icon, label, view, active }) => (
     <button
-      onClick={() => {
-        setCurrentView(view);
-        setActiveTab(label.toLowerCase());
-        setSidebarOpen(false);
-      }}
+      onClick={() => handleNavigation(view)}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
-          ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
-          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+        ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
+        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
         }`}
     >
       <Icon className={`w-5 h-5 ${active ? 'text-teal-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
@@ -315,7 +326,7 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                   </div>
                 </div>
                 <button
-                  onClick={() => setCurrentView('treatment-plan')}
+                  onClick={() => dispatch(setCurrentView('treatment-plan'))}
                   className="px-6 py-3 bg-white text-teal-700 font-bold rounded-xl hover:bg-teal-50 transition-colors shadow-lg active:scale-95 whitespace-nowrap"
                 >
                   {treatmentPlan ? 'Continue Plan' : 'View Details'}
@@ -364,7 +375,7 @@ const UserDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setCurrentView('book-appointment')
+                            dispatch(setCurrentView('book-appointment'));
                           }}
                           className="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg group-hover:bg-teal-600 transition-colors"
                         >

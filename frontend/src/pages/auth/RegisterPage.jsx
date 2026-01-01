@@ -1,9 +1,15 @@
 
+
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { Heart, Mail, Lock, Key, ArrowRight } from 'lucide-react';
 import { AUTH_API } from '../../config/api';
+import { setCurrentView } from '../../store/slices/uiSlice';
 
-const RegisterPage = ({ setCurrentView }) => {
+
+const RegisterPage = () => {
+  const dispatch = useDispatch();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -53,7 +59,7 @@ const RegisterPage = ({ setCurrentView }) => {
 
       if (response.ok) {
         alert('Registration successful! Please login.');
-        setCurrentView('login');
+        dispatch(setCurrentView('login'));
       } else {
         setError(data.detail || 'OTP verification failed');
       }
@@ -170,14 +176,14 @@ const RegisterPage = ({ setCurrentView }) => {
           <p className="text-gray-600">
             Already have an account?{' '}
             <button
-              onClick={() => setCurrentView('login')}
+              onClick={() => dispatch(setCurrentView('login'))}
               className="text-teal-600 font-bold hover:text-teal-800 hover:underline transition"
             >
               Login
             </button>
           </p>
           <button
-            onClick={() => setCurrentView('landing')}
+            onClick={() => dispatch(setCurrentView('landing'))}
             className="text-gray-400 hover:text-teal-600 text-sm transition flex items-center justify-center gap-1 mx-auto"
           >
             ← Back to Home

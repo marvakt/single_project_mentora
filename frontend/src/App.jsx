@@ -63,70 +63,70 @@
 //   const renderView = () => {
 //     // Auth & Landing
 //     if (currentView === 'landing') {
-//       return <LandingPage setCurrentView={setCurrentView} />;
+//       return <LandingPage setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'login') {
-//       return <LoginPage setCurrentView={setCurrentView} setUser={setUser} setToken={setToken} />;
+//       return <LoginPage setCurrentView={handleSetCurrentView} setUser={setUser} setToken={setToken} />;
 //     }
 
 //     if (currentView === 'register') {
-//       return <RegisterPage setCurrentView={setCurrentView} />;
+//       return <RegisterPage setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'doctor-register') {
-//       return <DoctorRegisterPage setCurrentView={setCurrentView} />;
+//       return <DoctorRegisterPage setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     // User Views
 //     if (currentView === 'user-dashboard') {
-//       return <UserDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
+//       return <UserDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'user-profile') {
-//       return <UserProfile user={user} token={token} setCurrentView={setCurrentView} />;
+//       return <UserProfile user={user} token={token} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'severity-assessment') {
-//       return <SeverityAssessment user={user} token={token} setCurrentView={setCurrentView} />;
+//       return <SeverityAssessment user={user} token={token} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'mood-tracker') {
-//       return <MoodTracker user={user} token={token} setCurrentView={setCurrentView} />;
+//       return <MoodTracker user={user} token={token} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'book-appointment') {
-//       return <BookAppointment user={user} token={token} setCurrentView={setCurrentView} />;
+//       return <BookAppointment user={user} token={token} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'my-appointments') {
-//       return <MyAppointments user={user} token={token} setCurrentView={setCurrentView} />;
+//       return <MyAppointments user={user} token={token} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     // Doctor Views
 //     if (currentView === 'doctor-dashboard') {
-//       return <DoctorDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
+//       return <DoctorDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'doctor-profile') {
-//       return <DoctorProfile user={user} token={token} setCurrentView={setCurrentView} />;
+//       return <DoctorProfile user={user} token={token} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'doctor-availability') {
-//       return <DoctorAvailability user={user} token={token} setCurrentView={setCurrentView} />;
+//       return <DoctorAvailability user={user} token={token} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     // Admin Views
 //     if (currentView === 'admin-dashboard') {
-//       return <AdminDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={setCurrentView} />;
+//       return <AdminDashboard user={user} token={token} handleLogout={handleLogout} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     if (currentView === 'admin-users') {
-//       return <AdminUserManagement user={user} token={token} setCurrentView={setCurrentView} />;
+//       return <AdminUserManagement user={user} token={token} setCurrentView={handleSetCurrentView} />;
 //     }
 
 //     // Default
-//     return <LandingPage setCurrentView={setCurrentView} />;
+//     return <LandingPage setCurrentView={handleSetCurrentView} />;
 //   };
 
 //   return (
@@ -139,7 +139,10 @@
 // export default App;
 
 // src/App.jsx - COMPLETE INTEGRATION WITH ALL SERVICES
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { logout } from './store/slices/authSlice';
+import { setCurrentView } from './store/slices/uiSlice';
 
 // Auth & Landing
 import LandingPage from './pages/LandingPage';
@@ -178,66 +181,63 @@ import AdminSettings from './pages/admin/AdminSettings';
 import VideoConsultation from './components/VideoConsultation';
 import RealTimeChat from './components/RealTimeChat';
 const App = () => {
-  const [currentView, setCurrentView] = useState('landing');
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  const dispatch = useDispatch();
 
-  // Appointment-related state
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
-  const [paymentData, setPaymentData] = useState(null);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  // Redux selectors
+  const { user, token, isAuthenticated, role } = useSelector((state) => state.auth);
+  const { currentView } = useSelector((state) => state.ui);
+  const { selectedAppointment } = useSelector((state) => state.appointments);
+
+  // Local state for navigation helpers
+  const [selectedAppointmentId, setSelectedAppointmentId] = React.useState(null);
+  const [paymentData, setPaymentData] = React.useState(null);
 
   useEffect(() => {
-    const savedToken = sessionStorage.getItem('access_token');
-    const savedUser = sessionStorage.getItem('user');
-
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-      const role = JSON.parse(savedUser).role;
-
-      // Route to appropriate dashboard
+    // Route to appropriate dashboard if authenticated
+    if (isAuthenticated && role) {
       if (role === 'admin') {
-        setCurrentView('admin-dashboard');
+        dispatch(setCurrentView('admin-dashboard'));
       } else if (role === 'doctor') {
-        setCurrentView('doctor-dashboard');
+        dispatch(setCurrentView('doctor-dashboard'));
       } else {
-        setCurrentView('user-dashboard');
+        dispatch(setCurrentView('user-dashboard'));
       }
     }
-  }, []);
+  }, [isAuthenticated, role, dispatch]);
 
   const handleLogout = () => {
-    sessionStorage.clear();
-    setToken(null);
-    setUser(null);
-    setCurrentView('landing');
+    dispatch(logout());
+    dispatch(setCurrentView('landing'));
+  };
+
+  const handleSetCurrentView = (view) => {
+    dispatch(setCurrentView(view));
   };
 
   // Helper functions for appointment navigation
   const viewAppointmentDetail = (appointmentId) => {
     setSelectedAppointmentId(appointmentId);
-    setCurrentView('appointment-detail');
+    dispatch(setCurrentView('appointment-detail'));
   };
 
   const viewDoctorAppointmentDetail = (appointmentId) => {
     setSelectedAppointmentId(appointmentId);
-    setCurrentView('doctor-appointment-detail');
+    dispatch(setCurrentView('doctor-appointment-detail'));
   };
 
   const openChat = (appointmentId) => {
     setSelectedAppointmentId(appointmentId);
-    setCurrentView('real-time-chat');
+    dispatch(setCurrentView('real-time-chat'));
   };
 
   const processPayment = (appointmentId, amount) => {
     setPaymentData({ appointmentId, amount });
-    setCurrentView('payment-processing');
+    dispatch(setCurrentView('payment-processing'));
   };
 
   const joinVideoCall = (appointmentId) => {
     setSelectedAppointmentId(appointmentId);
-    setCurrentView('video-consultation');
+    dispatch(setCurrentView('video-consultation'));
   };
 
   const renderView = () => {
@@ -245,25 +245,23 @@ const App = () => {
     // AUTH & LANDING PAGES
     // ==========================================
     if (currentView === 'landing') {
-      return <LandingPage setCurrentView={setCurrentView} />;
+      return <LandingPage setCurrentView={handleSetCurrentView} />;
     }
 
     if (currentView === 'login') {
       return (
         <LoginPage
-          setCurrentView={setCurrentView}
-          setUser={setUser}
-          setToken={setToken}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
 
     if (currentView === 'register') {
-      return <RegisterPage setCurrentView={setCurrentView} />;
+      return <RegisterPage setCurrentView={handleSetCurrentView} />;
     }
 
     if (currentView === 'doctor-register') {
-      return <DoctorRegisterPage setCurrentView={setCurrentView} />;
+      return <DoctorRegisterPage setCurrentView={handleSetCurrentView} />;
     }
 
     // ==========================================
@@ -275,7 +273,7 @@ const App = () => {
           user={user}
           token={token}
           handleLogout={handleLogout}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -285,7 +283,7 @@ const App = () => {
         <UserProfile
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -295,7 +293,7 @@ const App = () => {
         <SeverityAssessment
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -305,7 +303,7 @@ const App = () => {
         <MoodTracker
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -317,7 +315,7 @@ const App = () => {
         <TreatmentPlan
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -332,7 +330,7 @@ const App = () => {
         <BookAppointment
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
           onBookingSuccess={(appointmentId, amount) => {
             // After booking, redirect to payment
             processPayment(appointmentId, amount);
@@ -346,7 +344,7 @@ const App = () => {
         <MyAppointments
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
           onViewDetail={viewAppointmentDetail}
           onProcessPayment={processPayment}
           onJoinVideo={joinVideoCall}
@@ -360,7 +358,7 @@ const App = () => {
         <AppointmentDetail
           appointmentId={selectedAppointmentId}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
           onProcessPayment={processPayment}
           onJoinVideo={joinVideoCall}
           onViewChat={openChat}
@@ -374,7 +372,7 @@ const App = () => {
           appointmentId={selectedAppointmentId}
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
           onBack={() => {
             if (user?.role === 'doctor') {
               setCurrentView('doctor-appointment-detail');
@@ -399,7 +397,7 @@ const App = () => {
           onCancel={() => {
             setCurrentView('my-appointments');
           }}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -413,7 +411,7 @@ const App = () => {
           user={user}
           token={token}
           handleLogout={handleLogout}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -423,7 +421,7 @@ const App = () => {
         <DoctorProfile
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -433,7 +431,7 @@ const App = () => {
         <DoctorAvailability
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -444,7 +442,7 @@ const App = () => {
           user={user}
           token={token}
           handleLogout={handleLogout}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
           onViewDetail={viewDoctorAppointmentDetail}
           onJoinVideo={joinVideoCall}
         />
@@ -457,7 +455,7 @@ const App = () => {
           appointmentId={selectedAppointmentId}
           token={token}
           handleLogout={handleLogout}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
           onJoinVideo={joinVideoCall}
           onViewChat={openChat}
         />
@@ -470,7 +468,7 @@ const App = () => {
           user={user}
           token={token}
           handleLogout={handleLogout}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -492,7 +490,7 @@ const App = () => {
               setCurrentView('my-appointments');
             }
           }}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -506,7 +504,7 @@ const App = () => {
           user={user}
           token={token}
           handleLogout={handleLogout}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -516,7 +514,7 @@ const App = () => {
         <AdminUserManagement
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
         />
       );
     }
@@ -526,7 +524,7 @@ const App = () => {
         <AdminSystemLogs
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
           handleLogout={handleLogout}
         />
       );
@@ -537,7 +535,7 @@ const App = () => {
         <AdminSettings
           user={user}
           token={token}
-          setCurrentView={setCurrentView}
+          setCurrentView={handleSetCurrentView}
           handleLogout={handleLogout}
         />
       );
@@ -546,7 +544,7 @@ const App = () => {
     // ==========================================
     // DEFAULT FALLBACK
     // ==========================================
-    return <LandingPage setCurrentView={setCurrentView} />;
+    return <LandingPage setCurrentView={handleSetCurrentView} />;
   };
 
   return (

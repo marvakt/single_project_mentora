@@ -1,50 +1,41 @@
 
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Calendar, Clock, User, ArrowLeft, XCircle, CheckCircle,
   Star, Video, FileText, DollarSign, Activity, MessageSquare,
   Home, Smile, Settings, LogOut, Menu, Bell, Heart, Search, Filter
 } from 'lucide-react';
 import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchAppointments } from '../../store/slices/appointmentsSlice';
 
-const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPayment, onJoinVideo, onViewChat }) => {
-  const [appointments, setAppointments] = useState([]);
-  const [doctors, setDoctors] = useState({}); // Map of doctorId -> doctor object
-  const [loading, setLoading] = useState(true);
+
+const MyAppointments = ({ onViewDetail, onProcessPayment, onJoinVideo, onViewChat }) => {
+  const dispatch = useDispatch();
+
+  // Redux selectors
+  const { user } = useSelector((state) => state.auth);
+  const { appointments: reduxAppointments, loading: reduxLoading } = useSelector((state) => state.appointments);
+
+  // Local state
+  const [doctors, setDoctors] = useState({});
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
-
-  // Sidebar State
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Search & Filter State
-  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming', 'history', 'cancelled'
+  const [activeTab, setActiveTab] = useState('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    Promise.all([fetchAppointments(), fetchDoctors()]);
-  }, []);
+    dispatch(fetchAppointments());
+    fetchDoctors();
+  }, [dispatch]);
 
-  const fetchAppointments = async () => {
-    setLoading(true);
-    try {
-      const response = await apiCall(`${APPOINTMENT_API}/appointments/`);
-      if (response.ok) {
-        const data = await response.json();
-        const sorted = data.appointments?.sort((a, b) =>
-          new Date(b.scheduled_at) - new Date(a.scheduled_at)
-        ) || [];
-        setAppointments(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch appointments:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const fetchDoctors = async () => {
     try {
@@ -82,7 +73,7 @@ const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPa
 
       if (response.ok) {
         alert('Appointment cancelled successfully');
-        fetchAppointments();
+        dispatch(fetchAppointments());
       } else {
         const error = await response.json();
         alert(error.error || 'Failed to cancel appointment');
@@ -95,6 +86,7 @@ const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPa
 
   const getFilteredAppointments = () => {
     const now = new Date();
+    const appointments = reduxAppointments || [];
 
     return appointments.filter(apt => {
       const aptDate = new Date(apt.scheduled_at);
@@ -137,7 +129,7 @@ const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPa
         alert('Thank you for your feedback! ⭐');
         setShowRatingModal(false);
         setSelectedAppointment(null);
-        fetchAppointments();
+        dispatch(fetchAppointments());
       } else {
         const error = await response.json();
         alert(error.detail || 'Failed to submit rating');
@@ -167,9 +159,19 @@ const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPa
     return null;
   };
 
+  const handleLogout = () => {
+    dispatch(logout());
+    dispatch(setCurrentView('landing'));
+  };
+
+  const handleNavigation = (view) => {
+    dispatch(setCurrentView(view));
+    setSidebarOpen(false);
+  };
+
   const NavItem = ({ icon: Icon, label, view, active }) => (
     <button
-      onClick={() => { setCurrentView(view); setSidebarOpen(false); }}
+      onClick={() => handleNavigation(view)}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
         ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -243,7 +245,7 @@ const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPa
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-gray-900 truncate">{user?.name || 'User'}</p>
-                <button onClick={() => { sessionStorage.clear(); setCurrentView('landing'); }} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
+                <button onClick={handleLogout} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
                   <LogOut className="w-3 h-3" /> Sign Out
                 </button>
               </div>
@@ -272,7 +274,7 @@ const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPa
                   <h2 className="text-3xl font-bold text-gray-900 tracking-tight">My Appointments</h2>
                   <p className="text-gray-500">Track your upcoming sessions and history.</p>
                 </div>
-                <button onClick={() => setCurrentView('book-appointment')} className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-teal-600 shadow-lg transition-all flex items-center gap-2 text-sm justify-center">
+                <button onClick={() => dispatch(setCurrentView('book-appointment'))} className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-teal-600 shadow-lg transition-all flex items-center gap-2 text-sm justify-center">
                   <Clock className="w-4 h-4" /> Book Session
                 </button>
               </div>
@@ -307,7 +309,7 @@ const MyAppointments = ({ user, token, setCurrentView, onViewDetail, onProcessPa
             </div>
 
             {/* Content */}
-            {loading ? (
+            {reduxLoading ? (
               <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-600 mx-auto"></div>
                 <p className="text-gray-500 mt-4 text-sm font-medium">Updating list...</p>

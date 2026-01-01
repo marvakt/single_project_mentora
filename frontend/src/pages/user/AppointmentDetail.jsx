@@ -1,55 +1,60 @@
 
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Calendar, Clock, User, ArrowLeft, Video, FileText,
   DollarSign, Activity, MessageSquare, Phone, Mail,
   CheckCircle, AlertCircle, XCircle, Heart, Home, Smile,
-  Settings, LogOut, Menu
+  Settings, LogOut, Menu, Star, X
 } from 'lucide-react';
 import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchAppointmentDetail } from '../../store/slices/appointmentsSlice';
+
 
 const AppointmentDetail = ({
   appointmentId,
-  user, // Added user prop for sidebar profile
-  token,
-  setCurrentView,
   onProcessPayment,
   onJoinVideo,
   onViewChat
 }) => {
-  const [appointment, setAppointment] = useState(null);
+  const dispatch = useDispatch();
+
+  // Redux selectors
+  const { user } = useSelector((state) => state.auth);
+  const { selectedAppointment, loading: appointmentLoading } = useSelector((state) => state.appointments);
+
+  // Local state
   const [doctor, setDoctor] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cancelling, setCancelling] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Review modal state
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
+
+  // Use selectedAppointment from Redux or fetch if needed
+  const appointment = selectedAppointment?.id === appointmentId ? selectedAppointment : null;
 
   useEffect(() => {
-    if (appointmentId) {
-      fetchAppointmentDetail();
+    if (appointmentId && !appointment) {
+      dispatch(fetchAppointmentDetail(appointmentId));
     }
-  }, [appointmentId]);
+  }, [appointmentId, appointment, dispatch]);
 
-  const fetchAppointmentDetail = async () => {
-    setLoading(true);
-    try {
-      const response = await apiCall(`${APPOINTMENT_API}/appointments/${appointmentId}/`);
-      if (response.ok) {
-        const data = await response.json();
-        setAppointment(data);
-        if (data.doctor_id) {
-          fetchDoctorDetails(data.doctor_id);
-        }
-      } else {
-        setError('Failed to load appointment details');
-      }
-    } catch (err) {
-      console.error('Error fetching appointment:', err);
-      setError('Something went wrong');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (appointment?.doctor_id) {
+      fetchDoctorDetails(appointment.doctor_id);
     }
-  };
+  }, [appointment?.doctor_id]);
+
+
 
   const fetchDoctorDetails = async (doctorId) => {
     try {
@@ -63,6 +68,7 @@ const AppointmentDetail = ({
     }
   };
 
+
   const cancelAppointment = async () => {
     if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
     setCancelling(true);
@@ -73,7 +79,7 @@ const AppointmentDetail = ({
       );
       if (response.ok) {
         alert('Appointment cancelled successfully');
-        fetchAppointmentDetail();
+        dispatch(fetchAppointmentDetail(appointmentId));
       } else {
         const errorData = await response.json();
         alert(errorData.error || 'Failed to cancel appointment');
@@ -83,6 +89,53 @@ const AppointmentDetail = ({
       alert('Something went wrong');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    dispatch(setCurrentView('landing'));
+  };
+
+  const handleNavigation = (view) => {
+    dispatch(setCurrentView(view));
+    setSidebarOpen(false);
+  };
+
+  const submitReview = async () => {
+    if (rating === 0) {
+      alert('Please select a rating');
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const response = await apiCall(
+        `${USER_API}/doctor/${appointment.doctor_id}/rate/`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            rating: rating,
+            review: reviewText
+          })
+        }
+      );
+
+      if (response.ok) {
+        alert('Thank you for your review!');
+        setShowReviewModal(false);
+        setHasReviewed(true);
+        setRating(0);
+        setReviewText('');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.detail || 'Failed to submit review');
+      }
+    } catch (err) {
+      console.error('Review submission error:', err);
+      alert('Something went wrong');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -188,7 +241,7 @@ const AppointmentDetail = ({
               <span>Back to Appointments</span>
             </button>
 
-            {loading ? (
+            {appointmentLoading || !appointment ? (
               <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
                 <p className="text-gray-500 mt-4 font-medium">Loading details...</p>
@@ -211,10 +264,10 @@ const AppointmentDetail = ({
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                         <div>
                           <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">Session Details</h1>
-                          <p className="text-gray-500">Scheduled for <span className="font-semibold text-teal-700">{new Date(appointment.scheduled_at).toLocaleDateString()}</span></p>
+                          <p className="text-gray-500">Scheduled for <span className="font-semibold text-teal-700">{appointment?.scheduled_at ? new Date(appointment.scheduled_at).toLocaleDateString() : 'N/A'}</span></p>
                         </div>
                         <div className="flex gap-2">
-                          <span className={`px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wider ${getStatusBadge(appointment.status).class}`}>
+                          <span className={`px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wider ${getStatusBadge(appointment?.status).class}`}>
                             {getStatusBadge(appointment.status).text}
                           </span>
                         </div>
@@ -324,7 +377,27 @@ const AppointmentDetail = ({
                         </button>
                       )}
 
-                      {/* 4. Cancel */}
+                      {/* 4. Write Review (for completed appointments) */}
+                      {appointment.status === 'completed' && !hasReviewed && (
+                        <button
+                          onClick={() => setShowReviewModal(true)}
+                          className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white p-4 rounded-xl hover:shadow-lg hover:shadow-amber-500/25 transition flex items-center justify-center gap-2 font-semibold"
+                        >
+                          <Star className="w-5 h-5" /> Write Review
+                        </button>
+                      )}
+
+                      {/* Show reviewed badge */}
+                      {appointment.status === 'completed' && hasReviewed && (
+                        <div className="bg-emerald-50 text-emerald-800 p-4 rounded-xl text-center text-sm border border-emerald-100">
+                          <p className="font-semibold flex items-center justify-center gap-2">
+                            <CheckCircle className="w-4 h-4" /> Review Submitted
+                          </p>
+                          <p className="opacity-80 text-xs mt-1">Thank you for your feedback!</p>
+                        </div>
+                      )}
+
+                      {/* 5. Cancel */}
                       {appointment.status === 'pending' && (
                         <button
                           onClick={cancelAppointment}
@@ -335,7 +408,7 @@ const AppointmentDetail = ({
                         </button>
                       )}
 
-                      {/* 5. Info Box */}
+                      {/* 6. Info Box */}
                       <div className="mt-6 pt-6 border-t border-gray-100">
                         <div className="flex items-center gap-3 text-xs text-gray-400">
                           <AlertCircle className="w-4 h-4" />
@@ -350,6 +423,71 @@ const AppointmentDetail = ({
           </div>
         </div>
       </main>
+
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <button
+              onClick={() => setShowReviewModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition"
+            >
+              <X className="w-4 h-4 text-gray-600" />
+            </button>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Rate Your Experience</h2>
+            <p className="text-gray-500 mb-6">How was your session with Dr. {doctor?.name}?</p>
+
+            {/* Star Rating */}
+            <div className="flex justify-center gap-2 mb-6">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => setRating(star)}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  className="transition-transform hover:scale-110"
+                >
+                  <Star
+                    className={`w-10 h-10 ${star <= (hoverRating || rating)
+                      ? 'fill-amber-400 text-amber-400'
+                      : 'text-gray-300'
+                      }`}
+                  />
+                </button>
+              ))}
+            </div>
+
+            {rating > 0 && (
+              <p className="text-center text-sm font-semibold text-gray-700 mb-4">
+                {rating === 1 && '😞 Poor'}
+                {rating === 2 && '😕 Fair'}
+                {rating === 3 && '😐 Good'}
+                {rating === 4 && '😊 Very Good'}
+                {rating === 5 && '🤩 Excellent'}
+              </p>
+            )}
+
+            {/* Review Text */}
+            <textarea
+              value={reviewText}
+              onChange={(e) => setReviewText(e.target.value)}
+              placeholder="Share your experience (optional)..."
+              className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none resize-none mb-6"
+              rows="4"
+            />
+
+            {/* Submit Button */}
+            <button
+              onClick={submitReview}
+              disabled={submittingReview || rating === 0}
+              className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 text-white py-3 rounded-2xl font-bold shadow-lg hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submittingReview ? 'Submitting...' : 'Submit Review'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

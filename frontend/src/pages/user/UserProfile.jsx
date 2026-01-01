@@ -1,14 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Heart, Calendar, CheckCircle, Clock, TrendingUp, FileText,
   Home, Activity, Smile, Settings, LogOut, Menu, User, Camera,
   Mail, Phone, MapPin, Globe, Shield, ChevronRight
 } from 'lucide-react';
 import { USER_API } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchUserProfile, updateUserProfile } from '../../store/slices/userProfileSlice';
 
-const UserProfile = ({ user, token, setCurrentView }) => {
-  const [profile, setProfile] = useState(null);
+const UserProfile = () => {
+  const dispatch = useDispatch();
+
+  // Redux selectors
+  const { user } = useSelector((state) => state.auth);
+  const { profile } = useSelector((state) => state.userProfile);
+
+  // Local form state
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -19,68 +29,35 @@ const UserProfile = ({ user, token, setCurrentView }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch(
-        `${USER_API}/profile/${user.user_id}/`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch profile');
-      }
-
-      const data = await response.json();
-
-      setProfile(data);
-      setEmail(data.email || '');
-      setName(data.name || '');
-      setPhone(data.phone || '');
-      setGender(data.gender || '');
-      setAddress(data.address || '');
-      setAvatar(data.avatar || '');
-    } catch (err) {
-      console.error('Failed to fetch profile', err);
+    if (user?.user_id) {
+      dispatch(fetchUserProfile(user.user_id));
     }
-  };
+  }, [user?.user_id, dispatch]);
+
+  useEffect(() => {
+    if (profile) {
+      setEmail(profile.email || '');
+      setName(profile.name || '');
+      setPhone(profile.phone || '');
+      setGender(profile.gender || '');
+      setAddress(profile.address || '');
+      setAvatar(profile.avatar || '');
+    }
+  }, [profile]);
+
+
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${USER_API}/profile/${user.user_id}/update/`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name,
-            phone,
-            gender,
-            address,
-            avatar,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Update failed');
-      }
+      await dispatch(updateUserProfile({
+        userId: user.user_id,
+        data: { name, phone, gender, address, avatar }
+      })).unwrap();
 
       alert('Profile updated successfully!');
-      fetchProfile();
     } catch (err) {
       alert('Failed to update profile');
     } finally {
@@ -88,10 +65,20 @@ const UserProfile = ({ user, token, setCurrentView }) => {
     }
   };
 
+  const handleLogout = () => {
+    dispatch(logout());
+    dispatch(setCurrentView('landing'));
+  };
+
+  const handleNavigation = (view) => {
+    dispatch(setCurrentView(view));
+    setSidebarOpen(false);
+  };
+
   // Sidebar Nav Item Helper
   const NavItem = ({ icon: Icon, label, view, active }) => (
     <button
-      onClick={() => { setCurrentView(view); setSidebarOpen(false); }}
+      onClick={() => handleNavigation(view)}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
         ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -144,7 +131,7 @@ const UserProfile = ({ user, token, setCurrentView }) => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-gray-900 truncate">{name || user?.name || sessionStorage.getItem('user_name') || 'User'}</p>
-                <button onClick={() => { sessionStorage.clear(); setCurrentView('landing'); }} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
+                <button onClick={handleLogout} className="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1">
                   <LogOut className="w-3 h-3" /> Sign Out
                 </button>
               </div>

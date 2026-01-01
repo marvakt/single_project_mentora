@@ -5,14 +5,24 @@
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { 
   Shield, LogOut, CheckCircle, XCircle, FileText, Eye, X, 
   User, Mail, Phone, Award, Briefcase, DollarSign, Calendar,
   Menu, Home, Users, Settings, Activity, Search, Filter, ChevronRight
 } from 'lucide-react';
 import { USER_API } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
 
-const AdminDashboard = ({ user, token, handleLogout, setCurrentView }) => {
+
+const AdminDashboard = () => {
+  const dispatch = useDispatch();
+  
+  // Redux selectors
+  const { user } = useSelector((state) => state.auth);
+  
+  // Local state
   const [pendingDoctors, setPendingDoctors] = useState([]);
   const [allDoctors, setAllDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +30,7 @@ const AdminDashboard = ({ user, token, handleLogout, setCurrentView }) => {
   const [doctorDocuments, setDoctorDocuments] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
-  const [currentViewFilter, setCurrentViewFilter] = useState('pending'); // pending, approved, rejected, all
+  const [currentViewFilter, setCurrentViewFilter] = useState('pending');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {

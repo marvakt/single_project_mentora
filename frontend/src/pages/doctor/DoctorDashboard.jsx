@@ -1,56 +1,41 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Heart, Calendar, Users, CheckCircle, DollarSign, Bell, User,
   LogOut, Clock, Settings, FileText, Menu, Home, Activity, Sparkles, TrendingUp, AlertCircle
 } from 'lucide-react';
 import { USER_API, APPOINTMENT_API, apiCall } from '../../config/api';
+import { logout } from '../../store/slices/authSlice';
+import { setCurrentView } from '../../store/slices/uiSlice';
+import { fetchAppointments } from '../../store/slices/appointmentsSlice';
+import { fetchDoctorProfile } from '../../store/slices/doctorProfileSlice';
 
-const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
-  const [profile, setProfile] = useState(null);
-  const [doctorProfile, setDoctorProfile] = useState(null);
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+const DoctorDashboard = () => {
+  const dispatch = useDispatch();
+
+  // Redux selectors
+  const { user, token } = useSelector((state) => state.auth);
+  const { appointments, loading: appointmentsLoading } = useSelector((state) => state.appointments);
+  const { doctorProfile, loading: profileLoading } = useSelector((state) => state.doctorProfile);
+  const { profile } = useSelector((state) => state.userProfile);
+
+  // Local state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
-    fetchAppointments();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch(`${USER_API}/profile/${user.user_id}/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-        setDoctorProfile(data.doctor);
-      }
-    } catch (err) {
-      console.error('Failed to fetch profile', err);
+    if (user?.user_id) {
+      dispatch(fetchDoctorProfile(user.user_id));
+      dispatch(fetchAppointments());
     }
-  };
+  }, [user?.user_id, dispatch]);
 
-  const fetchAppointments = async () => {
-    setLoading(true);
-    try {
-      const response = await apiCall(`${APPOINTMENT_API}/appointments/`);
-      if (response.ok) {
-        const data = await response.json();
-        const appointmentsList = data.appointments || data || [];
-        setAppointments(appointmentsList);
-      }
-    } catch (err) {
-      console.error('Failed to fetch appointments:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const getUpcomingAppointments = () => {
     const now = new Date();
-    return appointments
+    const appointmentsList = appointments || [];
+    return appointmentsList
       .filter(apt => new Date(apt.scheduled_at) > now && apt.status === 'confirmed')
       .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
       .slice(0, 3);
@@ -58,20 +43,44 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
 
   const getTodayCount = () => {
     const today = new Date().toDateString();
-    return appointments.filter(apt =>
-      new Date(apt.scheduled_at).toDateString() === today && apt.status === 'confirmed'
+    const appointmentsList = appointments || [];
+    return appointmentsList.filter(apt =>
+      new Date(apt.scheduled_at).toDateString() === today
     ).length;
   };
 
+  const getCompletedCount = () => {
+    const appointmentsList = appointments || [];
+    return appointmentsList.filter(apt => apt.status === 'completed').length;
+  };
+
+  const getTotalRevenue = () => {
+    const appointmentsList = appointments || [];
+    return appointmentsList
+      .filter(apt => apt.status === 'completed')
+      .reduce((sum, apt) => sum + (apt.amount || 0), 0);
+  };
+
   const getTotalPatients = () => {
-    const uniquePatients = new Set(appointments.map(apt => apt.user_id));
+    // Get unique patient count from appointments
+    const uniquePatients = new Set((appointments || []).map(apt => apt.user_id));
     return uniquePatients.size;
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    dispatch(setCurrentView('landing'));
+  };
+
+  const handleNavigation = (view) => {
+    dispatch(setCurrentView(view));
+    setSidebarOpen(false);
   };
 
   // Sidebar Nav Item Helper
   const NavItem = ({ icon: Icon, label, view, active }) => (
     <button
-      onClick={() => { setCurrentView(view); setSidebarOpen(false); }}
+      onClick={() => handleNavigation(view)}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
         ? 'bg-gradient-to-r from-teal-50 to-emerald-50 text-teal-700 font-semibold shadow-sm border border-teal-100'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -276,7 +285,7 @@ const DoctorDashboard = ({ user, token, handleLogout, setCurrentView }) => {
                     <button onClick={() => setCurrentView('doctor-appointments')} className="text-sm font-bold text-teal-600 hover:underline">View All</button>
                   </div>
 
-                  {loading ? (
+                  {appointmentsLoading ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mb-2"></div>
                       <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Loading...</p>
