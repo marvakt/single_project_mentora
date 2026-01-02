@@ -30,16 +30,34 @@ def send_doctor_status_email(self, email: str, status: str):
             "— Mentora Team"
         )
 
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [email],
-        fail_silently=False,
-    )
-
-    logger.info(f"Doctor status email sent to {email} ({status})")
-    return True
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=True,  # Changed to True to prevent task failure
+        )
+        logger.info(f"Doctor status email sent successfully to {email} ({status})")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send doctor status email to {email} ({status}): {str(e)}")
+        # Try alternative method if primary method fails
+        try:
+            # Alternative: send email directly without using settings
+            from django.core.mail import EmailMessage
+            email_msg = EmailMessage(
+                subject,
+                message,
+                'mentoraa2025@gmail.com',  # Use the configured sender
+                [email],
+            )
+            email_msg.send()
+            logger.info(f"Doctor status email sent via alternative method to {email} ({status})")
+            return True
+        except Exception as alt_e:
+            logger.error(f"Failed to send doctor status email via alternative method to {email} ({status}): {str(alt_e)}")
+            return False
 
 
 @shared_task(

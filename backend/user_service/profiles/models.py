@@ -105,6 +105,7 @@ class DoctorDocument(models.Model):
 
     doc_type = models.CharField(max_length=50)  # license, degree, id_proof
     file_url = models.TextField()
+    file_key = models.TextField(blank=True, null=True, help_text="S3 object key for the uploaded file")
     verified = models.BooleanField(default=False)
 
     uploaded_at = models.DateTimeField(auto_now_add=True)

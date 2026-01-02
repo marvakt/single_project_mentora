@@ -25,6 +25,7 @@ from .views import (
 
     # Listings
     UserManagementListAPIView,
+    DeleteUserAPIView,
 
     # Notifications
     NotificationListAPIView,
@@ -33,6 +34,7 @@ from .views import (
     ListAvailabilityAPIView,
 
     ListDoctorDocumentsAPIView,
+    GetDoctorDocumentAPIView,
 
 
     PublicDoctorListAPIView,
@@ -72,11 +74,13 @@ urlpatterns = [
 
     # ---------- ADMIN USER LIST ----------
     path("admin/users/", UserManagementListAPIView.as_view(), name="admin-user-list"),
+    path("admin/users/<str:user_id>/delete/", DeleteUserAPIView.as_view(), name="delete-user"),
 
     # ---------- NOTIFICATIONS ----------
     path("notifications/<str:user_id>/", NotificationListAPIView.as_view(), name="user-notifications"),
 
     path("doctor/<str:user_id>/documents/", ListDoctorDocumentsAPIView.as_view(), name="list-doctor-documents"),
+    path("doctor/document/<int:document_id>/", GetDoctorDocumentAPIView.as_view(), name="get-doctor-document"),
     path("doctor/<str:user_id>/availability/", ListAvailabilityAPIView.as_view(), name="list-availability"),
 
    path("doctors/", PublicDoctorListAPIView.as_view(), name="public-doctor-list"),

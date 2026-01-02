@@ -22,13 +22,46 @@ const DoctorDashboard = () => {
 
   // Local state
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   useEffect(() => {
     if (user?.user_id) {
       dispatch(fetchDoctorProfile(user.user_id));
       dispatch(fetchAppointments());
+      fetchNotifications();
     }
   }, [user?.user_id, dispatch]);
+
+  // Refresh notifications when doctor status changes
+  useEffect(() => {
+    if (doctorProfile?.doctor_status) {
+      fetchNotifications();
+    }
+  }, [doctorProfile?.doctor_status]);
+
+  const fetchNotifications = async () => {
+    if (!user?.user_id) return;
+    
+    setNotificationsLoading(true);
+    try {
+      const response = await apiCall(`${USER_API}/notifications/${user.user_id}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+      } else {
+        console.error('Failed to fetch notifications:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
 
 
 
@@ -333,24 +366,40 @@ const DoctorDashboard = () => {
               {/* Quick Notifications/Updates */}
               <div className="lg:col-span-4 space-y-8">
                 <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-                  <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-teal-600" /> Announcements
+                  <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-teal-600" /> Notifications
+                    </div>
+                    <button 
+                      onClick={fetchNotifications}
+                      disabled={notificationsLoading}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-lg ${notificationsLoading ? 'bg-gray-100 text-gray-400' : 'bg-teal-50 text-teal-600 hover:bg-teal-100'}`}
+                    >
+                      {notificationsLoading ? 'Refreshing...' : 'Refresh'}
+                    </button>
                   </h3>
                   <div className="space-y-6">
-                    <div className="flex gap-4">
-                      <div className="w-2 h-2 rounded-full bg-teal-500 shrink-0 mt-2"></div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-800 leading-tight mb-1">System Update v2.4</p>
-                        <p className="text-xs text-gray-500 font-medium">New patient feedback system is now live for all specialists.</p>
+                    {notificationsLoading ? (
+                      <div className="text-center py-4">
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-teal-500"></div>
+                        <p className="text-sm text-gray-500 mt-2">Loading notifications...</p>
                       </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-2"></div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-800 leading-tight mb-1">Webinar Alert</p>
-                        <p className="text-xs text-gray-500 font-medium">Join us for a talk on 'Digital Empathy' next Friday at 4 PM.</p>
+                    ) : notifications.length > 0 ? (
+                      notifications.map((notification, index) => (
+                        <div key={index} className="flex gap-4">
+                          <div className={`w-2 h-2 rounded-full ${notification.title.includes('Approved') ? 'bg-emerald-500' : notification.title.includes('Rejected') ? 'bg-rose-500' : 'bg-teal-500'} shrink-0 mt-2`}></div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-800 leading-tight mb-1">{notification.title}</p>
+                            <p className="text-xs text-gray-500 font-medium">{notification.message}</p>
+                            <p className="text-xs text-gray-400 mt-1">{new Date(notification.created_at || notification.timestamp).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-gray-500">No notifications yet</p>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 

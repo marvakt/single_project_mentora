@@ -175,6 +175,34 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleViewDocument = async (documentId) => {
+    try {
+      if (!token) {
+        console.error('No token available for API request');
+        return;
+      }
+      
+      const response = await fetch(`${USER_API}/doctor/document/${documentId}/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Open the presigned URL in a new tab
+        window.open(data.presigned_url, '_blank');
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Failed to access document');
+      }
+    } catch (err) {
+      console.error('Error accessing document:', err);
+      alert('Error accessing document');
+    }
+  };
+
   const handleBlockUser = async (userId, userType = 'user') => {
     const reason = prompt('Please provide a reason for blocking (optional):');
     if (reason === null) return; // User cancelled
@@ -579,7 +607,15 @@ const AdminDashboard = () => {
                                 <p className="text-xs text-gray-400">{new Date(doc.uploaded_at).toLocaleDateString()}</p>
                               </div>
                             </div>
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 rounded-lg transition">
+                            <a 
+                              href="#" 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleViewDocument(doc.id);
+                              }}
+                              className="p-2 bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 rounded-lg transition cursor-pointer"
+                              title="View Document"
+                            >
                               <Eye className="w-4 h-4" />
                             </a>
                           </div>

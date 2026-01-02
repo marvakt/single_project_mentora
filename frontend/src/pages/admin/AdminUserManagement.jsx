@@ -244,6 +244,35 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
     }
   };
 
+  const handleDeleteUser = async (userId, userType = 'user') => {
+    if (!confirm(`⚠️ ARE YOU SURE?\n\nThis will permanently delete this ${userType} and ALL their data. This action cannot be undone.`)) return;
+
+    try {
+      const response = await fetch(`${USER_API}/admin/users/${userId}/delete/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        alert(`🗑️ ${userType.charAt(0).toUpperCase() + userType.slice(1)} deleted successfully!`);
+        fetchAllUsers();
+        if (selectedUser?.user_id === userId) {
+          setShowModal(false);
+          setSelectedUser(null);
+        }
+      } else {
+        const data = await response.json();
+        alert(`Failed to delete user: ${data.detail || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`Error deleting ${userType}`);
+      console.error(err);
+    }
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setSelectedUser(null);
@@ -505,6 +534,12 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
                       >
                         Unblock
                       </button>
+                      <button
+                        onClick={() => handleDeleteUser(userObj.user_id, userObj.role)}
+                        className="px-3 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-xs transition border border-red-100"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))
@@ -610,7 +645,15 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
                                 <p className="text-[10px] text-gray-400">{new Date(doc.uploaded_at).toLocaleDateString()}</p>
                               </div>
                             </div>
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-indigo-600 transition">
+                            <a 
+                              href="#" 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleViewDocument(doc.id);
+                              }}
+                              className="p-2 text-gray-400 hover:text-indigo-600 transition cursor-pointer"
+                              title="View Document"
+                            >
                               <Eye className="w-4 h-4" />
                             </a>
                           </div>
@@ -651,6 +694,12 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
                     className="flex-1 py-3 rounded-xl font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition"
                   >
                     Unblock User
+                  </button>
+                  <button
+                    onClick={() => handleDeleteUser(selectedUser.user_id, selectedUser.role)}
+                    className="flex-1 py-3 rounded-xl font-bold bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition"
+                  >
+                    Delete User
                   </button>
                 </div>
               </div>

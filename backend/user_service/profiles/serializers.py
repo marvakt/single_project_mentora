@@ -15,10 +15,17 @@ from .models import (
 # DOCTOR DOCUMENT SERIALIZER
 # ============================================================
 class DoctorDocumentSerializer(serializers.ModelSerializer):
+    file_key = serializers.CharField(allow_null=True, required=False, read_only=True)
+    
     class Meta:
         model = DoctorDocument
         fields = "__all__"
-        read_only_fields = ("uploaded_at", "verified")
+        read_only_fields = ("uploaded_at", "verified", "file_key")
+
+    def to_representation(self, instance):
+        # Ensure file_key is included in the serialized output
+        data = super().to_representation(instance)
+        return data
 
 
 # ============================================================

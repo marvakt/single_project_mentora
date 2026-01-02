@@ -44,10 +44,11 @@ const DoctorProfile = () => {
     if (doctorProfile) {
       setName(doctorProfile.name || '');
       setPhone(doctorProfile.phone || '');
-      setSpecialization(doctorProfile.specialization || '');
-      setExperience(doctorProfile.experience_years || '');
-      setFee(doctorProfile.consultation_fee || '');
-      setBio(doctorProfile.bio || '');
+      // Access doctor fields from the nested doctor object
+      setSpecialization(doctorProfile.doctor?.specialization || '');
+      setExperience(doctorProfile.doctor?.experience_years || '');
+      setFee(doctorProfile.doctor?.consultation_fee || '');
+      setBio(doctorProfile.doctor?.bio || '');
     }
   }, [doctorProfile]);
 
@@ -93,6 +94,31 @@ const DoctorProfile = () => {
     }
   };
 
+  const handleViewDocument = async (documentId) => {
+    try {
+      const token = sessionStorage.getItem('access_token');
+      
+      const response = await fetch(`${USER_API}/doctor/document/${documentId}/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Open the presigned URL in a new tab
+        window.open(data.presigned_url, '_blank');
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Failed to access document');
+      }
+    } catch (err) {
+      console.error('Error accessing document:', err);
+      alert('Error accessing document');
+    }
+  };
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -109,10 +135,12 @@ const DoctorProfile = () => {
         throw new Error(profileError.detail || 'Failed to update profile');
       }
       
-      // Update doctor profile
+      // Update doctor profile (now also handles user profile fields)
       const doctorResponse = await apiCall(`${USER_API}/doctor/${user.user_id}/profile/`, {
         method: 'POST',
         body: JSON.stringify({
+          name, // Include user profile fields in doctor profile update
+          phone,
           specialization,
           experience_years: parseInt(experience) || 0,
           consultation_fee: parseInt(fee) || 500,
@@ -157,13 +185,21 @@ const DoctorProfile = () => {
     setUploadingDoc(true);
 
     try {
-      // For now, just send the document type since the backend doesn't properly handle file uploads
-      const response = await apiCall(`${USER_API}/doctor/${user.user_id}/document/upload/`, {
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('doc_type', selectedDocType);
+
+      // Get the JWT token
+      const token = sessionStorage.getItem('access_token');
+      
+      const response = await fetch(`${USER_API}/doctor/${user.user_id}/document/upload/`, {
         method: 'POST',
-        body: JSON.stringify({
-          doc_type: selectedDocType,
-          file_url: selectedFile.name // Just send filename for now
-        })
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // Don't set Content-Type header, let browser set it with boundary
+        }
       });
 
       if (response.ok) {
@@ -561,9 +597,11 @@ const DoctorProfile = () => {
                               <div className="flex items-center gap-3">
                                 {getDocumentStatusBadge(doc)}
                                 <a
-                                  href={doc.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleViewDocument(doc.id);
+                                  }}
                                   className="w-8 h-8 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-teal-50 hover:text-teal-600 transition"
                                   title="View Document"
                                 >
