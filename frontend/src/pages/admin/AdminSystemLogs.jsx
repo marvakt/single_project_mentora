@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Home, Users, Activity, Settings, Search, Filter,
     AlertCircle, CheckCircle, Info, Clock, Download,
-    Menu, X, ChevronRight, RefreshCw, Server
+    Menu, X, ChevronRight, RefreshCw, Server, Shield, LogOut
 } from 'lucide-react';
 
 const AdminSystemLogs = ({ user, token, handleLogout, setCurrentView }) => {
@@ -52,8 +52,8 @@ const AdminSystemLogs = ({ user, token, handleLogout, setCurrentView }) => {
         <button
             onClick={() => setCurrentView(view)}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
-                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
+                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
                 }`}
         >
             <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-400 group-hover:text-emerald-600'}`} />
@@ -306,7 +306,6 @@ const AdminSystemLogs = ({ user, token, handleLogout, setCurrentView }) => {
     );
 };
 
-// Missing imports that are used in the sidebar
-import { Shield, LogOut } from 'lucide-react';
+
 
 export default AdminSystemLogs;

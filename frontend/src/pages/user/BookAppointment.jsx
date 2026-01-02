@@ -189,7 +189,28 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
 
     setLoading(true);
     try {
-      const scheduledAt = `${appointmentDate}T${appointmentTime}:00`;
+      // Create a Date object from the selected date and time
+      const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
+      
+      // Get the user's timezone offset in minutes and convert to hours
+      const timezoneOffsetMinutes = appointmentDateTime.getTimezoneOffset();
+      const offsetHours = Math.floor(Math.abs(timezoneOffsetMinutes) / 60);
+      const offsetMinutes = Math.abs(timezoneOffsetMinutes) % 60;
+      
+      // Format the offset with proper sign
+      const offsetSign = timezoneOffsetMinutes <= 0 ? '+' : '-'; // Note: getTimezoneOffset returns negative for positive offset
+      const offsetFormatted = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+      
+      // Format the datetime with timezone information to ensure the backend receives the correct time
+      const year = appointmentDateTime.getFullYear();
+      const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
+      const day = String(appointmentDateTime.getDate()).padStart(2, '0');
+      const hours = String(appointmentDateTime.getHours()).padStart(2, '0');
+      const minutes = String(appointmentDateTime.getMinutes()).padStart(2, '0');
+      const seconds = String(appointmentDateTime.getSeconds()).padStart(2, '0');
+      
+      // Create the datetime string with timezone offset
+      const scheduledAt = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetFormatted}`;
       const response = await apiCall(`${APPOINTMENT_API}/appointments/`, {
         method: 'POST',
         body: JSON.stringify({

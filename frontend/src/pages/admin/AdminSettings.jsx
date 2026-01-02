@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Home, Users, Activity, Settings, Shield, LogOut,
     Save, Bell, Lock, User, Mail, Globe, Database,
-    CheckCircle, AlertTriangle, Menu, X, ChevronRight, ToggleLeft, ToggleRight
+    CheckCircle, AlertTriangle, Menu, X, ChevronRight, ToggleLeft, ToggleRight, Clock
 } from 'lucide-react';
 
 const AdminSettings = ({ user, token, handleLogout, setCurrentView }) => {
@@ -41,8 +41,8 @@ const AdminSettings = ({ user, token, handleLogout, setCurrentView }) => {
         <button
             onClick={() => setCurrentView(view)}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
-                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
+                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
                 }`}
         >
             <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-400 group-hover:text-emerald-600'}`} />
@@ -145,8 +145,8 @@ const AdminSettings = ({ user, token, handleLogout, setCurrentView }) => {
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
                                     className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab
-                                            ? 'bg-white text-gray-900 shadow-sm'
-                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
                                         }`}
                                 >
                                     {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -332,7 +332,6 @@ const AdminSettings = ({ user, token, handleLogout, setCurrentView }) => {
         </div>
     );
 };
-// Missing import for Clock
-import { Clock } from 'lucide-react';
+
 
 export default AdminSettings;

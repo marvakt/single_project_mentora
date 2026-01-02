@@ -255,9 +255,10 @@ def validate_video_session_timing(appointment: Appointment) -> Tuple[bool, str]:
     now = timezone.now()
     appointment_time = appointment.scheduled_at
     
-    # Allow access from 1 hour before to 2 hours after appointment time
-    time_window_start = appointment_time - timezone.timedelta(minutes=60)
-    time_window_end = appointment_time + timezone.timedelta(hours=2)
+    # Allow access from 30 minutes before to 4 hours after appointment time
+    # This provides more flexibility for users to join the video call
+    time_window_start = appointment_time - timezone.timedelta(minutes=30)
+    time_window_end = appointment_time + timezone.timedelta(hours=4)
     
     if now < time_window_start or now > time_window_end:
         error_msg = (

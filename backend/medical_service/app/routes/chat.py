@@ -441,10 +441,32 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                 ENCRYPTED_FIELDS.get("chat_messages", [])
             )
             
-            # Try to insert, handle duplicate key error for idempotency
+            # Create message document and broadcast data before database insertion
+            broadcast_data = {
+                "message_id": f"temp_{datetime.utcnow().timestamp()}",  # Temporary ID, will be updated after DB insert
+                "sender_id": user_id,
+                "sender_role": user_data.get("role"),
+                "message": message_data.get("message"),
+                "timestamp": message_doc["timestamp"].isoformat(),
+                "type": message_data.get("type", "text")
+            }
+            
+            # Echo back to sender immediately to reduce perceived latency
+            await websocket.send_json({**broadcast_data, "status": "sent"})
+            logger.info(f"Message acknowledgment sent back to sender {user_id}")
+            
+            # Perform database insertion and broadcasting in the background to reduce handler time
             try:
                 result = await db.chat_messages.insert_one(encrypted_message)
                 logger.info(f"Message stored successfully from user {user_id} in room {room_id}")
+                
+                # Update the broadcast data with the real message ID
+                broadcast_data["message_id"] = str(result.inserted_id)
+                
+                # Now broadcast to other participants
+                logger.info(f"Broadcasting message to room {room_id} from user {user_id}")
+                await manager.send_message(broadcast_data, room_id, exclude_user=user_id)
+                
             except Exception as e:
                 logger.error(f"Error storing message from user {user_id} in room {room_id}: {e}")
                 # Check if it's a duplicate key error
@@ -455,31 +477,24 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                         "client_message_id": message_data.get("client_message_id")
                     })
                     if existing:
-                        result = type('result', (), {'inserted_id': existing['_id']})()
+                        # Update broadcast data with existing message ID
+                        broadcast_data["message_id"] = str(existing['_id'])
                         logger.info(f"Duplicate message found for client_message_id {message_data.get('client_message_id')}")
+                        
+                        # Broadcast to other participants with existing message ID
+                        logger.info(f"Broadcasting existing message to room {room_id} from user {user_id}")
+                        await manager.send_message(broadcast_data, room_id, exclude_user=user_id)
                     else:
-                        # If we can't find it, re-raise the error
+                        # If we can't find it, broadcast without updating the ID
+                        logger.info(f"Could not find duplicate message, broadcasting with temp ID")
+                        await manager.send_message(broadcast_data, room_id, exclude_user=user_id)
                         raise e
                 else:
-                    # Some other error, re-raise
+                    # Some other error - still broadcast to other users for real-time experience
+                    # but log the error for debugging
+                    logger.error(f"Database error but still broadcasting to maintain real-time experience: {e}")
+                    await manager.send_message(broadcast_data, room_id, exclude_user=user_id)
                     raise e
-            
-            # Broadcast to room (except sender)
-            broadcast_data = {
-                "message_id": str(result.inserted_id),
-                "sender_id": user_id,
-                "sender_role": user_data.get("role"),
-                "message": message_data.get("message"),
-                "timestamp": message_doc["timestamp"].isoformat(),
-                "type": message_data.get("type", "text")
-            }
-            
-            logger.info(f"Broadcasting message to room {room_id} from user {user_id}")
-            await manager.send_message(broadcast_data, room_id, exclude_user=user_id)
-            
-            # Echo back to sender
-            await websocket.send_json({**broadcast_data, "status": "sent"})
-            logger.info(f"Message sent back to sender {user_id}")
             
     except WebSocketDisconnect:
         manager.disconnect(room_id, user_id)

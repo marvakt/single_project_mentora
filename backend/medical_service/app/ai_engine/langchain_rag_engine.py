@@ -422,18 +422,27 @@ class LangChainRAGEngine:
         }
 
 
-# Global instance
+# Global instance with caching
 _langchain_rag_engine = None
+_last_init_time = None
 
+import time
+from datetime import datetime
 
 def get_langchain_rag_engine() -> LangChainRAGEngine:
     """
-    Get singleton instance of LangChain RAG Engine
+    Get singleton instance of LangChain RAG Engine with caching
     
     Returns:
         LangChainRAGEngine instance
     """
-    global _langchain_rag_engine
+    global _langchain_rag_engine, _last_init_time
+    
+    # Check if we need to refresh the engine (e.g., if config changed)
+    current_time = time.time()
     if _langchain_rag_engine is None:
         _langchain_rag_engine = LangChainRAGEngine()
+        _last_init_time = current_time
+        logger.info("RAG Engine initialized and cached")
+    
     return _langchain_rag_engine

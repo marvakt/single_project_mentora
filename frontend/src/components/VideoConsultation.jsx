@@ -39,7 +39,7 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
       
       // First, check if video session exists and is approved
       const checkResponse = await apiCall(
-        `${APPOINTMENT_API}/appointments/${appointmentId}/video/`
+        `${APPOINTMENT_API}/appointments/${appointmentId}/video` // Trailing slash will be added by apiCall if needed
       );
       
       if (checkResponse.ok) {
@@ -64,7 +64,7 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
       } else if (checkResponse.status === 404) {
         // Video session doesn't exist, create it
         const createResponse = await apiCall(
-          `${APPOINTMENT_API}/appointments/${appointmentId}/video/create/`,
+          `${APPOINTMENT_API}/appointments/${appointmentId}/video/create`, // Trailing slash will be added by apiCall if needed
           {
             method: 'POST',
             body: JSON.stringify({ provider: 'twilio' })
@@ -126,7 +126,7 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
     try {
       // Get the room name from the session data
       const checkResponse = await apiCall(
-        `${APPOINTMENT_API}/appointments/${appointmentId}/video/`
+        `${APPOINTMENT_API}/appointments/${appointmentId}/video` // Trailing slash will be added by apiCall if needed
       );
       
       if (checkResponse.ok) {
@@ -277,7 +277,7 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
     try {
       // Send API call to end video session
       await apiCall(
-        `${APPOINTMENT_API}/appointments/${appointmentId}/video/`,
+        `${APPOINTMENT_API}/appointments/${appointmentId}/video`, // Trailing slash will be added by apiCall if needed
         {
           method: 'PATCH',
           body: JSON.stringify({ ended: true })

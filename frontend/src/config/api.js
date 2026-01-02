@@ -77,6 +77,13 @@ export const handleApiError = (error) => {
 };
 
 export const apiCall = async (url, options = {}) => {
+  // For Django REST endpoints that require trailing slashes, ensure proper formatting
+  // Only add trailing slash if the URL follows REST API pattern and doesn't already have one
+  let normalizedUrl = url;
+  if (url.includes('/api/') && !url.endsWith('/') && !url.includes('.')) {
+    normalizedUrl = url + '/';
+  }
+  
   const token = sessionStorage.getItem('access_token');
   const headers = {
     'Content-Type': 'application/json',
@@ -87,7 +94,7 @@ export const apiCall = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { ...options, headers });
+  const response = await fetch(normalizedUrl, { ...options, headers });
   return response;
 };
 

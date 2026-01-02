@@ -81,7 +81,7 @@ const DoctorAppointmentDetail = ({
     const approveVideoSession = async () => {
         try {
             const response = await apiCall(
-                `${APPOINTMENT_API}/appointments/${appointmentId}/video/`,
+                `${APPOINTMENT_API}/appointments/${appointmentId}/video`, // Trailing slash will be added by apiCall if needed
                 {
                     method: 'PATCH',
                     body: JSON.stringify({ approve: true })
@@ -103,7 +103,7 @@ const DoctorAppointmentDetail = ({
     const createVideoSession = async () => {
         try {
             const response = await apiCall(
-                `${APPOINTMENT_API}/appointments/${appointmentId}/video/create`,
+                `${APPOINTMENT_API}/appointments/${appointmentId}/video/create`, // Trailing slash will be added by apiCall if needed
                 {
                     method: 'POST',
                     body: JSON.stringify({ provider: 'twilio' })

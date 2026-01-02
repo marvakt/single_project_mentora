@@ -125,7 +125,7 @@ async def get_questions():
 async def submit_questionnaire(
     questionnaire_data: QuestionnaireResponse,
     user_id: str = Depends(get_current_user_id),
-    enable_rag: bool = True  # Optional RAG enhancement
+    enable_rag: bool = False  # Optional RAG enhancement - default to False for performance
 ):
     """
     Submit questionnaire and calculate severity score
@@ -159,14 +159,33 @@ async def submit_questionnaire(
     # Calculate severity using SRTS engine
     severity_result = SRTSEngine.calculate_severity(responses)
     
-    # Optionally enhance with RAG insights
+    # Optionally enhance with RAG insights (async for performance)
     rag_insights = None
     if enable_rag:
         try:
+            # Import and get RAG engine
             from app.ai_engine.langchain_rag_engine import get_langchain_rag_engine
             rag_engine = get_langchain_rag_engine()
-            rag_insights = rag_engine.enhance_questionnaire_results(responses, severity_result)
-            logger.info(f"RAG insights generated for questionnaire submission")
+            
+            # Process RAG enhancement in a non-blocking way
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            
+            def enhance_with_rag():
+                try:
+                    return rag_engine.enhance_questionnaire_results(responses, severity_result)
+                except Exception as e:
+                    logger.warning(f"RAG enhancement failed: {e}")
+                    return None
+            
+            # Run RAG enhancement in thread pool to not block the main request
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                rag_insights = await loop.run_in_executor(executor, enhance_with_rag)
+                
+            if rag_insights:
+                logger.info(f"RAG insights generated for questionnaire submission")
+            
         except Exception as e:
             logger.warning(f"RAG enhancement failed, continuing with SRTS only: {e}")
             rag_insights = None
@@ -207,24 +226,24 @@ async def submit_questionnaire(
         except Exception as e:
             logger.error(f"Failed to send high-risk alert: {e}")
     
-    # Get suggested doctors based on severity score and ratings
+    # Get suggested doctors based on severity score and ratings (with timeout)
     suggested_doctors = []
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:  # Reduced timeout
             # Call user service to get doctor suggestions
             # Use internal service authentication token
             headers = {
                 "Content-Type": "application/json",
                 "X-INTERNAL-TOKEN": settings.INTERNAL_SERVICE_TOKEN
             }
-            
+                
             response = await client.post(
                 f"{settings.USER_SERVICE_URL}/api/doctors/suggest/",
                 json={"severity_score": severity_result["raw_score"]},
                 headers=headers,
-                timeout=10.0
+                timeout=5.0  # Shorter timeout to prevent delays
             )
-            
+                
             if response.status_code == 200:
                 doctor_data = response.json()
                 suggested_doctors = doctor_data.get("suggested_doctors", [])

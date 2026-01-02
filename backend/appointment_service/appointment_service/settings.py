@@ -355,13 +355,24 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # DJANGO REST FRAMEWORK
 REST_FRAMEWORK = {
-    'DEFAULT_RENDERER_CLASSES': (
+    'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-    ),
-    'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
-    ),
+    ],
     'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        # Note: Custom JWT authentication is handled by our custom JWTAuthentication class
+        # which is applied per-view basis
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    # For drf-yasg compatibility
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 }
 
 # LOGGING
@@ -482,4 +493,22 @@ CACHES = {
         'KEY_PREFIX': 'appointment_service',
         'TIMEOUT': 300,  # 5 minutes default
     }
+}
+
+# SWAGGER (DRF-YASG) CONFIGURATION
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'Enter your JWT token with Bearer prefix, e.g., "Bearer your_token_here"',
+        },
+    },
+    'USE_SESSION_AUTH': False,
+    'DOC_EXPANSION': 'list',
+    'SHOW_REQUEST_HEADERS': True,
+    'APIS_SORTER': 'alpha',
+    'OPERATIONS_SORTER': 'alpha',
+    'SECURITY_REQUIREMENTS': [{'Bearer': []}],
 }

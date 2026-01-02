@@ -355,10 +355,10 @@ const MyAppointments = ({ onViewDetail, onProcessPayment, onJoinVideo, onViewCha
                           </div>
                           <div className="text-right mb-4">
                             <p className="text-xl font-bold text-gray-900">
-                              {new Date(apt.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              {new Date(apt.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </p>
                             <p className="text-sm text-gray-500 font-medium">
-                              {new Date(apt.scheduled_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                              {new Date(apt.scheduled_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </p>
                           </div>
 

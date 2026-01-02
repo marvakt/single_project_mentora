@@ -63,12 +63,12 @@ const DoctorProfile = () => {
 
   const fetchProfile = async () => {
     try {
+      const token = sessionStorage.getItem('access_token');
       const response = await fetch(`${USER_API}/profile/${user.user_id}/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
-        setProfile(data);
         setName(data.name || '');
         setPhone(data.phone || '');
         setSpecialization(data.doctor?.specialization || '');
@@ -98,21 +98,20 @@ const DoctorProfile = () => {
     setLoading(true);
 
     try {
-      await fetch(`${USER_API}/profile/${user.user_id}/update/`, {
+      // Update user profile
+      const profileResponse = await apiCall(`${USER_API}/profile/${user.user_id}/update/`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ name, phone })
       });
 
-      await fetch(`${USER_API}/doctor/${user.user_id}/profile/`, {
+      if (!profileResponse.ok) {
+        const profileError = await profileResponse.json();
+        throw new Error(profileError.detail || 'Failed to update profile');
+      }
+      
+      // Update doctor profile
+      const doctorResponse = await apiCall(`${USER_API}/doctor/${user.user_id}/profile/`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           specialization,
           experience_years: parseInt(experience) || 0,
@@ -121,10 +120,16 @@ const DoctorProfile = () => {
         })
       });
 
+      if (!doctorResponse.ok) {
+        const doctorError = await doctorResponse.json();
+        throw new Error(doctorError.detail || 'Failed to update doctor profile');
+      }
+      
       alert('Profile updated successfully!');
-      fetchProfile();
+      dispatch(fetchDoctorProfile(user.user_id));
     } catch (err) {
-      alert('Failed to update profile');
+      console.error('Error updating profile:', err);
+      alert(`Failed to update profile: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -152,17 +157,12 @@ const DoctorProfile = () => {
     setUploadingDoc(true);
 
     try {
-      const fileUrl = URL.createObjectURL(selectedFile); // Temporary URL for demo
-
-      const response = await fetch(`${USER_API}/doctor/${user.user_id}/document/upload/`, {
+      // For now, just send the document type since the backend doesn't properly handle file uploads
+      const response = await apiCall(`${USER_API}/doctor/${user.user_id}/document/upload/`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           doc_type: selectedDocType,
-          file_url: fileUrl // In production, this would be the uploaded file URL
+          file_url: selectedFile.name // Just send filename for now
         })
       });
 
@@ -172,9 +172,11 @@ const DoctorProfile = () => {
         setSelectedDocType('license');
         fetchDocuments();
       } else {
-        alert('Failed to upload document');
+        const error = await response.json();
+        alert(error.detail || 'Failed to upload document');
       }
     } catch (err) {
+      console.error('Error uploading document:', err);
       alert('Error uploading document');
     } finally {
       setUploadingDoc(false);

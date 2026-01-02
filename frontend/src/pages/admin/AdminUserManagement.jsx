@@ -181,6 +181,69 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
     }
   };
 
+  const handleBlockUser = async (userId, userType = 'user') => {
+    const reason = prompt('Please provide a reason for blocking (optional):');
+    if (reason === null) return; // User cancelled
+
+    if (!confirm(`Are you sure you want to BLOCK this ${userType}?`)) return;
+
+    try {
+      const response = await fetch(`${USER_API}/admin/users/${userId}/block/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason })
+      });
+
+      if (response.ok) {
+        alert(`✅ ${userType.charAt(0).toUpperCase() + userType.slice(1)} blocked successfully!`);
+        fetchAllUsers(); // Refresh
+        if (selectedUser?.user_id === userId) {
+          // Optionally update selected user or close modal, for now just hiding modal is safest to refetch
+          setShowModal(false);
+          setSelectedUser(null);
+        }
+      } else {
+        const data = await response.json();
+        alert(`Failed to block user: ${data.detail || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`Error blocking ${userType}`);
+      console.error(err);
+    }
+  };
+
+  const handleUnblockUser = async (userId, userType = 'user') => {
+    if (!confirm(`Are you sure you want to UNBLOCK this ${userType}?`)) return;
+
+    try {
+      const response = await fetch(`${USER_API}/admin/users/${userId}/unblock/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        alert(`✅ ${userType.charAt(0).toUpperCase() + userType.slice(1)} unblocked successfully!`);
+        fetchAllUsers();
+        if (selectedUser?.user_id === userId) {
+          setShowModal(false);
+          setSelectedUser(null);
+        }
+      } else {
+        const data = await response.json();
+        alert(`Failed to unblock user: ${data.detail || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`Error unblocking ${userType}`);
+      console.error(err);
+    }
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setSelectedUser(null);
@@ -219,7 +282,6 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
     );
   };
 
-  // Sidebar Nav Item Helper
   const NavItem = ({ icon: Icon, label, view, active }) => (
     <button
       onClick={() => { if (view) setCurrentView(view); setSidebarOpen(false); }}
@@ -405,8 +467,8 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-xl font-black text-white shadow-lg ${userObj.role === 'admin' ? 'bg-indigo-600 shadow-indigo-200' :
-                          userObj.role === 'doctor' ? 'bg-purple-600 shadow-purple-200' :
-                            'bg-blue-500 shadow-blue-200'
+                        userObj.role === 'doctor' ? 'bg-purple-600 shadow-purple-200' :
+                          'bg-blue-500 shadow-blue-200'
                         }`}>
                         {userObj.name ? userObj.name.charAt(0).toUpperCase() : 'U'}
                       </div>
@@ -424,12 +486,26 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => viewUserDetails(userObj)}
-                      className="px-5 py-2.5 bg-gray-50 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl font-bold text-sm transition flex items-center gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600"
-                    >
-                      <Eye className="w-4 h-4" /> View Profile
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={() => viewUserDetails(userObj)}
+                        className="px-5 py-2.5 bg-gray-50 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600"
+                      >
+                        <Eye className="w-4 h-4" /> View
+                      </button>
+                      <button
+                        onClick={() => handleBlockUser(userObj.user_id, userObj.role)}
+                        className="px-3 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl font-bold text-xs transition border border-rose-100"
+                      >
+                        Block
+                      </button>
+                      <button
+                        onClick={() => handleUnblockUser(userObj.user_id, userObj.role)}
+                        className="px-3 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl font-bold text-xs transition border border-emerald-100"
+                      >
+                        Unblock
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -561,6 +637,22 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
                     )}
                   </div>
                 )}
+
+                {/* Block/Unblock Actions for All Users */}
+                <div className="mt-8 pt-6 border-t border-gray-100 flex gap-4">
+                  <button
+                    onClick={() => handleBlockUser(selectedUser.user_id, selectedUser.role)}
+                    className="flex-1 py-3 rounded-xl font-bold bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition"
+                  >
+                    Block User
+                  </button>
+                  <button
+                    onClick={() => handleUnblockUser(selectedUser.user_id, selectedUser.role)}
+                    className="flex-1 py-3 rounded-xl font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition"
+                  >
+                    Unblock User
+                  </button>
+                </div>
               </div>
             </div>
           </div>

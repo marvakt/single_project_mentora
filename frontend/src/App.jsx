@@ -375,9 +375,9 @@ const App = () => {
           setCurrentView={handleSetCurrentView}
           onBack={() => {
             if (user?.role === 'doctor') {
-              setCurrentView('doctor-appointment-detail');
+              dispatch(setCurrentView('doctor-appointment-detail'));
             } else {
-              setCurrentView('appointment-detail');
+              dispatch(setCurrentView('appointment-detail'));
             }
           }}
         />
@@ -392,10 +392,10 @@ const App = () => {
           token={token}
           onSuccess={() => {
             // After payment success, go to appointments
-            setCurrentView('my-appointments');
+            dispatch(setCurrentView('my-appointments'));
           }}
           onCancel={() => {
-            setCurrentView('my-appointments');
+            dispatch(setCurrentView('my-appointments'));
           }}
           setCurrentView={handleSetCurrentView}
         />
@@ -485,9 +485,9 @@ const App = () => {
           onEndCall={() => {
             // After ending call, go back to appropriate appointments page
             if (user?.role === 'doctor') {
-              setCurrentView('doctor-appointments');
+              dispatch(setCurrentView('doctor-appointments'));
             } else {
-              setCurrentView('my-appointments');
+              dispatch(setCurrentView('my-appointments'));
             }
           }}
           setCurrentView={handleSetCurrentView}
