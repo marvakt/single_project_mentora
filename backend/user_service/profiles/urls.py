@@ -47,10 +47,7 @@ from .views import (
     SubmitMoodEntryAPIView,
     GetMoodHistoryAPIView,
     GetMoodTrendsAPIView,
-)
-
-# Import mood aggregation views
-from .views.mood_aggregation import (
+    # Mood aggregation for doctors
     DoctorMoodDashboardAPIView,
     PatientMoodHistoryAPIView,
 )
