@@ -49,6 +49,12 @@ from .views import (
     GetMoodTrendsAPIView,
 )
 
+# Import mood aggregation views
+from .views.mood_aggregation import (
+    DoctorMoodDashboardAPIView,
+    PatientMoodHistoryAPIView,
+)
+
 urlpatterns = [
     # ---------- INTERNAL ----------
     path("internal/profile/create/", CreateProfileInternalAPIView.as_view(), name="internal-create-profile"),
@@ -93,4 +99,8 @@ urlpatterns = [
    path("mood-entries/", SubmitMoodEntryAPIView.as_view(), name="submit-mood-entry"),
    path("mood-entries/<str:user_id>/history/", GetMoodHistoryAPIView.as_view(), name="get-mood-history"),
    path("mood-entries/<str:user_id>/trends/", GetMoodTrendsAPIView.as_view(), name="get-mood-trends"),
+   
+   # Mood aggregation for doctors
+   path("doctor/mood-dashboard/", DoctorMoodDashboardAPIView.as_view(), name="doctor-mood-dashboard"),
+   path("doctor/patient-mood/<int:patient_user_id>/", PatientMoodHistoryAPIView.as_view(), name="patient-mood-history"),
 ]

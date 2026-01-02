@@ -41,10 +41,15 @@ app.autodiscover_tasks(["profiles"])
 # Configure Celery Beat schedule for periodic tasks
 from celery.schedules import crontab
 app.conf.beat_schedule = {
-    # Daily mood notifications at 9 AM UTC
-    'send-daily-mood-notifications': {
-        'task': 'mood.send_daily_mood_notifications_batch',
+    # Daily mood reminders at 9 AM UTC
+    'send-daily-mood-reminders': {
+        'task': 'profiles.tasks.mood_reminders.send_daily_mood_reminders',
         'schedule': crontab(hour=9, minute=0),  # Every day at 9 AM UTC
+    },
+    # Daily mood aggregation at 10 AM UTC
+    'aggregate-daily-mood-data': {
+        'task': 'profiles.tasks.mood_reminders.aggregate_daily_mood_data',
+        'schedule': crontab(hour=10, minute=0),  # Every day at 10 AM UTC
     },
 }
 
