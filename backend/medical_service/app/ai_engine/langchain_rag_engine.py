@@ -305,13 +305,14 @@ class LangChainRAGEngine:
             return self._create_error_response(str(e))
     
     def enhance_questionnaire_results(self, responses: Dict[int, int], 
-                                     srts_result: Dict) -> Dict:
+                                     srts_result: Dict, triage_profile: Dict = None) -> Dict:
         """
         Enhance PHQ-9 questionnaire results with RAG-generated insights
         
         Args:
             responses: Dictionary of PHQ-9 responses {question_number: score}
             srts_result: SRTS severity calculation result
+            triage_profile: Comprehensive triage profile (optional)
         
         Returns:
             Dictionary with enhanced recommendations and insights
@@ -320,16 +321,36 @@ class LangChainRAGEngine:
             # Convert responses to symptom description
             symptom_descriptions = self._phq9_to_symptoms(responses)
             
-            query = f"""
-            PHQ-9 Questionnaire Results:
-            - Total Score: {srts_result['raw_score']}
-            - SRTS Severity Level: {srts_result['severity_level']}
-            - Detected Symptoms: {', '.join(symptom_descriptions)}
-            
-            Provide enhanced recommendations and insights based on these specific symptoms.
-            Focus on personalized coping strategies that address the symptoms mentioned.
-            Returns VALID JSON ONLY.
-            """
+            if triage_profile:
+                # Use the full triage profile for more targeted insights
+                query = f"""
+                Triage Profile Analysis:
+                - Total Score: {triage_profile['severity_score']}
+                - Severity Level: {triage_profile['severity_level']}
+                - Specialist Type Recommended: {triage_profile['specialist_type']}
+                - Urgency Level: {triage_profile['urgency_level']}
+                - Red Flags: {', '.join([flag for flag, value in triage_profile['red_flags'].items() if value])}
+                - Dominant Symptoms: {', '.join(triage_profile['dominant_symptoms'])}
+                - Confidence Score: {triage_profile['confidence_score']}
+                - Raw PHQ-9 Responses: {', '.join(symptom_descriptions)}
+                
+                Provide targeted recommendations based on this comprehensive triage profile.
+                Focus on personalized coping strategies that address the specific symptoms and risk factors.
+                Suggest appropriate specialist matching rationale.
+                Returns VALID JSON ONLY.
+                """
+            else:
+                # Fallback to original approach
+                query = f"""
+                PHQ-9 Questionnaire Results:
+                - Total Score: {srts_result['raw_score']}
+                - SRTS Severity Level: {srts_result['severity_level']}
+                - Detected Symptoms: {', '.join(symptom_descriptions)}
+                
+                Provide enhanced recommendations and insights based on these specific symptoms.
+                Focus on personalized coping strategies that address the symptoms mentioned.
+                Returns VALID JSON ONLY.
+                """
             
             response_text = self.chain.invoke(query)
             
@@ -340,6 +361,23 @@ class LangChainRAGEngine:
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
                 insights = json.loads(json_match.group())
+                
+                # Process RAG insights to extract structured signals
+                rag_signals = self._extract_rag_signals(insights, triage_profile)
+                    
+                # Ensure RAG insights respect locked triage decisions
+                if triage_profile and triage_profile.get('decision_locked', False):
+                    # Override any specialty suggestions that conflict with locked triage decision
+                    if rag_signals.get('suggested_specialty_adjustment'):
+                        logger.info(f"RAG suggested specialty adjustment '{rag_signals['suggested_specialty_adjustment']}' but triage decision is locked. Maintaining original specialist type: {triage_profile.get('specialist_type')}")
+                        rag_signals['suggested_specialty_adjustment'] = None
+                        
+                    # Preserve critical red flags from original triage
+                    if triage_profile.get('red_flags', {}).get('high_risk'):
+                        if 'high_risk' not in rag_signals.get('risk_flags', []):
+                            rag_signals['risk_flags'] = rag_signals.get('risk_flags', []) + ['high_risk']
+                    
+                insights['rag_signals'] = rag_signals
             elif self.llm is None and "basic assessment" in response_text.lower():
                 # Handle the basic response case when no LLM is available
                 insights = {
@@ -348,22 +386,82 @@ class LangChainRAGEngine:
                         "Keep track of your symptoms",
                         "Practice basic self-care strategies"
                     ],
-                    "insights": "Basic insights provided when advanced AI processing is not available. Professional support is recommended based on your questionnaire responses."
+                    "insights": "Basic insights provided when advanced AI processing is not available. Professional support is recommended based on your questionnaire responses.",
+                    "rag_signals": {
+                        "suggested_specialty_adjustment": None,
+                        "risk_flags": [],
+                        "confidence_score": 0.5
+                    }
                 }
             else:
                 insights = {
                     "contextual_advice": [response_text],
-                    "insights": "Based on your responses, professional support is recommended."
+                    "insights": "Based on your responses, professional support is recommended.",
+                    "rag_signals": {
+                        "suggested_specialty_adjustment": None,
+                        "risk_flags": [],
+                        "confidence_score": 0.5
+                    }
                 }
-            
+                
             return insights
             
         except Exception as e:
             logger.error(f"Error enhancing questionnaire results: {e}")
             return {
                 "contextual_advice": [],
-                "insights": "Unable to generate enhanced insights at this time."
+                "insights": "Unable to generate enhanced insights at this time.",
+                "rag_signals": {
+                    "suggested_specialty_adjustment": None,
+                    "risk_flags": [],
+                    "confidence_score": 0.0
+                }
             }
+    
+    def _extract_rag_signals(self, insights: Dict, triage_profile: Dict = None) -> Dict:
+        """
+        Extract structured signals from RAG insights that can influence triage decisions.
+        
+        Args:
+            insights: Raw insights from RAG processing
+            triage_profile: Original triage profile for context
+        
+        Returns:
+            Dictionary with structured signals
+        """
+        # Default signals
+        signals = {
+            "suggested_specialty_adjustment": None,
+            "risk_flags": [],
+            "confidence_score": 0.7,  # Default confidence
+            "additional_symptoms": [],
+            "treatment_recommendations": []
+        }
+        
+        # Extract specialty adjustment if mentioned
+        if 'recommended_specialist' in insights:
+            signals['suggested_specialty_adjustment'] = insights['recommended_specialist']
+        
+        # Extract risk flags if mentioned
+        if 'risk_flags' in insights:
+            signals['risk_flags'] = insights['risk_flags']
+        elif 'crisis_detected' in insights and insights['crisis_detected']:
+            signals['risk_flags'].append('crisis')
+        
+        # Extract confidence if mentioned
+        if 'confidence' in insights:
+            confidence_map = {'High': 0.9, 'Medium': 0.7, 'Low': 0.4}
+            signals['confidence_score'] = confidence_map.get(insights['confidence'], 0.5)
+        
+        # Extract additional symptoms
+        if 'symptoms_detected' in insights:
+            signals['additional_symptoms'] = insights['symptoms_detected']
+        
+        # Extract treatment recommendations
+        if 'advice' in insights:
+            signals['treatment_recommendations'] = insights['advice']
+        
+        return signals
     
     def _phq9_to_symptoms(self, responses: Dict[int, int]) -> List[str]:
         """Convert PHQ-9 responses to symptom descriptions"""

@@ -41,6 +41,9 @@ class SeverityResult(BaseModel):
     recommendations: List[str]
     assessed_at: str
     suggested_doctors: Optional[List[Dict]] = None
+    recommendation_snapshot_id: Optional[str] = None
+    confidence_score: Optional[float] = None
+    requires_manual_review: Optional[bool] = None
 
 
 # Questionnaire questions (PHQ-9 based)
@@ -156,8 +159,18 @@ async def submit_questionnaire(
                 detail=f"Invalid response for question {q_num}"
             )
     
-    # Calculate severity using SRTS engine
-    severity_result = SRTSEngine.calculate_severity(responses)
+    # Create comprehensive triage profile using SRTS engine
+    triage_profile = SRTSEngine.create_triage_profile(responses)
+    
+    # For backward compatibility, we'll also create the original severity result
+    severity_result = {
+        "raw_score": triage_profile["severity_score"],
+        "severity_level": triage_profile["severity_level"],
+        "specialist_type": triage_profile["specialist_type"],
+        "high_risk": triage_profile["red_flags"].get("high_risk", False),
+        "recommendations": triage_profile["recommendations"],
+        "assessed_at": triage_profile["assessed_at"]
+    }
     
     # Optionally enhance with RAG insights (async for performance)
     rag_insights = None
@@ -173,7 +186,7 @@ async def submit_questionnaire(
             
             def enhance_with_rag():
                 try:
-                    return rag_engine.enhance_questionnaire_results(responses, severity_result)
+                    return rag_engine.enhance_questionnaire_results(responses, severity_result, triage_profile)
                 except Exception as e:
                     logger.warning(f"RAG enhancement failed: {e}")
                     return None
@@ -203,7 +216,8 @@ async def submit_questionnaire(
         "recommendations": severity_result["recommendations"],
         "notes": questionnaire_data.notes,
         "created_at": datetime.utcnow(),
-        "rag_insights": rag_insights  # Add RAG insights if available
+        "rag_insights": rag_insights,  # Add RAG insights if available
+        "triage_profile": triage_profile  # Include the full triage profile
     }
     
     # Encrypt sensitive fields
@@ -226,7 +240,7 @@ async def submit_questionnaire(
         except Exception as e:
             logger.error(f"Failed to send high-risk alert: {e}")
     
-    # Get suggested doctors based on severity score and ratings (with timeout)
+    # Get suggested doctors based on triage profile (with timeout)
     suggested_doctors = []
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:  # Reduced timeout
@@ -237,9 +251,13 @@ async def submit_questionnaire(
                 "X-INTERNAL-TOKEN": settings.INTERNAL_SERVICE_TOKEN
             }
                 
+            # Send the full triage profile to enable better matching
             response = await client.post(
                 f"{settings.USER_SERVICE_URL}/api/doctors/suggest/",
-                json={"severity_score": severity_result["raw_score"]},
+                json={
+                    "severity_score": severity_result["raw_score"],
+                    "triage_profile": triage_profile  # Send the full triage profile
+                },
                 headers=headers,
                 timeout=5.0  # Shorter timeout to prevent delays
             )
@@ -255,6 +273,24 @@ async def submit_questionnaire(
     severity_result["suggested_doctors"] = suggested_doctors
     if rag_insights:
         severity_result["rag_insights"] = rag_insights
+    
+    # Add triage profile information
+    severity_result["confidence_score"] = triage_profile.get("confidence_score")
+    severity_result["requires_manual_review"] = triage_profile.get("requires_manual_review", False)
+    
+    # Create a recommendation snapshot for deterministic UX
+    try:
+        from app.core.database import create_recommendation_snapshot
+        snapshot_id = await create_recommendation_snapshot(
+            user_id=user_id,
+            assessment_id=severity_id,
+            triage_profile=triage_profile,
+            suggested_doctors=suggested_doctors
+        )
+        severity_result["recommendation_snapshot_id"] = snapshot_id
+    except Exception as e:
+        logger.error(f"Failed to create recommendation snapshot: {e}")
+        # Continue without snapshot ID if creation fails
     
     return SeverityResult(
         severity_id=severity_id,

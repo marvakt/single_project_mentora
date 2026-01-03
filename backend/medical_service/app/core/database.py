@@ -49,6 +49,12 @@ async def create_indexes():
         await database.severity_logs.create_index("user_id")
         await database.severity_logs.create_index([("user_id", 1), ("created_at", -1)])
         
+        # Recommendation snapshots indexes
+        await database.recommendation_snapshots.create_index("user_id")
+        await database.recommendation_snapshots.create_index([("user_id", 1), ("created_at", -1)])
+        await database.recommendation_snapshots.create_index("assessment_id")
+        await database.recommendation_snapshots.create_index("snapshot_id", unique=True)
+        
         # Mood logs indexes
         await database.mood_logs.create_index("user_id")
         await database.mood_logs.create_index([("user_id", 1), ("timestamp", -1)])
@@ -96,3 +102,67 @@ async def create_indexes():
 def get_database():
     """Get database instance"""
     return database
+
+
+async def create_recommendation_snapshot(user_id: str, assessment_id: str, triage_profile: dict, suggested_doctors: list):
+    """
+    Create a deterministic recommendation snapshot for consistent UX.
+    
+    Args:
+        user_id: User ID
+        assessment_id: Assessment ID
+        triage_profile: Triage profile used for recommendations
+        suggested_doctors: List of suggested doctors
+    
+    Returns:
+        str: Snapshot ID
+    """
+    global database
+    if database is None:
+        raise RuntimeError("Database not initialized. Call connect_db() first.")
+    
+    import uuid
+    from datetime import datetime, timedelta
+    
+    snapshot_id = str(uuid.uuid4())
+    
+    snapshot_doc = {
+        "snapshot_id": snapshot_id,
+        "user_id": user_id,
+        "assessment_id": assessment_id,
+        "triage_profile": triage_profile,
+        "suggested_doctors": suggested_doctors,
+        "created_at": datetime.utcnow(),
+        "expires_at": datetime.utcnow().replace(hour=23, minute=59, second=59, microsecond=999999) + timedelta(days=1)  # Expires in 24 hours
+    }
+    
+    # Create the recommendation_snapshots collection and insert the document
+    result = await database.recommendation_snapshots.insert_one(snapshot_doc)
+    
+    logger.info(f"Created recommendation snapshot {snapshot_id} for user {user_id}")
+    
+    return snapshot_id
+
+
+async def get_recommendation_snapshot(snapshot_id: str):
+    """
+    Retrieve a recommendation snapshot by ID.
+    
+    Args:
+        snapshot_id: ID of the snapshot to retrieve
+    
+    Returns:
+        dict: Snapshot data or None if not found
+    """
+    global database
+    if database is None:
+        raise RuntimeError("Database not initialized. Call connect_db() first.")
+    
+    snapshot = await database.recommendation_snapshots.find_one({"snapshot_id": snapshot_id})
+    
+    if snapshot:
+        logger.info(f"Retrieved recommendation snapshot {snapshot_id}")
+    else:
+        logger.warning(f"Recommendation snapshot {snapshot_id} not found")
+    
+    return snapshot

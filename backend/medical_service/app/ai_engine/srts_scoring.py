@@ -14,8 +14,7 @@ class SRTSEngine:
     """
     Severity Rating Tracking System (SRTS)
     
-    Analyzes mental health questionnaire responses and calculates severity score
-    Routes users to appropriate specialists based on severity level
+    Analyzes mental health questionnaire responses and creates comprehensive triage profiles
     """
     
     # Question weights (importance factor for each question)
@@ -51,21 +50,16 @@ class SRTSEngine:
     }
     
     @classmethod
-    def calculate_severity(cls, responses: Dict[int, int]) -> Dict:
+    def create_triage_profile(cls, responses: Dict[int, int]) -> Dict:
         """
-        Calculate severity score and level from questionnaire responses
+        Create a comprehensive triage profile from questionnaire responses
         
         Args:
             responses: Dictionary of {question_number: score}
                       Scores range from 0-3 for each question
         
         Returns:
-            Dictionary containing:
-                - raw_score: Total weighted score
-                - severity_level: String classification
-                - specialist_type: Recommended specialist
-                - high_risk: Boolean flag for suicide risk
-                - recommendations: List of recommendations
+            Triage profile with severity, red flags, dominant symptoms, and urgency
         """
         # Convert string keys to integers if needed
         if responses and isinstance(next(iter(responses)), str):
@@ -83,31 +77,168 @@ class SRTSEngine:
         # Determine severity level
         severity_level = cls._get_severity_level(raw_score)
         
-        # Get specialist recommendation
-        specialist_type = cls.SPECIALIST_ROUTING.get(severity_level, "counselor")
+        # Check for red flags
+        red_flags = cls._identify_red_flags(responses)
         
-        # Check for high-risk indicators (self-harm thoughts)
-        high_risk = responses.get(9, 0) >= 2  # Question 9 score >= 2
+        # Identify dominant symptoms
+        dominant_symptoms = cls._identify_dominant_symptoms(responses)
+        
+        # Determine urgency level
+        urgency_level = cls._determine_urgency_level(severity_level, red_flags)
+        
+        # Apply rule-based overrides
+        specialist_type = cls._apply_rule_based_overrides(responses, red_flags, severity_level)
+        
+        # Calculate confidence score
+        confidence_score = cls._calculate_confidence_score(responses, red_flags)
         
         # Generate recommendations
         recommendations = cls._generate_recommendations(
             severity_level, 
-            high_risk, 
+            red_flags.get('high_risk', False), 
             responses
         )
         
-        result = {
-            "raw_score": raw_score,
+        # Check if confidence is below threshold (kill switch)
+        confidence_threshold = 0.6  # Configurable threshold
+        requires_manual_review = confidence_score < confidence_threshold
+        
+        triage_profile = {
+            "severity_score": raw_score,
             "severity_level": severity_level,
+            "red_flags": red_flags,
+            "dominant_symptoms": dominant_symptoms,
+            "urgency_level": urgency_level,
             "specialist_type": specialist_type,
-            "high_risk": high_risk,
             "recommendations": recommendations,
-            "assessed_at": datetime.utcnow().isoformat()
+            "assessed_at": datetime.utcnow().isoformat(),
+            "confidence_score": confidence_score,
+            "requires_manual_review": requires_manual_review,
+            "triage_version": "v1",
+            "decision_locked": True,  # Prevent any modifications to this decision
+            "immutable": True      # Mark as immutable
         }
         
-        logger.info(f"SRTS Assessment: Score={raw_score}, Level={severity_level}, Specialist={specialist_type}")
+        logger.info(f"Triage Profile: Score={raw_score}, Level={severity_level}, Urgency={urgency_level}, Specialist={specialist_type}, Confidence={confidence_score:.2f}")
         
-        return result
+        # Log if manual review is required
+        if requires_manual_review:
+            logger.warning(f"Low confidence triage for user - requires manual review: {confidence_score:.2f}")
+        
+        return triage_profile
+    
+    @classmethod
+    def _calculate_confidence_score(cls, responses: Dict[int, int], red_flags: Dict) -> float:
+        """
+        Calculate confidence in the triage assessment.
+        
+        Args:
+            responses: Questionnaire responses
+            red_flags: Identified red flags
+        
+        Returns:
+            Confidence score (0.0 to 1.0)
+        """
+        # Base confidence on number of high-scoring responses
+        high_responses = sum(1 for score in responses.values() if score >= 2)
+        total_responses = len(responses)
+        
+        # High confidence if many symptoms are present
+        response_confidence = min(1.0, high_responses / max(1, total_responses * 0.5))  # At least half should have some symptoms
+        
+        # Red flags increase confidence in severity
+        if red_flags.get('high_risk'):
+            return min(1.0, response_confidence + 0.3)  # Boost confidence for clear risk
+        
+        # If severity is very high or very low, confidence is higher
+        raw_score = sum(score * cls.QUESTION_WEIGHTS.get(q, 1.0) for q, score in responses.items())
+        if raw_score >= 20 or raw_score <= 4:  # Clear severe or minimal cases
+            return min(1.0, response_confidence + 0.2)
+        
+        # Otherwise, return base confidence
+        return response_confidence
+    
+    @classmethod
+    def _identify_red_flags(cls, responses: Dict[int, int]) -> Dict:
+        """Identify critical red flags that require immediate attention"""
+        return {
+            "suicidal_ideation": responses.get(9, 0) >= 2,  # Question 9: self-harm thoughts
+            "self_harm_history": responses.get(9, 0) >= 1,  # Any indication
+            "psychosis_indicators": responses.get(8, 0) >= 2 and responses.get(2, 0) >= 2,  # Psychomotor + mood issues
+            "high_risk": responses.get(9, 0) >= 2
+        }
+    
+    @classmethod
+    def _identify_dominant_symptoms(cls, responses: Dict[int, int]) -> List[str]:
+        """Identify the most prominent symptoms based on scores"""
+        symptoms = []
+        
+        # Sleep issues (Q3)
+        if responses.get(3, 0) >= 2:
+            symptoms.append("sleep")
+        
+        # Mood issues (Q2)
+        if responses.get(2, 0) >= 2:
+            symptoms.append("mood")
+        
+        # Anxiety/concentration (Q7)
+        if responses.get(7, 0) >= 2:
+            symptoms.append("concentration")
+        
+        # Appetite issues (Q5)
+        if responses.get(5, 0) >= 2:
+            symptoms.append("appetite")
+        
+        # Energy issues (Q4)
+        if responses.get(4, 0) >= 2:
+            symptoms.append("energy")
+        
+        return symptoms
+    
+    @classmethod
+    def _determine_urgency_level(cls, severity_level: str, red_flags: Dict) -> str:
+        """Determine urgency level based on severity and red flags"""
+        if red_flags.get("high_risk"):
+            return "immediate"
+        elif severity_level in ["severe", "moderately_severe"]:
+            return "urgent"
+        elif severity_level == "moderate":
+            return "soon"
+        else:
+            return "routine"
+    
+    @classmethod
+    def _apply_rule_based_overrides(cls, responses: Dict[int, int], red_flags: Dict, severity_level: str) -> str:
+        """Apply rule-based overrides to specialist routing"""
+        # Hard overrides that ignore severity scores
+        if red_flags.get("suicidal_ideation") or red_flags.get("psychosis_indicators"):
+            return "psychiatrist"
+        
+        # Chronic duration override (if available in responses)
+        # This would require additional questions about duration
+        # For now, we'll use a placeholder based on high scores over time
+        
+        # Default routing based on severity
+        return cls.SPECIALIST_ROUTING.get(severity_level, "counselor")
+    
+    @classmethod
+    def calculate_severity(cls, responses: Dict[int, int]) -> Dict:
+        """
+        Calculate severity score and level from questionnaire responses
+        
+        This method is kept for backward compatibility but now uses the triage profile
+        """
+        triage_profile = cls.create_triage_profile(responses)
+        
+        # Return the original format for backward compatibility
+        return {
+            "raw_score": triage_profile["severity_score"],
+            "severity_level": triage_profile["severity_level"],
+            "specialist_type": triage_profile["specialist_type"],
+            "high_risk": triage_profile["red_flags"].get("high_risk", False),
+            "recommendations": triage_profile["recommendations"],
+            "assessed_at": triage_profile["assessed_at"]
+        }
     
     @classmethod
     def _get_severity_level(cls, score: int) -> str:
