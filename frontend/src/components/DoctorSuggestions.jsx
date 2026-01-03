@@ -53,7 +53,12 @@ const DoctorSuggestions = ({ doctors, onBookAppointment }) => {
               
               <div className="ml-4 flex-shrink-0">
                 <button
-                  onClick={() => onBookAppointment && onBookAppointment(doctor)}
+                  onClick={() => {
+                    // Store the selected doctor ID in sessionStorage
+                    const doctorId = doctor.user_id || doctor.id;
+                    sessionStorage.setItem('selectedDoctorId', doctorId);
+                    onBookAppointment && onBookAppointment(doctor);
+                  }}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                 >
                   <Calendar className="w-4 h-4 mr-1" />

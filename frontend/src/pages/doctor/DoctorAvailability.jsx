@@ -4,7 +4,7 @@ import {
   AlertCircle, CheckCircle, X, Menu, Settings, Heart, LogOut,
   Home, User, Users, FileText
 } from 'lucide-react';
-import { USER_API } from '../../config/api';
+import { USER_API, apiCall } from '../../config/api';
 
 const DoctorAvailability = ({ user, token, handleLogout, setCurrentView }) => {
   const [availability, setAvailability] = useState([]);
@@ -82,12 +82,8 @@ const DoctorAvailability = ({ user, token, handleLogout, setCurrentView }) => {
 
     setSaving(true);
     try {
-      const response = await fetch(`${USER_API}/doctor/${user.user_id}/availability/add/`, {
+      const response = await apiCall(`${USER_API}/doctor/${user.user_id}/availability/add/`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           day_of_week: DAY_TO_INDEX[selectedDay],
           start_time: startTime,
@@ -118,9 +114,8 @@ const DoctorAvailability = ({ user, token, handleLogout, setCurrentView }) => {
     if (!window.confirm('Are you sure you want to delete this availability slot?')) return;
 
     try {
-      const response = await fetch(`${USER_API}/doctor/availability/${slotId}/delete/`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await apiCall(`${USER_API}/doctor/availability/${slotId}/delete/`, {
+        method: 'DELETE'
       });
 
       if (response.ok) {

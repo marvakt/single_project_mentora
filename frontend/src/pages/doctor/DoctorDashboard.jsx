@@ -4,7 +4,7 @@ import {
   Heart, Calendar, Users, CheckCircle, DollarSign, Bell, User,
   LogOut, Clock, Settings, FileText, Menu, Home, Activity, Sparkles, TrendingUp, AlertCircle
 } from 'lucide-react';
-import { USER_API, APPOINTMENT_API, apiCall } from '../../config/api';
+import { USER_API, APPOINTMENT_API, apiCall, getAuthHeaders } from '../../config/api';
 import { logout } from '../../store/slices/authSlice';
 import { setCurrentView } from '../../store/slices/uiSlice';
 import { fetchAppointments } from '../../store/slices/appointmentsSlice';

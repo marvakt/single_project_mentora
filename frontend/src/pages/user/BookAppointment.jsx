@@ -8,7 +8,23 @@ import {
 import { USER_API, APPOINTMENT_API, MEDICAL_API, apiCall } from '../../config/api';
 import PaymentProcessing from './PaymentProcessing';
 
-const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
+const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, selectedDoctorId: propDoctorId = null, recommendationSnapshotId: propSnapshotId = null }) => {
+  // Initialize state from keys or props, handling the sessionStorage read once on mount
+  const [targetDoctorId] = useState(() => {
+    return propDoctorId || sessionStorage.getItem('selectedDoctorId');
+  });
+
+  const [targetSnapshotId] = useState(() => {
+    return propSnapshotId || sessionStorage.getItem('recommendationSnapshotId');
+  });
+
+  // Clear sessionStorage on mount to prevent stale state on reload/navigate back
+  useEffect(() => {
+    // We only clear if we found them, but safe to try remove always
+    sessionStorage.removeItem('selectedDoctorId');
+    sessionStorage.removeItem('recommendationSnapshotId');
+  }, []);
+
   const [doctors, setDoctors] = useState([]);
   const [suggestedDoctors, setSuggestedDoctors] = useState([]);
   const [showAllDoctors, setShowAllDoctors] = useState(false);
@@ -27,9 +43,32 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    fetchUserSeverity();
-    fetchDoctors();
-  }, []);
+    // If a specific doctor ID is provided, fetch all doctors and select that specific one
+    if (targetDoctorId) {
+      // Reset user severity to avoid showing severity-based recommendations
+      setUserSeverity(null);
+      fetchAllDoctors();
+    } else {
+      // Otherwise, fetch all doctors and get user severity for suggestions
+      fetchUserSeverity();
+      fetchDoctors();
+    }
+  }, [targetDoctorId]);
+
+  // Additional effect to ensure that when we have a selected doctor, we don't show severity recommendations
+  useEffect(() => {
+    if (targetDoctorId && selectedDoctor) {
+      // Make sure severity info is not displayed when a specific doctor is selected
+      setUserSeverity(null);
+    }
+  }, [targetDoctorId, selectedDoctor]);
+
+  // Effect to ensure userSeverity remains null when a specific doctor is selected
+  useEffect(() => {
+    if (targetDoctorId) {
+      setUserSeverity(null);
+    }
+  }, [targetDoctorId]);
 
   useEffect(() => {
     if (selectedDoctor) {
@@ -38,7 +77,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
   }, [selectedDoctor]);
 
   useEffect(() => {
-    if (appointmentDate && availability.length > 0) {
+    if (appointmentDate && availability.length > 0 && selectedDoctor) {
       // Validate date format (YYYY-MM-DD)
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(appointmentDate)) {
@@ -47,13 +86,13 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
       }
 
       const fetchSlots = async () => {
-        const slots = await getAvailableSlots(appointmentDate, availability);
+        const slots = await getAvailableSlots(appointmentDate, availability, selectedDoctor.user_id);
         setAvailableSlots(slots);
         setAppointmentTime('');
       };
       fetchSlots();
     }
-  }, [appointmentDate, availability]);
+  }, [appointmentDate, availability, selectedDoctor]);
 
   const fetchUserSeverity = async () => {
     try {
@@ -62,7 +101,10 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
         const data = await response.json();
         if (data.assessment) {
           setUserSeverity(data.assessment);
-          fetchSuggestedDoctors(data.assessment.severity_level);
+          // Only fetch suggested doctors if no specific doctor is selected
+          if (!targetDoctorId) {
+            fetchSuggestedDoctors(data.assessment.severity_level);
+          }
         }
       }
     } catch (err) {
@@ -103,6 +145,38 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
     }
   };
 
+  // Fetch all doctors but don't filter by severity if a specific doctor is selected
+  const fetchAllDoctors = async () => {
+    try {
+      const response = await apiCall(`${USER_API}/doctors/`);
+      if (response.ok) {
+        const data = await response.json();
+        const sortedDoctors = data
+          .filter(d => d.doctor_status === 'approved')
+          .sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+        setDoctors(sortedDoctors);
+
+        // If a specific doctor ID is provided and no doctor is selected yet, select that doctor
+        if (targetDoctorId && !selectedDoctor) {
+          const doctor = sortedDoctors.find(d => String(d.user_id) === String(targetDoctorId));
+          if (doctor) {
+            setSelectedDoctor(doctor);
+            setStep(2); // Go directly to booking step
+            // The availability will be fetched by the useEffect when selectedDoctor changes
+          } else {
+            console.error(`Doctor with ID ${targetDoctorId} not found or not approved. Available doctors:`, sortedDoctors.map(d => d.user_id));
+            // If doctor not found, show an alert to the user and fall back to showing all doctors
+            alert(`The doctor you selected is no longer available. Showing all available specialists instead.`);
+            // If doctor not found, fall back to showing all doctors but stay on step 1
+            setStep(1);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch doctors:', err);
+    }
+  };
+
   const fetchDoctors = async () => {
     try {
       const response = await apiCall(`${USER_API}/doctors/`);
@@ -112,11 +186,14 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
           .filter(d => d.doctor_status === 'approved')
           .sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
         setDoctors(sortedDoctors);
+
       }
     } catch (err) {
       console.error('Failed to fetch doctors:', err);
     }
   };
+
+
 
   const fetchAvailability = async (doctorId) => {
     try {
@@ -132,8 +209,8 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
     }
   };
 
-  const getAvailableSlots = async (dateString, availabilityData) => {
-    if (!availabilityData || availabilityData.length === 0) return [];
+  const getAvailableSlots = async (dateString, availabilityData, doctorId) => {
+    if (!availabilityData || availabilityData.length === 0 || !doctorId) return [];
 
     const date = new Date(dateString);
     let dayOfWeek = date.getDay();
@@ -162,13 +239,14 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
     }
 
     try {
-      const response = await apiCall(`${APPOINTMENT_API}/doctors/${selectedDoctor.user_id}/available-slots/?date=${dateString}`);
+      const response = await apiCall(`${APPOINTMENT_API}/doctors/${doctorId}/available-slots/?date=${dateString}`);
       if (response.ok) {
         const data = await response.json();
         return data.available_slots;
       }
       return allPossibleSlots;
     } catch (error) {
+      console.error('Error fetching available slots:', error);
       return allPossibleSlots;
     }
   };
@@ -191,16 +269,16 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
     try {
       // Create a Date object from the selected date and time
       const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
-      
+
       // Get the user's timezone offset in minutes and convert to hours
       const timezoneOffsetMinutes = appointmentDateTime.getTimezoneOffset();
       const offsetHours = Math.floor(Math.abs(timezoneOffsetMinutes) / 60);
       const offsetMinutes = Math.abs(timezoneOffsetMinutes) % 60;
-      
+
       // Format the offset with proper sign
       const offsetSign = timezoneOffsetMinutes <= 0 ? '+' : '-'; // Note: getTimezoneOffset returns negative for positive offset
       const offsetFormatted = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
-      
+
       // Format the datetime with timezone information to ensure the backend receives the correct time
       const year = appointmentDateTime.getFullYear();
       const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
@@ -208,7 +286,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
       const hours = String(appointmentDateTime.getHours()).padStart(2, '0');
       const minutes = String(appointmentDateTime.getMinutes()).padStart(2, '0');
       const seconds = String(appointmentDateTime.getSeconds()).padStart(2, '0');
-      
+
       // Create the datetime string with timezone offset
       const scheduledAt = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetFormatted}`;
       const response = await apiCall(`${APPOINTMENT_API}/appointments/`, {
@@ -414,8 +492,8 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
             {/* Step 1: Select Doctor */}
             {step === 1 && (
               <div>
-                {/* Suggestion Alert */}
-                {userSeverity && (
+                {/* Suggestion Alert - only show if no specific doctor was selected from assessment */}
+                {userSeverity && !targetDoctorId && (
                   <div className={`mb-8 border rounded-2xl p-6 ${getSeverityBadge(userSeverity.severity_level)} shadow-sm`}>
                     <div className="flex items-start gap-4">
                       <div className="p-2 bg-white/50 rounded-xl">
@@ -439,10 +517,13 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess }) => {
 
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Available Specialists</h2>
-                  <div className="flex gap-2">
-                    <button onClick={() => setShowAllDoctors(false)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${!showAllDoctors ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-50'}`}>Recommended</button>
-                    <button onClick={() => setShowAllDoctors(true)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${showAllDoctors ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-50'}`}>All Doctors</button>
-                  </div>
+                  {/* Only show the Recommended/All toggle if no specific doctor was selected from assessment */}
+                  {!targetDoctorId && (
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowAllDoctors(false)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${!showAllDoctors ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-50'}`}>Recommended</button>
+                      <button onClick={() => setShowAllDoctors(true)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${showAllDoctors ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-50'}`}>All Doctors</button>
+                    </div>
+                  )}
                 </div>
 
                 {doctors.length === 0 ? (

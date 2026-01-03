@@ -1,13 +1,13 @@
-import uuid
-import boto3
-from botocore.exceptions import ClientError
-from django.conf import settings
+
+
+
+# profiles/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from django.http import Http404
-from django.db.models import Q
+from datetime import timedelta
+from django.utils import timezone
 
 from .models import (
     UserProfile,
@@ -25,7 +25,6 @@ from .serializers import (
     DoctorDocumentSerializer,
     DoctorAvailabilitySerializer,
     DoctorRatingSerializer,
-    DoctorProfileWithRatingSerializer,
     NotificationSerializer,
     MoodEntrySerializer,
 )
@@ -40,10 +39,30 @@ from .permissions import (
     IsAuthenticatedJWTOrInternalService,
 )
 from .authentication import JWTAuthentication
-from .services import MoodTrackingService
 
-# Event producer
-from .producer import publish_doctor_approved, publish_doctor_rejected
+from .utils import (
+    convert_to_integer_id,
+    check_profile_access_permission,
+    check_document_access_permission,
+    upload_file_to_s3,
+    generate_presigned_url,
+    check_doctor_profile_completion,
+    update_onboarding_status,
+    should_notify_admin,
+    auto_approve_doctor_if_enabled,
+    check_doctor_availability,
+    calculate_severity_level,
+    get_doctors_by_severity,
+    get_top_matched_doctors,
+    calculate_mood_trend,
+    calculate_average_mood_metrics,
+    format_mood_entry_data,
+    calculate_patient_mood_statistics,
+    filter_users_by_search_and_role,
+    validate_severity_score,
+    validate_rating,
+    publish_mood_event,
+)
 
 
 # =========================================================
@@ -66,11 +85,7 @@ class CreateProfileInternalAPIView(APIView):
 
         profile, created = UserProfile.objects.get_or_create(
             user_id=user_id,
-            defaults={
-                "email": email,
-                "role": role,
-                "status": "active",
-            }
+            defaults={"email": email, "role": role, "status": "active"}
         )
 
         return Response(
@@ -91,96 +106,13 @@ class DoctorAvailabilityInternalAPIView(APIView):
         Internal endpoint for appointment service to check doctor availability.
         Returns doctor status and consultation fee for booking decisions.
         """
-        # Handle doctor_id which might be UUID string or integer
-        # The doctor_id from appointment service might be a UUID string
-        print(f"DEBUG: Received doctor_id: {doctor_id} (type: {type(doctor_id)})")
+        actual_doctor_id = convert_to_integer_id(doctor_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_doctor_id)
         
-        # Try to find the doctor with different ID formats
-        profile = None
-        actual_doctor_id = doctor_id
+        availability_data = check_doctor_availability(profile)
+        availability_data['doctor_id'] = doctor_id
         
-        # If it's a string, first check if it's a UUID that needs conversion
-        if isinstance(doctor_id, str):
-            if len(doctor_id) == 36:
-                # It's a UUID string, convert to integer
-                try:
-                    uuid_obj = uuid.UUID(doctor_id)
-                    actual_doctor_id = uuid_obj.int
-                    print(f"DEBUG: Converted UUID {doctor_id} to integer {actual_doctor_id}")
-                    profile = UserProfile.objects.get(user_id=actual_doctor_id)
-                    print(f"DEBUG: Found user with converted UUID integer ID: {actual_doctor_id}")
-                except (ValueError, UserProfile.DoesNotExist):
-                    print(f"DEBUG: UUID conversion failed for {doctor_id}")
-                    pass
-            elif doctor_id.isdigit():
-                # It's a numeric string, convert to integer
-                actual_doctor_id = int(doctor_id)
-                print(f"DEBUG: Converted numeric string {doctor_id} to integer {actual_doctor_id}")
-                try:
-                    profile = UserProfile.objects.get(user_id=actual_doctor_id)
-                    print(f"DEBUG: Found user with converted numeric ID: {actual_doctor_id}")
-                except UserProfile.DoesNotExist:
-                    print(f"DEBUG: User with converted numeric ID {actual_doctor_id} not found")
-                    pass
-        else:
-            # It's not a string, try directly as integer
-            try:
-                profile = UserProfile.objects.get(user_id=doctor_id)
-                print(f"DEBUG: Found user with original ID: {doctor_id}")
-            except UserProfile.DoesNotExist:
-                print(f"DEBUG: User with original ID {doctor_id} not found")
-                pass
-        
-        if profile is None:
-            print(f"DEBUG: Doctor with ID {doctor_id} not found in any format")
-            return Response(
-                {"detail": "Doctor not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Now get the doctor profile
-        try:
-            doctor_profile = DoctorProfile.objects.get(profile=profile)
-        except DoctorProfile.DoesNotExist:
-            print(f"DEBUG: Doctor profile does not exist for user {profile.user_id}")
-            return Response(
-                {"detail": "Doctor not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except:
-            return Response(
-                {"detail": "Doctor not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Check if doctor is approved
-        is_approved = doctor_profile.doctor_status == "approved"
-        
-        # Check if doctor has completed onboarding
-        is_onboarded = profile.onboarding_status == 100
-        
-        # Check if doctor has availability slots
-        has_availability = profile.availability.exists()
-        
-        # Doctor is available if approved, onboarded, and has availability
-        is_available = is_approved and is_onboarded and has_availability
-        
-        print(f"DEBUG: Doctor Availability Check for {doctor_id}")
-        print(f"DEBUG: Approved: {is_approved}")
-        print(f"DEBUG: Onboarded: {is_onboarded}")
-        print(f"DEBUG: Has Availability Slots: {has_availability}")
-        print(f"DEBUG: Final Available Status: {is_available}")
-
-        response_data = {
-            "approved": is_approved,
-            "available": is_available,
-            "onboarded": is_onboarded,
-            "consultation_fee": doctor_profile.consultation_fee,
-            "doctor_id": doctor_id,
-            "name": profile.name or profile.email
-        }
-
-        return Response(response_data)
+        return Response(availability_data)
 
 
 # =========================================================
@@ -191,126 +123,54 @@ class GetProfileAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT]
 
     def get(self, request, user_id):
-        print(f"GetProfileAPIView called with user_id: {user_id}")
-        if hasattr(request, 'user_data'):
-            print(f"Request user_data: {request.user_data}")
-        else:
-            print("No user_data in request")
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(
+            UserProfile.objects.select_related('doctor'), 
+            user_id=actual_user_id
+        )
         
-        # Handle user_id which might be UUID string or integer
-        actual_user_id = user_id
-        
-        # If it's a string UUID, convert it to integer
-        if isinstance(user_id, str) and len(user_id) == 36:
-            # It's a UUID string, convert to integer
-            try:
-                uuid_obj = uuid.UUID(user_id)
-                actual_user_id = uuid_obj.int
-                print(f"DEBUG: Converted UUID {user_id} to integer {actual_user_id}")
-            except ValueError:
-                print(f"DEBUG: Invalid UUID format: {user_id}")
-                return Response(
-                    {"detail": "Invalid user ID format"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        elif isinstance(user_id, str) and user_id.isdigit():
-            # It's a numeric string, convert to integer
-            actual_user_id = int(user_id)
-            print(f"DEBUG: Converted numeric string {user_id} to integer {actual_user_id}")
-        
-        profile = get_object_or_404(UserProfile.objects.select_related('doctor'), user_id=actual_user_id)
-        print("JWT user_id:", request.user_data["user_id"])
-        print("Profile user_id:", profile.user_id)
-        
-        # Check if user is trying to access their own profile
-        # Handle comparison of different ID formats
         requesting_user_id = request.user_data["user_id"]
+        has_permission, is_own_profile, error_message = check_profile_access_permission(
+            requesting_user_id, profile
+        )
         
-        # Convert both IDs to the same format for comparison
-        # If requesting_user_id is a UUID string, convert to integer
-        if isinstance(requesting_user_id, str) and len(requesting_user_id) == 36:
-            try:
-                requesting_user_id = uuid.UUID(requesting_user_id).int
-            except ValueError:
-                return Response(
-                    {"detail": "Invalid requesting user ID format"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        elif isinstance(requesting_user_id, str) and requesting_user_id.isdigit():
-            # If requesting_user_id is a numeric string, convert to integer
-            requesting_user_id = int(requesting_user_id)
-        
-        # Convert profile.user_id to integer if it's a UUID string (though it should already be integer)
-        profile_user_id = profile.user_id
-        if isinstance(profile_user_id, str) and len(profile_user_id) == 36:
-            try:
-                profile_user_id = uuid.UUID(profile_user_id).int
-            except ValueError:
-                return Response(
-                    {"detail": "Invalid profile user ID format"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        elif isinstance(profile_user_id, str) and profile_user_id.isdigit():
-            # If profile_user_id is a numeric string, convert to integer
-            profile_user_id = int(profile_user_id)
-        
-        # Allow access if:
-        # 1. User is accessing their own profile, OR
-        # 2. User is accessing a doctor's profile (for appointment-related functionality)
-        is_own_profile = (requesting_user_id == profile_user_id)
-        is_doctor_profile = (profile.role == 'doctor')
-        
-        if not is_own_profile and not is_doctor_profile:
+        if not has_permission:
             return Response(
-                {"detail": f"Access denied. You can only access your own profile or doctor profiles. Requested user_id: {user_id}, Your user_id: {requesting_user_id}"},
+                {"detail": error_message},
                 status=status.HTTP_403_FORBIDDEN
             )
-
-        # For doctor profiles, we don't need the IsOwner permission check
-        # For own profiles, we keep the IsOwner-like check
+        
+        # Apply ownership check for own profiles
         if is_own_profile:
-            # User accessing their own profile - apply ownership check
             self.check_object_permissions(request, profile)
         
-        # Debug: check if doctor profile exists
-        print(f"DEBUG: Profile {profile.id} has doctor profile: {hasattr(profile, 'doctor')}")
-        if hasattr(profile, 'doctor') and profile.doctor:
-            print(f"DEBUG: Doctor profile specialization: {profile.doctor.specialization}")
-            print(f"DEBUG: Doctor profile experience: {profile.doctor.experience_years}")
-            print(f"DEBUG: Doctor profile fee: {profile.doctor.consultation_fee}")
-        else:
-            print(f"DEBUG: No doctor profile found for user {profile.user_id}")
-        
-        response_data = UserProfileSerializer(profile).data
-        print(f"DEBUG: Response data keys: {list(response_data.keys())}")
-        if 'doctor' in response_data:
-            print(f"DEBUG: Doctor data: {response_data['doctor']}")
-        
-        return Response(response_data)
-    
+        return Response(UserProfileSerializer(profile).data)
+
 
 class UpdateProfileAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedJWT, IsOwner]
 
     def put(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         
-        # Check if user is trying to access their own profile
+        # Check ownership
         if request.user_data["user_id"] != profile.user_id:
             return Response(
-                {"detail": f"Access denied. You can only update your own profile. Requested user_id: {user_id}, Your user_id: {request.user_data['user_id']}"},
+                {
+                    "detail": f"Access denied. You can only update your own profile. "
+                    f"Requested user_id: {user_id}, Your user_id: {request.user_data['user_id']}"
+                },
                 status=status.HTTP_403_FORBIDDEN
             )
         
         self.check_object_permissions(request, profile)
-
-        serializer = UserProfileSerializer(
-            profile, data=request.data, partial=True
-        )
+        
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
+        
         return Response(serializer.data)
 
 
@@ -322,69 +182,56 @@ class CreateOrUpdateDoctorProfileAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT, IsDoctor, IsOwner]
 
     def post(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         self.check_object_permissions(request, profile)
 
         doctor_profile, created = DoctorProfile.objects.get_or_create(profile=profile)
         
-        # Check if this is first time completing profile
-        was_incomplete = not (doctor_profile.specialization and profile.name and profile.phone)
+        # Check completion status before update
+        is_complete, was_incomplete = check_doctor_profile_completion(doctor_profile, profile)
 
-        # Handle doctor profile updates
+        # Update doctor profile
         doctor_serializer = DoctorProfileSerializer(
             doctor_profile, data=request.data, partial=True
         )
         doctor_serializer.is_valid(raise_exception=True)
         doctor_serializer.save()
 
-        # Update user profile fields if they are provided in the request
+        # Update user profile fields
         user_profile_updates = {}
         for field in ['name', 'phone', 'gender', 'address', 'avatar']:
             if field in request.data:
                 user_profile_updates[field] = request.data[field]
         
         if user_profile_updates:
-            UserProfile.objects.filter(user_id=user_id).update(**user_profile_updates)
-            # Refresh the profile object to get updated values
+            UserProfile.objects.filter(user_id=actual_user_id).update(**user_profile_updates)
             profile.refresh_from_db()
 
-        # Update onboarding status if profile is complete
-        is_profile_complete = (doctor_profile.specialization and profile.name and profile.phone)
-        if is_profile_complete:
-            profile.onboarding_status = 100
-            profile.save(update_fields=['onboarding_status'])
+        # Update onboarding status
+        is_profile_complete, _ = check_doctor_profile_completion(doctor_profile, profile)
+        update_onboarding_status(profile, is_profile_complete)
 
-        # ✅ Notify admin when doctor completes profile for first time
+        # Notify admin on first completion
         is_now_complete = is_profile_complete
-        if doctor_profile.doctor_status == 'pending' and was_incomplete and is_now_complete:
+        if should_notify_admin(doctor_profile, was_incomplete, is_now_complete):
             notify_admin_new_doctor.delay(
                 doctor_name=profile.name or profile.email.split('@')[0],
                 doctor_email=profile.email,
                 doctor_id=profile.user_id
             )
             
-            # Auto-approve doctor in development mode (only if auto-approval is enabled)
-            import os
-            auto_approve_enabled = os.getenv('AUTO_APPROVE_DOCTORS', 'False').lower() == 'true'
-            if auto_approve_enabled:
-                doctor_profile.doctor_status = 'approved'
-                doctor_profile.save()
-                print(f"DEBUG: Auto-approved doctor {profile.user_id} based on AUTO_APPROVE_DOCTORS setting")
+            # Auto-approve if enabled
+            auto_approve_doctor_if_enabled(doctor_profile, profile)
 
-        # Refresh the doctor profile to get updated values
+        # Prepare response
         doctor_profile.refresh_from_db()
-        
-        # Create a fresh serializer with updated data
         updated_doctor_serializer = DoctorProfileSerializer(doctor_profile)
-        
-        # Return combined response with both doctor profile and user profile info
         response_data = updated_doctor_serializer.data
-        # Add user profile fields to the response
-        response_data['name'] = profile.name
-        response_data['phone'] = profile.phone
-        response_data['gender'] = profile.gender
-        response_data['address'] = profile.address
-        response_data['avatar'] = profile.avatar
+        
+        # Add user profile fields
+        for field in ['name', 'phone', 'gender', 'address', 'avatar']:
+            response_data[field] = getattr(profile, field)
         
         return Response(response_data)
 
@@ -397,10 +244,10 @@ class UploadDoctorDocumentAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT, IsDoctor, IsOwner]
 
     def post(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         self.check_object_permissions(request, profile)
 
-        # Handle file upload to S3
         file = request.FILES.get('file')
         doc_type = request.data.get('doc_type')
         
@@ -416,106 +263,62 @@ class UploadDoctorDocumentAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Generate unique filename
-        file_extension = file.name.split('.')[-1] if '.' in file.name else 'bin'
-        unique_filename = f"doctor_documents/{profile.user_id}/{doc_type}_{uuid.uuid4().hex}.{file_extension}"
-        
         try:
-            # Upload file to S3
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=getattr(settings, 'AWS_ACCESS_KEY_ID', None),
-                aws_secret_access_key=getattr(settings, 'AWS_SECRET_ACCESS_KEY', None),
-                region_name=getattr(settings, 'AWS_REGION', 'us-east-1')
-            )
+            # Upload to S3
+            file_url, file_key = upload_file_to_s3(file, profile.user_id, doc_type)
             
-            s3_client.upload_fileobj(
-                file,
-                getattr(settings, 'MOOD_REPORTS_S3_BUCKET', 'mentora-mood-reports'),
-                unique_filename,
-                ExtraArgs={
-                    'ContentType': file.content_type if hasattr(file, 'content_type') else 'application/octet-stream',
-                    'ACL': 'private'  # Set object as private to control access through our app
-                }
-            )
-            
-            # Generate the file URL
-            file_url = f"https://{getattr(settings, 'MOOD_REPORTS_S3_BUCKET', 'mentora-mood-reports')}.s3.amazonaws.com/{unique_filename}"
-            
-            # Prepare data for serializer
+            # Save to database
             data = {
                 'profile': profile.id,
                 'doc_type': doc_type,
                 'file_url': file_url,
-                'file_key': unique_filename
+                'file_key': file_key
             }
             
             serializer = DoctorDocumentSerializer(data=data)
             serializer.is_valid(raise_exception=True)
             document = serializer.save()
             
-            # Notify admin when a doctor uploads a document
-            from .tasks import notify_admin_new_doctor
+            # Notify admin
             doctor_profile = profile.doctor
-            if doctor_profile:
-                # Only notify if the doctor status is still pending
-                if doctor_profile.doctor_status == 'pending':
-                    notify_admin_new_doctor.delay(
-                        doctor_name=profile.name or profile.email.split('@')[0],
-                        doctor_email=profile.email,
-                        doctor_id=profile.user_id
-                    )
+            if doctor_profile and doctor_profile.doctor_status == 'pending':
+                notify_admin_new_doctor.delay(
+                    doctor_name=profile.name or profile.email.split('@')[0],
+                    doctor_email=profile.email,
+                    doctor_id=profile.user_id
+                )
             
-            return Response(serializer.data, status=201)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
             
-        except ClientError as e:
-            return Response(
-                {'error': f'Failed to upload file to S3: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
         except Exception as e:
             return Response(
-                {'error': f'Unexpected error: {str(e)}'},
+                {'error': f'Upload failed: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
-# ✅ FIXED: Allow admin to view doctor documents
 class ListDoctorDocumentsAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedJWT]
 
     def get(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         
-        # Check if user_data exists in request
         if not hasattr(request, 'user_data'):
             return Response(
                 {'detail': 'Authentication required'}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
-        # Allow admin or the doctor themselves
         user_role = request.user_data.get('role')
         requesting_user_id = request.user_data.get('user_id')
         
-        # Debug: print user info to understand the issue
-        print(f"DEBUG: Requesting user role: {user_role}, requesting_user_id: {requesting_user_id}, target user_id: {user_id}")
+        # Check permissions
+        is_admin = user_role == 'admin'
+        is_owner = user_role == 'doctor' and str(requesting_user_id) == str(actual_user_id)
         
-        if user_role == 'admin':
-            # Admin can view any doctor's documents
-            pass
-        elif user_role == 'doctor' and str(requesting_user_id) == str(user_id):
-            # Doctor can view their own documents
-            # Ensure user_id comparison handles different formats
-            pass
-        elif user_role == 'user':
-            # Regular users cannot access doctor documents
-            return Response(
-                {'detail': 'You don\'t have permission to view these documents'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        else:
+        if not (is_admin or is_owner):
             return Response(
                 {'detail': 'You don\'t have permission to view these documents'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -530,49 +333,29 @@ class GetDoctorDocumentAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT]
 
     def get(self, request, document_id):
-        # Debug: print the document_id being requested
-        print(f"DEBUG: GetDoctorDocumentAPIView called with document_id: {document_id}")
+        document = get_object_or_404(DoctorDocument, id=document_id)
         
-        # Get the document
-        try:
-            document = get_object_or_404(DoctorDocument, id=document_id)
-            print(f"DEBUG: Found document with id: {document.id}, file_key: {document.file_key}, profile_id: {document.profile.id}")
-        except Exception as e:
-            print(f"DEBUG: Document not found for id: {document_id}, error: {str(e)}")
-            return Response(
-                {'error': 'Document not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Check if user_data exists in request
         if not hasattr(request, 'user_data'):
-            print(f"DEBUG: No user_data in request")
             return Response(
                 {'detail': 'Authentication required'}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
-        # Allow admin or the doctor who owns the document
         user_role = request.user_data.get('role')
         requesting_user_id = request.user_data.get('user_id')
         
-        print(f"DEBUG: Requesting user role: {user_role}, requesting_user_id: {requesting_user_id}, document owner: {document.profile.user_id}")
+        has_permission, error_message = check_document_access_permission(
+            requesting_user_id, user_role, document
+        )
         
-        # Check permissions
-        is_admin = user_role == 'admin'
-        is_owner = user_role == 'doctor' and str(requesting_user_id) == str(document.profile.user_id)
-        
-        if not (is_admin or is_owner):
-            print(f"DEBUG: Permission denied - user is not admin or owner")
+        if not has_permission:
             return Response(
-                {'detail': 'You don\'t have permission to access this document'}, 
+                {'detail': error_message}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Check if file_key exists
+        # Handle file access
         if not document.file_key:
-            print(f"DEBUG: Document has no file_key, using file_url as fallback")
-            # If there's no file_key but there's a file_url, return that directly
             if document.file_url:
                 return Response({'presigned_url': document.file_url})
             else:
@@ -581,32 +364,10 @@ class GetDoctorDocumentAPIView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
         
-        # Generate a presigned URL for secure access to the S3 object
         try:
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=getattr(settings, 'AWS_ACCESS_KEY_ID', None),
-                aws_secret_access_key=getattr(settings, 'AWS_SECRET_ACCESS_KEY', None),
-                region_name=getattr(settings, 'AWS_REGION', 'us-east-1')
-            )
-            
-            print(f"DEBUG: Attempting to generate presigned URL for bucket: {getattr(settings, 'MOOD_REPORTS_S3_BUCKET', 'mentora-mood-reports')}, key: {document.file_key}")
-            
-            # Generate presigned URL valid for 1 hour
-            presigned_url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={
-                    'Bucket': getattr(settings, 'MOOD_REPORTS_S3_BUCKET', 'mentora-mood-reports'),
-                    'Key': document.file_key
-                },
-                ExpiresIn=3600  # 1 hour
-            )
-            
-            print(f"DEBUG: Successfully generated presigned URL")
+            presigned_url = generate_presigned_url(document.file_key)
             return Response({'presigned_url': presigned_url})
-            
         except Exception as e:
-            print(f"DEBUG: Error generating presigned URL: {str(e)}")
             return Response(
                 {'error': f'Failed to generate document access URL: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -618,20 +379,32 @@ class GetDoctorDocumentAPIView(APIView):
 # =========================================================
 class AddAvailabilityAPIView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticatedJWT, IsDoctor, IsOwner]
+    permission_classes = [IsAuthenticatedJWT, IsDoctor]
 
     def post(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
-        self.check_object_permissions(request, profile)
+        actual_user_id = convert_to_integer_id(user_id)
+        
+        # Check if the requesting user is the same as the user_id (for security)
+        if request.user_data['user_id'] != actual_user_id:
+            return Response(
+                {'detail': 'You can only add availability for yourself'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         get_object_or_404(DoctorProfile, profile=profile)
 
         data = {**request.data, "profile": profile.id}
         serializer = DoctorAvailabilitySerializer(data=data)
+        
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=201)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            return Response({"errors": serializer.errors}, status=400)
+            return Response(
+                {"errors": serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class DeleteAvailabilityAPIView(APIView):
@@ -653,8 +426,10 @@ class ListAvailabilityAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT]
 
     def get(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         availability = profile.availability.all()
+        
         return Response(
             DoctorAvailabilitySerializer(availability, many=True).data
         )
@@ -668,17 +443,15 @@ class ApproveDoctorAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT, IsAdmin]
 
     def post(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         doctor = get_object_or_404(DoctorProfile, profile=profile)
 
         doctor.doctor_status = "approved"
         doctor.save()
 
-        # ✅ Send email notification to doctor
+        # Send notifications
         send_doctor_status_email.delay(profile.email, "approved")
-        
-        # ✅ Send in-app notification to doctor
-        from .models import Notification
         Notification.objects.create(
             user_profile=profile,
             title="🎉 Doctor Profile Approved",
@@ -693,17 +466,15 @@ class RejectDoctorAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT, IsAdmin]
 
     def post(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         doctor = get_object_or_404(DoctorProfile, profile=profile)
 
         doctor.doctor_status = "rejected"
         doctor.save()
 
-        # ✅ Send email notification to doctor
+        # Send notifications
         send_doctor_status_email.delay(profile.email, "rejected")
-        
-        # ✅ Send in-app notification to doctor
-        from .models import Notification
         Notification.objects.create(
             user_profile=profile,
             title="❌ Doctor Profile Rejected",
@@ -725,27 +496,8 @@ class UserManagementListAPIView(APIView):
         role = request.GET.get("role")
         status_filter = request.GET.get("status")
 
-        q = UserProfile.objects.all()
-
-        if search:
-            q = q.filter(
-                Q(name__icontains=search)
-                | Q(email__icontains=search)
-                | Q(user_id__icontains=search)
-            )
-
-        if role and role != "all":
-            q = q.filter(role=role)
-
-        if status_filter == "active":
-            q = q.filter(onboarding_status=100)
-        elif status_filter == "pending":
-            q = q.filter(onboarding_status__lt=100)
-
-        # For admin user management, include doctor profile data if user is a doctor
-        q = q.select_related('doctor')
-
-        return Response(UserProfileSerializer(q, many=True).data)
+        users = filter_users_by_search_and_role(search, role, status_filter)
+        return Response(UserProfileSerializer(users, many=True).data)
 
 
 class DeleteUserAPIView(APIView):
@@ -753,29 +505,20 @@ class DeleteUserAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT, IsAdmin]
 
     def delete(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         
-        # Delete all related data first
+        # Delete related data
         if hasattr(profile, 'doctor'):
             profile.doctor.delete()
         
-        # Delete related documents
         DoctorDocument.objects.filter(profile=profile).delete()
-        
-        # Delete availability
         DoctorAvailability.objects.filter(profile=profile).delete()
-        
-        # Delete ratings
-        DoctorRating.objects.filter(user=profile).delete()  # ratings given by this user
-        DoctorRating.objects.filter(doctor=profile).delete()  # ratings received by this user
-        
-        # Delete notifications
+        DoctorRating.objects.filter(user=profile).delete()
+        DoctorRating.objects.filter(doctor=profile).delete()
         Notification.objects.filter(user_profile=profile).delete()
-        
-        # Delete mood entries
         MoodEntry.objects.filter(user_profile=profile).delete()
         
-        # Finally delete the profile
         profile.delete()
         
         return Response({"detail": "User deleted successfully"})
@@ -789,7 +532,8 @@ class NotificationListAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT, IsOwner]
 
     def get(self, request, user_id):
-        profile = get_object_or_404(UserProfile, user_id=user_id)
+        actual_user_id = convert_to_integer_id(user_id)
+        profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         self.check_object_permissions(request, profile)
 
         notifications = Notification.objects.filter(user_profile=profile)
@@ -829,31 +573,34 @@ class RateDoctorAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT]
 
     def post(self, request, doctor_id):
-        # Get the doctor profile
+        actual_doctor_id = convert_to_integer_id(doctor_id)
+        
         doctor_profile = get_object_or_404(
             DoctorProfile.objects.select_related('profile'), 
-            profile__user_id=doctor_id,
+            profile__user_id=actual_doctor_id,
             doctor_status='approved'
         )
         
-        # Get the user profile
-        user_profile = get_object_or_404(UserProfile, user_id=request.user_data['user_id'])
+        user_profile = get_object_or_404(
+            UserProfile, 
+            user_id=request.user_data['user_id']
+        )
         
-        # Prevent doctors from rating themselves
-        if user_profile.role == 'doctor' and user_profile.user_id == doctor_id:
+        # Prevent self-rating
+        if user_profile.role == 'doctor' and user_profile.user_id == actual_doctor_id:
             return Response(
                 {"detail": "You cannot rate yourself"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get rating data
         rating = request.data.get('rating')
         review = request.data.get('review', '')
         
         # Validate rating
-        if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+        is_valid, error_message = validate_rating(rating)
+        if not is_valid:
             return Response(
-                {"detail": "Rating must be an integer between 1 and 5"},
+                {"detail": error_message},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -861,14 +608,14 @@ class RateDoctorAPIView(APIView):
         rating_obj, created = DoctorRating.objects.update_or_create(
             doctor=doctor_profile.profile,
             user=user_profile,
-            defaults={
-                'rating': rating,
-                'review': review
-            }
+            defaults={'rating': rating, 'review': review}
         )
         
         serializer = DoctorRatingSerializer(rating_obj)
-        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return Response(
+            serializer.data, 
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
 
 
 # =========================================================
@@ -879,90 +626,74 @@ class DoctorSuggestionAPIView(APIView):
     permission_classes = [IsAuthenticatedJWTOrInternalService]
 
     def post(self, request):
-        # Get severity score from request
         severity_score = request.data.get('severity_score')
+        triage_profile = request.data.get('triage_profile')  # Accept the full triage profile
         
-        # Validate severity score
-        if not isinstance(severity_score, int) or severity_score < 0 or severity_score > 10:
-            return Response(
-                {"detail": "Severity score must be an integer between 0 and 10"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Calculate severity level
-        if severity_score <= 3:
-            severity_level = 'LOW'
-        elif severity_score <= 6:
-            severity_level = 'MODERATE'
-        elif severity_score <= 8:
-            severity_level = 'HIGH'
+        # If triage profile is provided, use it instead of just severity score
+        if triage_profile:
+            severity_level = triage_profile.get('severity_level')
+            required_specialist = triage_profile.get('specialist_type')
         else:
-            severity_level = 'CRITICAL'
+            # Validate severity score if no triage profile provided
+            if severity_score is not None:
+                is_valid, error_message = validate_severity_score(severity_score)
+                if not is_valid:
+                    return Response(
+                        {"detail": error_message},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Calculate severity level
+                severity_level = calculate_severity_level(severity_score)
+                required_specialist = None
+            else:
+                return Response(
+                    {"detail": "Either severity_score or triage_profile must be provided"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
-        # Get all approved doctors
-        # Get all doctors (relaxed filter for status, but strict for matching)
-        base_query = DoctorProfile.objects.all().select_related("profile")
+        # Get doctors by severity or required specialist type
+        if required_specialist:
+            # Apply rule-based overrides from triage profile
+            # Ensure critical safety rules override all other considerations
+            if triage_profile and triage_profile.get('red_flags', {}).get('suicidal_ideation'):
+                doctors = get_doctors_by_severity('CRITICAL')  # Force psychiatrist
+                logger.info(f"Safety override: Redirecting to psychiatrist due to suicidal ideation flag")
+            elif triage_profile and triage_profile.get('red_flags', {}).get('psychosis_indicators'):
+                doctors = get_doctors_by_severity('CRITICAL')  # Force psychiatrist
+                logger.info(f"Safety override: Redirecting to psychiatrist due to psychosis indicators")
+            else:
+                # Get doctors based on required specialist type
+                if required_specialist == 'psychiatrist':
+                    doctors = get_doctors_by_severity('CRITICAL')
+                elif required_specialist == 'psychologist':
+                    doctors = get_doctors_by_severity('MODERATE')
+                else:  # counselor
+                    doctors = get_doctors_by_severity('LOW')
+        else:
+            doctors = get_doctors_by_severity(severity_level)
         
-        # Filter by specialization based on severity
-        if severity_level == 'LOW':
-            doctors = base_query.filter(
-                Q(specialization__icontains="counselor") | 
-                Q(specialization__icontains="therapist") |
-                Q(specialization__icontains="psychologist")
-            )
-        elif severity_level == 'MODERATE':
-            doctors = base_query.filter(
-                Q(specialization__icontains="psychologist") |
-                Q(specialization__icontains="therapist")
-            )
-        else: # HIGH or CRITICAL
-            doctors = base_query.filter(
-                Q(specialization__icontains="psychiatrist") |
-                Q(specialization__icontains="clinical")
-            )
-            
-        # Fallback: If no specialists found, show all doctors sorted by rating
-        if not doctors.exists():
-            doctors = base_query
+        # Additional safety check: if triage requires manual review, limit options
+        if triage_profile and triage_profile.get('requires_manual_review', False):
+            logger.warning(f"Low confidence triage detected. Limiting doctor options for manual review.")
+            # For low confidence cases, only return highly qualified doctors
+            doctors = doctors.filter(experience_years__gte=5)  # Only experienced doctors for uncertain cases
         
-        # Score doctors based on rating and experience
-        scored_doctors = []
-        for doctor in doctors:
-            # Base score from rating (weight: 0.6)
-            rating_score = doctor.average_rating * 0.6 if doctor.average_rating else 0
-            
-            # Experience score (weight: 0.3)
-            # Normalize experience to 0-1 scale (assuming max experience of 50 years)
-            experience_score = min(doctor.experience_years / 50.0, 1.0) * 0.3
-            
-            # Availability score (weight: 0.1)
-            # Doctors with more availability slots get higher scores
-            availability_slots = doctor.profile.availability.count()
-            availability_score = min(availability_slots / 20.0, 1.0) * 0.1
-            
-            # Total score
-            total_score = rating_score + experience_score + availability_score
-            
-            scored_doctors.append({
-                'doctor': doctor,
-                'score': total_score,
-                'rating_score': rating_score,
-                'experience_score': experience_score,
-                'availability_score': availability_score
-            })
+        # Get top matched doctors using triage profile if available
+        top_doctors = get_top_matched_doctors(doctors, limit=5, triage_profile=triage_profile)
         
-        # Sort doctors by score (descending)
-        scored_doctors.sort(key=lambda x: x['score'], reverse=True)
-        
-        # Take top 5 doctors
-        top_doctors = scored_doctors[:5]
-        
-        # Serialize the results
+        # Format response
         result = {
             'severity_level': severity_level,
             'severity_score': severity_score,
             'suggested_doctors': []
         }
+        
+        if triage_profile:
+            result['triage_profile_used'] = True
+            result['urgency_level'] = triage_profile.get('urgency_level', 'routine')
+            result['red_flags'] = triage_profile.get('red_flags', {})
+            result['dominant_symptoms'] = triage_profile.get('dominant_symptoms', [])
         
         for item in top_doctors:
             doctor = item['doctor']
@@ -976,6 +707,7 @@ class DoctorSuggestionAPIView(APIView):
                 'average_rating': round(doctor.average_rating, 1),
                 'total_ratings': doctor.total_ratings,
                 'match_score': round(item['score'] * 100, 1),
+                'triage_based_match': item.get('triage_based', False),
             })
         
         return Response(result)
@@ -989,7 +721,6 @@ class SubmitMoodEntryAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT]
 
     def post(self, request):
-        # Add user profile to the request data
         if not hasattr(request, 'user_data'):
             return Response(
                 {'detail': 'Authentication required'},
@@ -997,15 +728,8 @@ class SubmitMoodEntryAPIView(APIView):
             )
         
         user_id = request.user_data['user_id']
-        try:
-            user_profile = UserProfile.objects.get(user_id=user_id)
-        except UserProfile.DoesNotExist:
-            return Response(
-                {'detail': 'User profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        user_profile = get_object_or_404(UserProfile, user_id=user_id)
         
-        # Add user profile to serializer data
         data = request.data.copy()
         data['user_profile'] = user_profile.id
         
@@ -1013,8 +737,7 @@ class SubmitMoodEntryAPIView(APIView):
         if serializer.is_valid():
             mood_entry = serializer.save(user_profile=user_profile)
             
-            # Publish event to SQS for Lambda processing
-            service = MoodTrackingService()
+            # Publish event for Lambda processing
             mood_data = {
                 'user_id': str(user_profile.user_id),
                 'user_email': user_profile.email,
@@ -1025,10 +748,10 @@ class SubmitMoodEntryAPIView(APIView):
                 'notes': mood_entry.notes,
                 'created_at': mood_entry.created_at.isoformat()
             }
-            
-            service.publish_mood_event(mood_data)
+            publish_mood_event(mood_data)
             
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1037,22 +760,20 @@ class GetMoodHistoryAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT]
 
     def get(self, request, user_id):
-        try:
-            user_profile = UserProfile.objects.get(user_id=user_id)
-        except UserProfile.DoesNotExist:
-            return Response(
-                {'detail': 'User profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        actual_user_id = convert_to_integer_id(user_id)
+        user_profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         
-        # Check if user is trying to access their own profile
+        # Check ownership
         if request.user_data['user_id'] != user_profile.user_id:
             return Response(
                 {'detail': 'You can only access your own mood history'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        mood_entries = MoodEntry.objects.filter(user_profile=user_profile).order_by('-created_at')
+        mood_entries = MoodEntry.objects.filter(
+            user_profile=user_profile
+        ).order_by('-created_at')
+        
         serializer = MoodEntrySerializer(mood_entries, many=True)
         return Response(serializer.data)
 
@@ -1062,56 +783,30 @@ class GetMoodTrendsAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT]
 
     def get(self, request, user_id):
-        try:
-            user_profile = UserProfile.objects.get(user_id=user_id)
-        except UserProfile.DoesNotExist:
-            return Response(
-                {'detail': 'User profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        actual_user_id = convert_to_integer_id(user_id)
+        user_profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         
-        # Check if user is trying to access their own profile
+        # Check ownership
         if request.user_data['user_id'] != user_profile.user_id:
             return Response(
                 {'detail': 'You can only access your own mood trends'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        mood_entries = MoodEntry.objects.filter(user_profile=user_profile).order_by('-created_at')
+        mood_entries = MoodEntry.objects.filter(
+            user_profile=user_profile
+        ).order_by('-created_at')
         
-        # Calculate trends
         if mood_entries.count() == 0:
             return Response({'message': 'No mood data available for trend analysis'})
         
-        # Calculate average mood scores
-        avg_mood = sum(entry.mood_score for entry in mood_entries) / mood_entries.count()
-        avg_anxiety = sum(entry.anxiety_level for entry in mood_entries) / mood_entries.count()
-        avg_energy = sum(entry.energy_level for entry in mood_entries) / mood_entries.count()
-        
-        # Determine trend (simple implementation - last 3 vs first 3 entries)
-        entries_list = list(mood_entries)
-        recent_entries = entries_list[:3]  # Last 3 entries (most recent)
-        older_entries = entries_list[-3:]  # First 3 entries (oldest in the period)
-        
-        if len(recent_entries) >= 1 and len(older_entries) >= 1:
-            recent_avg = sum(e.mood_score for e in recent_entries) / len(recent_entries)
-            older_avg = sum(e.mood_score for e in older_entries) / len(older_entries)
-            
-            if recent_avg > older_avg + 1:
-                trend = 'improving'
-            elif recent_avg < older_avg - 1:
-                trend = 'declining'
-            else:
-                trend = 'stable'
-        else:
-            trend = 'insufficient_data'
+        # Calculate metrics
+        metrics = calculate_average_mood_metrics(mood_entries)
+        trend = calculate_mood_trend(mood_entries)
         
         trends_data = {
-            'average_mood_score': round(avg_mood, 2),
-            'average_anxiety_level': round(avg_anxiety, 2),
-            'average_energy_level': round(avg_energy, 2),
-            'trend': trend,
-            'total_entries': mood_entries.count(),
+            **metrics,
+            'trend': trend
         }
         
         return Response(trends_data)
@@ -1121,122 +816,63 @@ class GetMoodTrendsAPIView(APIView):
 # MOOD AGGREGATION FOR DOCTORS
 # =========================================================
 class DoctorMoodDashboardAPIView(APIView):
-    """
-    API view for doctors to get aggregated mood data of their patients
-    """
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedJWT, IsDoctor]
 
     def get(self, request):
-        """
-        Get aggregated mood data for the requesting doctor's patients
-        """
-        try:
-            # Get the doctor's profile
-            doctor_profile = get_object_or_404(DoctorProfile, profile_id=request.user_data['user_id'])
+        doctor_profile = get_object_or_404(
+            DoctorProfile, 
+            profile_id=request.user_data['user_id']
+        )
+        
+        days = int(request.GET.get('days', 7))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # Get patients with mood entries
+        patient_profiles = UserProfile.objects.filter(
+            mood_entries__created_at__gte=start_date
+        ).distinct()
+        
+        mood_data = []
+        
+        for patient in patient_profiles:
+            patient_mood_entries = MoodEntry.objects.filter(
+                user_profile=patient,
+                created_at__gte=start_date
+            ).order_by('-created_at')
             
-            # Get date range from query parameters (default to last 7 days)
-            days = int(request.GET.get('days', 7))
-            start_date = timezone.now() - timedelta(days=days)
-            
-            # Get all mood entries for patients of this doctor in the date range
-            patient_profiles = UserProfile.objects.filter(
-                mood_entries__created_at__gte=start_date,
-                doctor_assignments__doctor=doctor_profile  # Assuming there's a doctor-patient assignment model
-            ).distinct()
-            
-            # If no assignment model exists, we'll use a simpler approach
-            # For now, we'll assume that users who have mood entries and are connected to doctors somehow
-            mood_data = []
-            
-            for patient in patient_profiles:
-                patient_mood_entries = MoodEntry.objects.filter(
-                    user_profile=patient,
-                    created_at__gte=start_date
-                ).order_by('-created_at')
+            if patient_mood_entries.exists():
+                mood_entries_list = [
+                    format_mood_entry_data(entry) 
+                    for entry in patient_mood_entries
+                ]
                 
-                if patient_mood_entries.exists():
-                    # Calculate patient mood statistics
-                    mood_entries_list = []
-                    total_mood = 0
-                    total_anxiety = 0
-                    concerning_count = 0
-                    entry_count = 0
-                    
-                    for entry in patient_mood_entries:
-                        mood_entry_data = {
-                            'date': entry.created_at.strftime('%Y-%m-%d'),
-                            'mood_score': entry.mood_score,
-                            'anxiety_level': entry.anxiety_level,
-                            'energy_level': entry.energy_level,
-                            'sleep_hours': entry.sleep_hours,
-                            'notes': entry.notes,
-                            'is_concerning': entry.mood_score <= 3 or entry.anxiety_level >= 8
-                        }
-                        
-                        if mood_entry_data['is_concerning']:
-                            concerning_count += 1
-                            
-                        total_mood += entry.mood_score
-                        total_anxiety += entry.anxiety_level
-                        entry_count += 1
-                        mood_entries_list.append(mood_entry_data)
-                    
-                    patient_data = {
-                        'patient_id': patient.user_id,
-                        'patient_name': patient.name or patient.email,
-                        'total_entries': entry_count,
-                        'average_mood': round(total_mood / entry_count, 2) if entry_count > 0 else 0,
-                        'average_anxiety': round(total_anxiety / entry_count, 2) if entry_count > 0 else 0,
-                        'concerning_entries_count': concerning_count,
-                        'mood_trend': self._calculate_trend(mood_entries_list),
-                        'mood_entries': mood_entries_list[:5]  # Last 5 entries
-                    }
-                    
-                    mood_data.append(patient_data)
-            
-            # Calculate overall statistics
-            overall_stats = self._calculate_overall_stats(mood_data)
-            
-            response_data = {
-                'doctor_name': doctor_profile.profile.name,
-                'period_days': days,
-                'from_date': start_date.strftime('%Y-%m-%d'),
-                'to_date': timezone.now().strftime('%Y-%m-%d'),
-                'overall_stats': overall_stats,
-                'patients_data': mood_data
-            }
-            
-            return Response(response_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'detail': f'Error retrieving mood data: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    def _calculate_trend(self, mood_entries):
-        """
-        Calculate mood trend based on recent entries
-        """
-        if len(mood_entries) < 2:
-            return 'insufficient_data'
+                stats = calculate_patient_mood_statistics(patient_mood_entries)
+                
+                patient_data = {
+                    'patient_id': patient.user_id,
+                    'patient_name': patient.name or patient.email,
+                    **stats,
+                    'mood_entries': mood_entries_list[:5]
+                }
+                
+                mood_data.append(patient_data)
         
-        # Compare last entry with first entry in the list
-        first_entry = mood_entries[-1]  # Oldest
-        last_entry = mood_entries[0]   # Most recent
+        # Calculate overall statistics
+        overall_stats = self._calculate_overall_stats(mood_data)
         
-        if last_entry['mood_score'] > first_entry['mood_score'] + 1:
-            return 'improving'
-        elif last_entry['mood_score'] < first_entry['mood_score'] - 1:
-            return 'declining'
-        else:
-            return 'stable'
+        response_data = {
+            'doctor_name': doctor_profile.profile.name,
+            'period_days': days,
+            'from_date': start_date.strftime('%Y-%m-%d'),
+            'to_date': timezone.now().strftime('%Y-%m-%d'),
+            'overall_stats': overall_stats,
+            'patients_data': mood_data
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)
     
     def _calculate_overall_stats(self, patients_data):
-        """
-        Calculate overall statistics for all patients
-        """
         if not patients_data:
             return {
                 'total_patients': 0,
@@ -1248,9 +884,16 @@ class DoctorMoodDashboardAPIView(APIView):
         
         total_patients = len(patients_data)
         total_entries = sum(p['total_entries'] for p in patients_data)
-        total_mood = sum(p['average_mood'] * p['total_entries'] for p in patients_data if p['total_entries'] > 0)
-        concerning_patients = sum(1 for p in patients_data if p['concerning_entries_count'] > 0)
-        patients_with_data = sum(1 for p in patients_data if p['total_entries'] > 0)
+        total_mood = sum(
+            p['average_mood'] * p['total_entries'] 
+            for p in patients_data if p['total_entries'] > 0
+        )
+        concerning_patients = sum(
+            1 for p in patients_data if p['concerning_entries_count'] > 0
+        )
+        patients_with_data = sum(
+            1 for p in patients_data if p['total_entries'] > 0
+        )
         
         average_patient_mood = (
             total_mood / sum(p['total_entries'] for p in patients_data if p['total_entries'] > 0)
@@ -1268,102 +911,36 @@ class DoctorMoodDashboardAPIView(APIView):
 
 
 class PatientMoodHistoryAPIView(APIView):
-    """
-    API view for doctors to get specific patient's mood history
-    """
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedJWT, IsDoctor]
 
     def get(self, request, patient_user_id):
-        """
-        Get mood history for a specific patient
-        """
-        try:
-            # Get the doctor's profile
-            doctor_profile = get_object_or_404(DoctorProfile, profile_id=request.user_data['user_id'])
-            
-            # Get the patient's profile
-            patient_profile = get_object_or_404(UserProfile, user_id=patient_user_id)
-            
-            # Verify that this patient is associated with this doctor
-            # (This check depends on how you implement doctor-patient relationships)
-            
-            # Get date range from query parameters (default to last 30 days)
-            days = int(request.GET.get('days', 30))
-            start_date = timezone.now() - timedelta(days=days)
-            
-            # Get mood entries for this patient
-            mood_entries = MoodEntry.objects.filter(
-                user_profile=patient_profile,
-                created_at__gte=start_date
-            ).order_by('-created_at')
-            
-            mood_history = []
-            for entry in mood_entries:
-                mood_history.append({
-                    'date': entry.created_at.strftime('%Y-%m-%d %H:%M'),
-                    'mood_score': entry.mood_score,
-                    'anxiety_level': entry.anxiety_level,
-                    'energy_level': entry.energy_level,
-                    'sleep_hours': entry.sleep_hours,
-                    'notes': entry.notes,
-                    'is_concerning': entry.mood_score <= 3 or entry.anxiety_level >= 8
-                })
-            
-            # Calculate patient statistics
-            if mood_entries:
-                total_mood = sum(e.mood_score for e in mood_entries)
-                total_anxiety = sum(e.anxiety_level for e in mood_entries)
-                concerning_entries = [e for e in mood_entries if e.mood_score <= 3 or e.anxiety_level >= 8]
-                
-                patient_stats = {
-                    'total_entries': len(mood_entries),
-                    'average_mood': round(total_mood / len(mood_entries), 2),
-                    'average_anxiety': round(total_anxiety / len(mood_entries), 2),
-                    'concerning_entries_count': len(concerning_entries),
-                    'mood_trend': self._calculate_trend(mood_history),
-                }
-            else:
-                patient_stats = {
-                    'total_entries': 0,
-                    'average_mood': 0,
-                    'average_anxiety': 0,
-                    'concerning_entries_count': 0,
-                    'mood_trend': 'no_data',
-                }
-            
-            response_data = {
-                'patient_id': patient_profile.user_id,
-                'patient_name': patient_profile.name or patient_profile.email,
-                'period_days': days,
-                'from_date': start_date.strftime('%Y-%m-%d'),
-                'to_date': timezone.now().strftime('%Y-%m-%d'),
-                'stats': patient_stats,
-                'mood_history': mood_history
-            }
-            
-            return Response(response_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'detail': f'Error retrieving patient mood data: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    def _calculate_trend(self, mood_history):
-        """
-        Calculate mood trend based on mood history
-        """
-        if len(mood_history) < 2:
-            return 'insufficient_data'
+        doctor_profile = get_object_or_404(
+            DoctorProfile, 
+            profile_id=request.user_data['user_id']
+        )
         
-        # Compare last entry with first entry in the list
-        first_entry = mood_history[-1]  # Oldest
-        last_entry = mood_history[0]   # Most recent
+        patient_profile = get_object_or_404(UserProfile, user_id=patient_user_id)
         
-        if last_entry['mood_score'] > first_entry['mood_score'] + 1:
-            return 'improving'
-        elif last_entry['mood_score'] < first_entry['mood_score'] - 1:
-            return 'declining'
-        else:
-            return 'stable'
+        days = int(request.GET.get('days', 30))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        mood_entries = MoodEntry.objects.filter(
+            user_profile=patient_profile,
+            created_at__gte=start_date
+        ).order_by('-created_at')
+        
+        mood_history = [format_mood_entry_data(entry) for entry in mood_entries]
+        patient_stats = calculate_patient_mood_statistics(mood_entries)
+        
+        response_data = {
+            'patient_id': patient_profile.user_id,
+            'patient_name': patient_profile.name or patient_profile.email,
+            'period_days': days,
+            'from_date': start_date.strftime('%Y-%m-%d'),
+            'to_date': timezone.now().strftime('%Y-%m-%d'),
+            'stats': patient_stats,
+            'mood_history': mood_history
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)

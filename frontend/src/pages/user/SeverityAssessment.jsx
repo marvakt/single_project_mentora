@@ -378,7 +378,15 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
                     </h3>
                     <div className="grid md:grid-cols-2 gap-4">
                       {doctors.map(doc => (
-                        <div key={doc.user_id} className="p-4 rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition bg-gray-50 hover:bg-white group cursor-pointer" onClick={() => setCurrentView('book-appointment')}> {/* Link to booking */}
+                        <div key={doc.user_id} className="p-4 rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition bg-gray-50 hover:bg-white group cursor-pointer" onClick={() => {
+                          // Store the selected doctor ID in state or pass it to the view
+                          sessionStorage.setItem('selectedDoctorId', doc.user_id);
+                          // Store the snapshot ID if available to ensure consistent recommendations
+                          if (result && result.recommendation_snapshot_id) {
+                            sessionStorage.setItem('recommendationSnapshotId', result.recommendation_snapshot_id);
+                          }
+                          setCurrentView('book-appointment');
+                        }}> {/* Link to booking */}
                           <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-teal-700 font-bold text-xl shadow-sm border border-gray-100 group-hover:scale-105 transition">
                               {doc.name?.charAt(0)}
