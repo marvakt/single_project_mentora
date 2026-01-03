@@ -44,6 +44,7 @@ class SeverityResult(BaseModel):
     recommendation_snapshot_id: Optional[str] = None
     confidence_score: Optional[float] = None
     requires_manual_review: Optional[bool] = None
+    rag_insights: Optional[Dict] = None
 
 
 # Questionnaire questions (PHQ-9 based)

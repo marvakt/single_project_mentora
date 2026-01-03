@@ -8,6 +8,9 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from datetime import timedelta
 from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     UserProfile,

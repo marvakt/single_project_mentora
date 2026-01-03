@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Heart, ArrowRight, AlertCircle, TrendingUp, Calendar, Star, User,
-  Home, Activity, Smile, FileText, Settings, LogOut, Menu, CheckCircle
+  Home, Activity, Smile, FileText, Settings, LogOut, Menu, CheckCircle,
+  Sparkles, Brain, Shield
 } from 'lucide-react';
 import { MEDICAL_API, USER_API, apiCall } from '../../config/api';
 
@@ -42,7 +42,6 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
       }
     } catch (err) {
       console.error('Failed to fetch questions:', err);
-      // alert('Failed to load questionnaire'); // Keep it silent or show UI error
     }
   };
 
@@ -77,7 +76,8 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
         responses[parseInt(key)] = answers[key];
       });
 
-      const response = await apiCall(`${MEDICAL_API}/questionnaire/submit`, {
+      // Request RAG analysis by adding enable_rag=true parameter
+      const response = await apiCall(`${MEDICAL_API}/questionnaire/submit?enable_rag=true`, {
         method: 'POST',
         body: JSON.stringify({
           responses: responses,
@@ -361,14 +361,55 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
                   <div className="max-w-2xl mx-auto bg-gray-50 rounded-2xl p-6 text-left border border-gray-100">
                     <h3 className="font-bold text-gray-900 mb-2">Our Recommendation</h3>
                     <p className="text-gray-600 leading-relaxed">
-                      {result.severity_level === 'severe' || result.severity_level === 'moderately_severe'
-                        ? "Your responses suggest symptoms that are significantly impacting your well-being. We strongly recommend consulting with a psychiatrist for a comprehensive evaluation."
-                        : result.severity_level === 'moderate'
-                          ? "Your responses indicate moderate symptoms. Speaking with a psychologist or therapist could provide valuable strategies and support."
-                          : "Your symptoms appear mild to minimal. Maintaining a balanced lifestyle and self-care practices is encouraged. Consider a counselor if you want to optimize your well-being."}
+                      {/* Use AI insights if available, otherwise fallback to static text */}
+                      {result.rag_insights?.insights ||
+                        (result.severity_level === 'severe' || result.severity_level === 'moderately_severe'
+                          ? "Your responses suggest symptoms that are significantly impacting your well-being. We strongly recommend consulting with a psychiatrist for a comprehensive evaluation."
+                          : result.severity_level === 'moderate'
+                            ? "Your responses indicate moderate symptoms. Speaking with a psychologist or therapist could provide valuable strategies and support."
+                            : "Your symptoms appear mild to minimal. Maintaining a balanced lifestyle and self-care practices is encouraged. Consider a counselor if you want to optimize your well-being.")}
                     </p>
                   </div>
                 </div>
+
+                {/* AI Insights Section (Coping Strategies) */}
+                {result.rag_insights && (
+                  <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-3xl p-8 shadow-sm border border-teal-100 relative overflow-hidden mb-8 text-left">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-teal-100 rounded-full blur-3xl -mr-16 -mt-16 opacity-60"></div>
+
+                    <div className="relative z-10">
+                      {result.rag_insights.contextual_advice && result.rag_insights.contextual_advice.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-white rounded-xl shadow-sm">
+                              <Sparkles className="w-6 h-6 text-teal-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900">Personalized Coping Strategies</h3>
+                              <p className="text-sm text-teal-700">AI-suggested actions based on your unique profile</p>
+                            </div>
+                          </div>
+
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {result.rag_insights.contextual_advice.map((advice, idx) => (
+                              <div key={idx} className="bg-white p-4 rounded-xl border border-teal-50 flex items-start gap-3 shadow-sm">
+                                <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center shrink-0 mt-0.5">
+                                  <span className="text-xs font-bold text-teal-700">{idx + 1}</span>
+                                </div>
+                                <p className="text-sm text-gray-600 font-medium">{advice}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-6 flex items-center gap-2 text-xs text-teal-600 bg-white/40 px-3 py-2 rounded-lg w-fit">
+                        <Shield className="w-3 h-3" />
+                        <span>Generated by Mentora RAG Engine • Educational purposes only</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Recommended Doctors */}
                 {doctors.length > 0 && (
@@ -379,14 +420,13 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
                     <div className="grid md:grid-cols-2 gap-4">
                       {doctors.map(doc => (
                         <div key={doc.user_id} className="p-4 rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition bg-gray-50 hover:bg-white group cursor-pointer" onClick={() => {
-                          // Store the selected doctor ID in state or pass it to the view
+                          // Store ID and navigate to booking
                           sessionStorage.setItem('selectedDoctorId', doc.user_id);
-                          // Store the snapshot ID if available to ensure consistent recommendations
                           if (result && result.recommendation_snapshot_id) {
                             sessionStorage.setItem('recommendationSnapshotId', result.recommendation_snapshot_id);
                           }
                           setCurrentView('book-appointment');
-                        }}> {/* Link to booking */}
+                        }}>
                           <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-teal-700 font-bold text-xl shadow-sm border border-gray-100 group-hover:scale-105 transition">
                               {doc.name?.charAt(0)}

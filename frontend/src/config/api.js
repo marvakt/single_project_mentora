@@ -37,7 +37,7 @@
 //     'Content-Type': 'application/json',
 //     ...options.headers,
 //   };
-  
+
 //   if (token) {
 //     headers['Authorization'] = `Bearer ${token}`;
 //   }
@@ -80,16 +80,20 @@ export const apiCall = async (url, options = {}) => {
   // For Django REST endpoints that require trailing slashes, ensure proper formatting
   // Only add trailing slash if the URL follows REST API pattern and doesn't already have one
   let normalizedUrl = url;
-  if (url.includes('/api/') && !url.endsWith('/') && !url.includes('.')) {
-    normalizedUrl = url + '/';
+  const [baseUrl, queryString] = url.split('?');
+
+  // Apply trailing slash to base URL if needed
+  // Skip for Medical Service (port 8003) which is FastAPI and prefers no trailing slash
+  if (baseUrl.includes('/api/') && !baseUrl.endsWith('/') && !baseUrl.includes('.') && !baseUrl.includes(':8003')) {
+    normalizedUrl = queryString ? `${baseUrl}/?${queryString}` : `${baseUrl}/`;
   }
-  
+
   const token = sessionStorage.getItem('access_token');
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
