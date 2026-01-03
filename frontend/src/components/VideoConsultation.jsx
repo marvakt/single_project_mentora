@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Video, VideoOff, Mic, MicOff, Phone, MessageSquare, 
+import {
+  Video, VideoOff, Mic, MicOff, Phone, MessageSquare,
   Settings, Users, Monitor, X, Maximize, Minimize,
   ArrowLeft, Clock, User, AlertCircle
 } from 'lucide-react';
-import { APPOINTMENT_API, apiCall } from '../config/api';
+import { APPOINTMENT_API, MEDICAL_API, apiCall } from '../config/api';
 
 const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurrentView }) => {
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -20,11 +20,11 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
   const [sessionToken, setSessionToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
-  const chatEndRef = useRef(null);
+  const wsRef = useRef(null);
 
   useEffect(() => {
     initializeVideoSession();
@@ -36,35 +36,27 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
   const initializeVideoSession = async () => {
     try {
       setLoading(true);
-      
+
       // First, check if video session exists and is approved
       const checkResponse = await apiCall(
-        `${APPOINTMENT_API}/appointments/${appointmentId}/video` // Trailing slash will be added by apiCall if needed
+        `${APPOINTMENT_API}/appointments/${appointmentId}/video`
       );
-      
+
       if (checkResponse.ok) {
-        // Video session exists, check approval status
         const sessionData = await checkResponse.json();
-        
-        // Check if doctor has approved the session
         if (!sessionData.doctor_approved) {
           throw new Error('Video session not yet approved by doctor');
         }
-        
-        // Session exists and is approved, use existing session
         setSessionToken(sessionData.token);
       } else if (checkResponse.status === 403) {
-        // Doctor has not approved the session
         const errorData = await checkResponse.json();
         throw new Error(errorData.error || 'Video session not yet approved by doctor');
       } else if (checkResponse.status === 400) {
-        // Bad request - likely time window validation failed
         const errorData = await checkResponse.json();
         throw new Error(errorData.error || 'Video session is not available at this time');
       } else if (checkResponse.status === 404) {
-        // Video session doesn't exist, create it
         const createResponse = await apiCall(
-          `${APPOINTMENT_API}/appointments/${appointmentId}/video/create`, // Trailing slash will be added by apiCall if needed
+          `${APPOINTMENT_API}/appointments/${appointmentId}/video/create`,
           {
             method: 'POST',
             body: JSON.stringify({ provider: 'twilio' })
@@ -80,17 +72,17 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
       } else {
         throw new Error('Failed to check video session');
       }
-      
+
       // Initialize local media
       await initializeLocalMedia();
-      
-      // Connect to video service (Twilio/Agora)
-      await connectToVideoService({});
-      
-      setConnectionStatus('connected');
+
+      // Connect to signaling and initialize WebRTC
+      connectToSignalingServer(token);
+      await initializeWebRTCConnection();
+
       setSessionStartTime(Date.now());
       setLoading(false);
-      
+
     } catch (err) {
       console.error('Video session initialization error:', err);
       setError(err.message);
@@ -101,7 +93,7 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
   const initializeLocalMedia = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
+        video: {
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
@@ -110,9 +102,9 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
           noiseSuppression: true
         }
       });
-      
+
       localStreamRef.current = stream;
-      
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
@@ -122,96 +114,163 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
     }
   };
 
-  const connectToVideoService = async (sessionData) => {
-    try {
-      // Get the room name from the session data
-      const checkResponse = await apiCall(
-        `${APPOINTMENT_API}/appointments/${appointmentId}/video` // Trailing slash will be added by apiCall if needed
-      );
-      
-      if (checkResponse.ok) {
-        const sessionInfo = await checkResponse.json();
-        const roomName = sessionInfo.room_name;
-        
-        // Initialize WebRTC connection
-        await initializeWebRTCConnection(roomName);
-      } else {
-        console.error('Failed to get session info for WebRTC connection');
+  // WebSocket Connection for Signaling
+  const connectToSignalingServer = (authToken) => {
+    // Safely Construct WebSocket URL
+    let wsBase = MEDICAL_API;
+    if (wsBase.startsWith('http')) {
+      wsBase = wsBase.replace('http://', 'ws://').replace('https://', 'wss://');
+    }
+    const wsUrl = `${wsBase}/chat/ws/${appointmentId}?token=${authToken}`;
+    console.log('Connecting to Signaling Server:', wsUrl);
+
+    if (wsRef.current) wsRef.current.close();
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('Signaling WebSocket connected');
+      // Wait briefly for connection stability then offer if we are the initiator
+      // In a mesh without a dedicated signaling "join" event, we can try to offer.
+      // Better strategy: Both peers attach handlers. The one who's 'polite' waits?
+      // Simple strategy: Just offer if nothing happens after 2s, or relying on manual trigger?
+      // Let's offer automatically.
+      setTimeout(() => {
+        if (window.peerConnection && window.peerConnection.signalingState === "stable") {
+          // Check if we are "Patient" or "Doctor". Let's say Doctor initiates?
+          // Or better, just random to avoid collision, or both try.
+          // We'll just try.
+          createAndSendOffer();
+        }
+      }, 1500);
+    };
+
+    ws.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        // Filter out own messages (echoed by backend)
+        if (data.status === 'sent') return;
+        // Filter by sender role if possible, but basic check is good enough
+        if (data.sender_role === userRole) return;
+
+        if (data.type === 'offer') {
+          await handleReceiveOffer(JSON.parse(data.message));
+        } else if (data.type === 'answer') {
+          await handleReceiveAnswer(JSON.parse(data.message));
+        } else if (data.type === 'candidate') {
+          await handleReceiveCandidate(JSON.parse(data.message));
+        } else if (data.type === 'text') {
+          // Handle chat messages
+          const newMessage = {
+            id: data.message_id || Date.now(),
+            sender: data.sender_role === 'doctor' ? 'Doctor' : 'Patient',
+            text: data.message,
+            timestamp: new Date(data.timestamp).toLocaleTimeString()
+          };
+          setChatMessages(prev => {
+            if (prev.some(m => m.id === newMessage.id)) return prev;
+            return [...prev, newMessage];
+          });
+        }
+      } catch (err) {
+        // Warning: many messages might be plain chat acknowledgements we can't parse as signaling
+        // console.error('Signaling message error:', err);
       }
-    } catch (error) {
-      console.error('Error connecting to video service:', error);
+    };
+
+    ws.onerror = (e) => console.error('Signaling WebSocket error:', e);
+  };
+
+  const sendSignal = (type, payload) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        message: JSON.stringify(payload),
+        type: type,
+        client_message_id: Date.now().toString()
+      }));
+    }
+  };
+
+  const createAndSendOffer = async () => {
+    if (!window.peerConnection) return;
+    try {
+      const offer = await window.peerConnection.createOffer();
+      await window.peerConnection.setLocalDescription(offer);
+      sendSignal('offer', offer);
+    } catch (e) {
+      console.error("Error creating offer:", e);
+    }
+  };
+
+  const handleReceiveOffer = async (offer) => {
+    console.log('Received Offer');
+    if (!window.peerConnection) await initializeWebRTCConnection();
+
+    if (window.peerConnection.signalingState !== "stable") {
+      await Promise.all([
+        window.peerConnection.setLocalDescription({ type: "rollback" }),
+        window.peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+      ]);
+    } else {
+      await window.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    }
+
+    const answer = await window.peerConnection.createAnswer();
+    await window.peerConnection.setLocalDescription(answer);
+    sendSignal('answer', answer);
+    setConnectionStatus('connected');
+  };
+
+  const handleReceiveAnswer = async (answer) => {
+    console.log('Received Answer');
+    if (window.peerConnection) {
+      await window.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      setConnectionStatus('connected');
+    }
+  };
+
+  const handleReceiveCandidate = async (candidate) => {
+    console.log('Received Candidate');
+    if (window.peerConnection) {
+      await window.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     }
   };
 
   // WebRTC connection setup
-  const initializeWebRTCConnection = async (roomName) => {
+  const initializeWebRTCConnection = async () => {
     try {
-      // Create RTCPeerConnection
       const configuration = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' }
         ]
       };
-      
+
+      if (window.peerConnection) window.peerConnection.close();
       window.peerConnection = new RTCPeerConnection(configuration);
-      
-      // Add local stream to peer connection
+
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => {
           window.peerConnection.addTrack(track, localStreamRef.current);
         });
       }
-      
-      // Handle incoming remote tracks
+
       window.peerConnection.ontrack = (event) => {
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
+          setConnectionStatus('connected');
         }
       };
-      
-      // Handle ICE candidates
+
       window.peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          // In a real implementation, you would send the ICE candidate to the other participant
-          // through a signaling server
-          console.log('Sending ICE candidate:', event.candidate);
+          sendSignal('candidate', event.candidate);
         }
       };
-      
-      // Create offer
-      const offer = await window.peerConnection.createOffer();
-      await window.peerConnection.setLocalDescription(offer);
-      
-      // In a real implementation, you would send the offer to the other participant
-      // through a signaling server and receive their answer
-      console.log('Created offer:', offer);
-      
-      // Simulate receiving the other participant's offer/answer
-      // In a real implementation, this would come from a signaling server
-      setTimeout(() => {
-        simulateRemoteParticipant();
-      }, 2000);
-      
+
     } catch (error) {
       console.error('Error initializing WebRTC connection:', error);
-    }
-  };
-
-  // Simulate the remote participant joining
-  const simulateRemoteParticipant = async () => {
-    try {
-      // Create a dummy remote stream for simulation
-      const dummyStream = new MediaStream();
-      
-      // In a real implementation, this would be the actual remote stream
-      // For now, we'll just log that the remote participant is connected
-      console.log('Remote participant connected');
-      
-      // Set connection status to connected
-      setConnectionStatus('connected');
-    } catch (error) {
-      console.error('Error simulating remote participant:', error);
     }
   };
 
@@ -277,7 +336,7 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
     try {
       // Send API call to end video session
       await apiCall(
-        `${APPOINTMENT_API}/appointments/${appointmentId}/video`, // Trailing slash will be added by apiCall if needed
+        `${APPOINTMENT_API}/appointments/${appointmentId}/video`,
         {
           method: 'PATCH',
           body: JSON.stringify({ ended: true })
@@ -297,11 +356,14 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-    
+
     // Close WebRTC connection if it exists
     if (window.peerConnection) {
       window.peerConnection.close();
       window.peerConnection = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
     }
   };
 
@@ -324,16 +386,20 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
   const sendMessage = () => {
     if (messageInput.trim()) {
       const newMessage = {
-        id: Date.now(),
-        sender: userRole === 'doctor' ? 'Doctor' : 'Patient',
-        text: messageInput,
-        timestamp: new Date().toLocaleTimeString()
+        message: messageInput.trim(), // Send as object wrapper if needed, but backend takes string in message field
+        // Actually backend logic takes message field. 
+        // We use sendSignal with type 'text'
       };
-      setChatMessages([...chatMessages, newMessage]);
+
+      sendSignal('text', messageInput.trim());
+
+      setChatMessages([...chatMessages, {
+        id: Date.now(),
+        sender: 'Me', // UI placeholder
+        text: messageInput.trim(),
+        timestamp: new Date().toLocaleTimeString()
+      }]);
       setMessageInput('');
-      
-      // In a real implementation, you would send this message via WebSocket
-      // to the other participant
     }
   };
 
@@ -472,7 +538,7 @@ const VideoConsultation = ({ appointmentId, token, userRole, onEndCall, setCurre
                 placeholder="Type a message..."
                 className="flex-1 bg-gray-700 text-white px-3 py-2 rounded-l-lg focus:outline-none"
               />
-              <button className="bg-purple-600 px-4 py-2 rounded-r-lg">Send</button>
+              <button className="bg-purple-600 px-4 py-2 rounded-r-lg" onClick={sendMessage}>Send</button>
             </div>
           </div>
         </div>

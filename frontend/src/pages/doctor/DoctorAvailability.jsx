@@ -5,6 +5,7 @@ import {
   Home, User, Users, FileText
 } from 'lucide-react';
 import { USER_API, apiCall } from '../../config/api';
+import { formatIndianTime } from '../../utils/dateUtils';
 
 const DoctorAvailability = ({ user, token, handleLogout, setCurrentView }) => {
   const [availability, setAvailability] = useState([]);
@@ -145,13 +146,6 @@ const DoctorAvailability = ({ user, token, handleLogout, setCurrentView }) => {
     return grouped;
   };
 
-  const formatTime = (time) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
 
   const groupedAvailability = groupByDay();
 
@@ -421,7 +415,7 @@ const DoctorAvailability = ({ user, token, handleLogout, setCurrentView }) => {
                               </div>
                               <div>
                                 <p className="font-bold text-gray-900 text-lg leading-none mb-1">
-                                  {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                                  {formatIndianTime(slot.start_time)} - {formatIndianTime(slot.end_time)}
                                 </p>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{slot.slot_duration_minutes} min</span>

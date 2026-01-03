@@ -257,6 +257,11 @@ def validate_video_session_timing(appointment: Appointment) -> Tuple[bool, str]:
     
     # Allow access from 30 minutes before to 4 hours after appointment time
     # This provides more flexibility for users to join the video call
+    # If doctor has already approved/started the session, bypass time checks
+    if hasattr(appointment, 'video_session') and appointment.video_session.doctor_approved:
+        return True, ""
+
+    # Strict time window for initial access
     time_window_start = appointment_time - timezone.timedelta(minutes=30)
     time_window_end = appointment_time + timezone.timedelta(hours=4)
     
@@ -267,7 +272,7 @@ def validate_video_session_timing(appointment: Appointment) -> Tuple[bool, str]:
             f"{time_window_end.strftime('%Y-%m-%d %H:%M')}"
         )
         return False, error_msg
-    
+        
     return True, ""
 
 
@@ -878,7 +883,7 @@ def create_video_session(
         token=tokens['user_token'] if role == "user" else tokens['doctor_token'],
         user_token=tokens['user_token'],
         doctor_token=tokens['doctor_token'],
-        doctor_approved=False,
+        doctor_approved=(role == 'doctor'),  # Auto-approve if created by doctor
         room_name=tokens['room_name']
     )
     

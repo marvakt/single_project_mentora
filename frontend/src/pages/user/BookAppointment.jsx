@@ -6,6 +6,7 @@ import {
   Settings, LogOut, Menu, FileText
 } from 'lucide-react';
 import { USER_API, APPOINTMENT_API, MEDICAL_API, apiCall } from '../../config/api';
+import { formatIndianTime } from '../../utils/dateUtils';
 import PaymentProcessing from './PaymentProcessing';
 
 const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, selectedDoctorId: propDoctorId = null, recommendationSnapshotId: propSnapshotId = null }) => {
@@ -270,25 +271,8 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
       // Create a Date object from the selected date and time
       const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
 
-      // Get the user's timezone offset in minutes and convert to hours
-      const timezoneOffsetMinutes = appointmentDateTime.getTimezoneOffset();
-      const offsetHours = Math.floor(Math.abs(timezoneOffsetMinutes) / 60);
-      const offsetMinutes = Math.abs(timezoneOffsetMinutes) % 60;
-
-      // Format the offset with proper sign
-      const offsetSign = timezoneOffsetMinutes <= 0 ? '+' : '-'; // Note: getTimezoneOffset returns negative for positive offset
-      const offsetFormatted = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
-
-      // Format the datetime with timezone information to ensure the backend receives the correct time
-      const year = appointmentDateTime.getFullYear();
-      const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
-      const day = String(appointmentDateTime.getDate()).padStart(2, '0');
-      const hours = String(appointmentDateTime.getHours()).padStart(2, '0');
-      const minutes = String(appointmentDateTime.getMinutes()).padStart(2, '0');
-      const seconds = String(appointmentDateTime.getSeconds()).padStart(2, '0');
-
-      // Create the datetime string with timezone offset
-      const scheduledAt = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetFormatted}`;
+      // Use toISOString() to convert the local time (IST) to UTC correctly
+      const scheduledAt = appointmentDateTime.toISOString();
       const response = await apiCall(`${APPOINTMENT_API}/appointments/`, {
         method: 'POST',
         body: JSON.stringify({
@@ -578,7 +562,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
                             onClick={() => setAppointmentTime(time)}
                             className={`py-2 px-1 rounded-lg text-xs font-bold transition ${appointmentTime === time ? 'bg-teal-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
                           >
-                            {time}
+                            {formatIndianTime(time)}
                           </button>
                         ))}
                       </div>
