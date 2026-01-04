@@ -7,10 +7,11 @@ class IsAuthenticatedJWT(BasePermission):
     """
 
     def has_permission(self, request, view):
-        print(f"IsAuthenticatedJWT check: {hasattr(request, 'user_data')}")
-        result = hasattr(request, "user_data")
-        print(f"IsAuthenticatedJWT result: {result}")
-        return result
+        # Check if user_data is attached to request
+        has_user_data = hasattr(request, "user_data")
+        # Also check if request.user is properly set by authentication
+        has_authenticated_user = hasattr(request, 'user') and request.user and request.user.is_authenticated
+        return has_user_data or has_authenticated_user
 
 
 class IsOwner(BasePermission):
@@ -19,10 +20,14 @@ class IsOwner(BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
-        print(f"IsOwner check - obj.user_id: {obj.user_id}, request.user_data['user_id']: {request.user_data['user_id']}")
-        result = obj.user_id == request.user_data["user_id"]
-        print(f"IsOwner result: {result}")
-        return result
+        # Handle both cases: when user_data is attached and when proper user object is available
+        if hasattr(request, 'user_data'):
+            # Using the old method with user_data
+            return obj.user_id == request.user_data["user_id"]
+        elif hasattr(request, 'user') and request.user.is_authenticated:
+            # Using the new method with proper user object
+            return obj.user_id == request.user.id
+        return False
 
 
 class IsDoctor(BasePermission):
@@ -31,10 +36,12 @@ class IsDoctor(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return (
-            hasattr(request, "user_data")
-            and request.user_data.get("role") == "doctor"
-        )
+        # Check both user_data and user.role
+        if hasattr(request, "user_data"):
+            return request.user_data.get("role") == "doctor"
+        elif hasattr(request, 'user') and request.user.is_authenticated:
+            return getattr(request.user, 'role', None) == "doctor"
+        return False
 
 
 class IsAdmin(BasePermission):
@@ -43,10 +50,12 @@ class IsAdmin(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return (
-            hasattr(request, "user_data")
-            and request.user_data.get("role") == "admin"
-        )
+        # Check both user_data and user.role
+        if hasattr(request, "user_data"):
+            return request.user_data.get("role") == "admin"
+        elif hasattr(request, 'user') and request.user.is_authenticated:
+            return getattr(request.user, 'role', None) == "admin"
+        return False
 
 class IsInternalService(BasePermission):
     def has_permission(self, request, view):
@@ -71,4 +80,7 @@ class IsAuthenticatedJWTOrInternalService(BasePermission):
             return True
         
         # If not internal service, check JWT authentication
-        return hasattr(request, "user_data")
+        # Check both user_data and user authentication
+        has_user_data = hasattr(request, "user_data")
+        has_authenticated_user = hasattr(request, 'user') and request.user and request.user.is_authenticated
+        return has_user_data or has_authenticated_user

@@ -1,7 +1,3 @@
-
-
-
-# profiles/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -42,6 +38,8 @@ from .permissions import (
     IsAuthenticatedJWTOrInternalService,
 )
 from .authentication import JWTAuthentication
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from .utils import (
     convert_to_integer_id,
@@ -125,6 +123,18 @@ class GetProfileAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedJWT]
 
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                'Authorization',
+                openapi.IN_HEADER,
+                description="Bearer token for authentication",
+                type=openapi.TYPE_STRING,
+                required=True
+            ),
+        ],
+        responses={200: UserProfileSerializer, 401: "Unauthorized", 403: "Forbidden", 404: "Not Found"}
+    )
     def get(self, request, user_id):
         actual_user_id = convert_to_integer_id(user_id)
         profile = get_object_or_404(
@@ -154,6 +164,18 @@ class UpdateProfileAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedJWT, IsOwner]
 
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                'Authorization',
+                openapi.IN_HEADER,
+                description="Bearer token for authentication",
+                type=openapi.TYPE_STRING,
+                required=True
+            ),
+        ],
+        responses={200: UserProfileSerializer, 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found"}
+    )
     def put(self, request, user_id):
         actual_user_id = convert_to_integer_id(user_id)
         profile = get_object_or_404(UserProfile, user_id=actual_user_id)

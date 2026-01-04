@@ -3,6 +3,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from jose import jwt
 import time
 from django.conf import settings
+from rest_framework import exceptions
 
 # Use JWT_SECRET from Django settings instead of environment variable directly
 JWT_SECRET = getattr(settings, 'JWT_SECRET', 'mentora-jwt-secret-2025-change-this')
@@ -13,40 +14,50 @@ class JWTAuthentication(BaseAuthentication):
     """
     Validates JWT issued by auth_service
     """
-
+    
     def authenticate(self, request):
-        print("JWTAuthentication.authenticate called")
         auth_header = request.headers.get("Authorization")
 
         if not auth_header:
-            print("No Authorization header found")
             return None  # unauthenticated
 
         if not auth_header.startswith("Bearer "):
-            print("Invalid auth header format")
-            raise AuthenticationFailed("Invalid auth header")
+            raise AuthenticationFailed("Invalid auth header format. Use: Bearer <token>")
 
         token = auth_header.split(" ")[1]
-        
-        # Debug logging
-        print(f"JWT_SECRET from settings: {JWT_SECRET}")
-        print(f"Token received: {token}")
 
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-            print(f"Decoded payload: {payload}")
-        except Exception as e:
-            print(f"JWT decode error: {e}")
-            raise AuthenticationFailed("Invalid or expired token")
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationFailed("Token has expired")
+        except jwt.JWTError:
+            raise AuthenticationFailed("Invalid token")
 
         if payload.get("type") != "access":
             raise AuthenticationFailed("Invalid token type")
 
+        # Verify expiration
         if payload.get("exp", 0) < int(time.time()):
-            raise AuthenticationFailed("Token expired")
+            raise AuthenticationFailed("Token has expired")
 
         # Attach payload to request
         request.user_data = payload
 
-        # DRF expects (user, auth) tuple — we fake user
-        return (payload, token)
+        # DRF expects (user, auth) tuple — we return a minimal user-like object
+        # Create a minimal user-like object that DRF can work with
+        class JWTUser:
+            def __init__(self, payload):
+                self.payload = payload
+                self.is_authenticated = True
+                self.id = payload.get('user_id')
+                self.email = payload.get('email')
+                self.role = payload.get('role', 'user')
+            
+            def __str__(self):
+                return f"JWTUser: {self.id} ({self.email})"
+
+        user = JWTUser(payload)
+        return (user, token)
+
+    def authenticate_header(self, request):
+        return 'Bearer'
