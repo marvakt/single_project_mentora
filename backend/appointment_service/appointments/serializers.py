@@ -158,6 +158,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from datetime import timedelta
 from .models import Appointment, Payment, VideoSession
+from datetime import timedelta, timezone as dt_timezone
 
 
 class AppointmentCreateSerializer(serializers.Serializer):
@@ -210,11 +211,15 @@ class AppointmentCreateSerializer(serializers.Serializer):
                 "Appointment cannot be scheduled more than 3 months in advance"
             )
         
-        # Check business hours (8 AM - 8 PM)
-        hour = value.hour
+        # Check business hours (8 AM - 8 PM IST)
+        # Convert to IST (UTC+5:30)
+        ist_offset = dt_timezone(timedelta(hours=5, minutes=30))
+        local_value = value.astimezone(ist_offset)
+        hour = local_value.hour
+        
         if hour < 8 or hour >= 20:
             raise serializers.ValidationError(
-                "Appointments must be scheduled between 8 AM and 8 PM"
+                "Appointments must be scheduled between 8 AM and 8 PM IST"
             )
         
         return value
@@ -259,10 +264,14 @@ class AppointmentUpdateSerializer(serializers.Serializer):
                 "Appointment must be scheduled at least 1 hour in advance"
             )
         
-        hour = value.hour
+        # Check business hours (8 AM - 8 PM)
+        ist_offset = dt_timezone(timedelta(hours=5, minutes=30))
+        local_value = value.astimezone(ist_offset)
+        hour = local_value.hour
+
         if hour < 8 or hour >= 20:
             raise serializers.ValidationError(
-                "Appointments must be scheduled between 8 AM and 8 PM"
+                "Appointments must be scheduled between 8 AM and 8 PM IST"
             )
         
         return value

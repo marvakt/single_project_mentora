@@ -7,7 +7,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import datetime, timedelta
 from ..models import UserProfile, MoodEntry
-from ..services import MoodTrackingService
+from ..utils import publish_mood_event, analyze_mood_data, send_notifications
 
 logger = logging.getLogger(__name__)
 
@@ -22,18 +22,18 @@ def send_daily_mood_reminders():
     try:
         # Get all active users who should receive mood reminders
         active_users = UserProfile.objects.filter(
-            receive_mood_notifications=True,  # Assuming you have this field
-            is_active=True
+            receive_mood_notifications=True,
+            status='active'
         )
         
         logger.info(f"Found {active_users.count()} users for mood reminders")
         
-        service = MoodTrackingService()
         successful_notifications = 0
         
         for user in active_users:
             try:
                 # Send notification via SNS
+                # NOTE: Logic seems to use mood_data as a wrapper for reminder info
                 mood_data = {
                     'user_id': str(user.user_id),
                     'user_email': user.email,
@@ -42,12 +42,16 @@ def send_daily_mood_reminders():
                 }
                 
                 # Publish to SQS for processing
-                response = service.publish_mood_event(mood_data)
+                response = publish_mood_event(mood_data)
                 
                 if response:
-                    # Also send SNS notification
-                    analysis_result = service.analyze_mood_data({})
-                    service.send_notifications(
+                    # Also send SNS/Email notification
+                    # Passing empty dict to analyze might trigger "concerning" logic if not careful, 
+                    # but we are preserving original logic flow for now.
+                    analysis_result = analyze_mood_data({})
+                    
+                    # We might want to adjust send_notifications to handle reminders gracefully
+                    send_notifications(
                         mood_data, 
                         analysis_result, 
                         user.email

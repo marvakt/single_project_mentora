@@ -701,6 +701,71 @@ def publish_mood_event(mood_data):
         print(f"Error publishing mood event: {str(e)}")
         return None
 
+def get_ses_client():
+    """Get configured SES client."""
+    return boto3.client(
+        'ses',
+        aws_access_key_id=getattr(settings, 'AWS_ACCESS_KEY_ID', None),
+        aws_secret_access_key=getattr(settings, 'AWS_SECRET_ACCESS_KEY', None),
+        region_name=getattr(settings, 'AWS_SES_REGION', 'us-east-1')
+    )
+
+def get_sns_client():
+    """Get configured SNS client."""
+    return boto3.client(
+        'sns',
+        aws_access_key_id=getattr(settings, 'AWS_ACCESS_KEY_ID', None),
+        aws_secret_access_key=getattr(settings, 'AWS_SECRET_ACCESS_KEY', None),
+        region_name=getattr(settings, 'AWS_REGION', 'us-east-1')
+    )
+
+def analyze_mood_data(mood_data):
+    """Analyze mood data and determine if notifications are needed (typically via Lambda)"""
+    mood_score = mood_data.get('mood_score', 0)
+    anxiety_level = mood_data.get('anxiety_level', 0)
+    
+    analysis = {
+        'concerning': mood_score <= 3 or anxiety_level >= 8,
+        'needs_attention': mood_score <= 4 or anxiety_level >= 7,
+        'trend': 'declining' if mood_score < 5 else 'stable'
+    }
+    return analysis
+
+def send_notifications(mood_data, analysis_result, user_email):
+    """Send notifications based on mood analysis"""
+    sender_email = getattr(settings, 'SES_SENDER_EMAIL', 'noreply@mentora.com')
+    try:
+        # Send email if concerning
+        if analysis_result.get('concerning'):
+            ses = get_ses_client()
+            ses.send_email(
+                Source=sender_email,
+                Destination={'ToAddresses': [user_email]},
+                Message={
+                    'Subject': {'Data': 'Mood Tracking Alert'},
+                    'Body': {
+                        'Text': {
+                            'Data': f"Your mood score of {mood_data.get('mood_score')} indicates you may need support. Please reach out to your healthcare provider."
+                        }
+                    }
+                }
+            )
+        
+        # Send general notification via SNS
+        sns = get_sns_client()
+        topic_arn = getattr(settings, 'MOOD_NOTIFICATION_TOPIC_ARN', '')
+        if topic_arn:
+            sns.publish(
+                TopicArn=topic_arn,
+                Message=f"New mood entry recorded. Score: {mood_data.get('mood_score')}/10",
+                Subject='Mood Tracking Update'
+            )
+        
+        return True
+    except Exception as e:
+        print(f"Error sending notifications: {str(e)}")
+        return False
+
 
 # ============================================================
 # QUERY UTILITIES

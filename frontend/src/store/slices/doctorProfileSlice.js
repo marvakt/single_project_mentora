@@ -80,12 +80,17 @@ export const fetchDoctorPatients = createAsyncThunk(
                 // Get user's appointments
                 const userAppointments = appointments.filter(apt => apt.user_id === userId);
 
-                // Calculate last seen (most recent appointment date)
-                // Use current date if no appointments found (though they should have at least one)
+                // Calculate last seen and latest severity
                 let lastSeenDate = new Date();
+                let latestSeverity = 0;
+
                 if (userAppointments.length > 0) {
-                    const dates = userAppointments.map(a => new Date(a.scheduled_at).getTime());
-                    lastSeenDate = new Date(Math.max(...dates));
+                    // Sort appointments by date descending to find the latest one
+                    userAppointments.sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
+
+                    const latestAppt = userAppointments[0];
+                    lastSeenDate = new Date(latestAppt.scheduled_at);
+                    latestSeverity = latestAppt.severity_level || 0;
                 }
 
                 return {
@@ -96,7 +101,8 @@ export const fetchDoctorPatients = createAsyncThunk(
                     avatar: null,
                     role: 'user',
                     last_seen: lastSeenDate.toISOString(), // Store as ISO string
-                    total_appointments: userAppointments.length
+                    total_appointments: userAppointments.length,
+                    latest_severity: latestSeverity
                 };
             });
 

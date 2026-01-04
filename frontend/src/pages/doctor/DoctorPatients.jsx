@@ -341,7 +341,7 @@ const DoctorPatients = () => {
                                         <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <Stethoscope className="w-4 h-4 text-indigo-600" />
-                                                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Assessment Logic</span>
+                                                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Assessment Logs</span>
                                             </div>
                                             <p className="text-2xl font-black text-indigo-900">{patientDetails.assessment_history?.length || 0}</p>
                                             <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mt-1">Total Logs</p>
@@ -381,6 +381,35 @@ const DoctorPatients = () => {
                                                 <p className="text-xs font-bold text-gray-600 uppercase tracking-widest">
                                                     Level: {patientDetails.latest_assessment.severity_category}
                                                 </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Assessment History */}
+                                    {patientDetails.assessment_history && patientDetails.assessment_history.length > 0 && (
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+                                                    <FileText className="w-5 h-5 text-indigo-600" />
+                                                </div>
+                                                <h4 className="font-bold text-gray-900">Assessment History</h4>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                {patientDetails.assessment_history.slice(0, 5).map((assessment, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                                        <div>
+                                                            <p className="text-xs font-bold text-gray-900">{assessment.severity_category || 'Assessment'}</p>
+                                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                                                {new Date(assessment.created_at).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-lg font-black text-gray-900">{assessment.severity_level}</span>
+                                                            <span className="text-xs text-gray-400 font-bold">/ 27</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     )}
