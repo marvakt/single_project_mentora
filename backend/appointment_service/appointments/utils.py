@@ -306,12 +306,12 @@ def convert_to_uuid(value) -> uuid.UUID:
 
 # ==================== EXTERNAL SERVICE INTEGRATION ====================
 
-def fetch_doctor_availability_and_fee(doctor_id: uuid.UUID) -> Dict:
+def fetch_doctor_availability_and_fee(doctor_id) -> Dict:
     """
     Synchronous call to user_service for doctor data.
     
     Args:
-        doctor_id: Doctor's UUID
+        doctor_id: Doctor's ID (string or UUID)
         
     Returns:
         dict: Doctor availability and fee data
@@ -323,8 +323,19 @@ def fetch_doctor_availability_and_fee(doctor_id: uuid.UUID) -> Dict:
         headers = {
             "X-INTERNAL-TOKEN": getattr(settings, "INTERNAL_SERVICE_TOKEN", "dev-internal")
         }
+        
+        # Convert to UUID if it's a string
+        from .utils import convert_to_uuid
+        doctor_uuid = convert_to_uuid(doctor_id) if not isinstance(doctor_id, uuid.UUID) else doctor_id
+        
+        # Handle legacy integer IDs (User Service might expect int, but we have UUID)
+        # If the UUID corresponds to a small integer (legacy ID), convert it back.
+        request_id = doctor_uuid
+        if doctor_uuid.int < 2**32:  # Heuristic: Legacy IDs are small integers
+             request_id = doctor_uuid.int
+
         response = requests.get(
-            f"{settings.USER_SERVICE_BASE_URL}/internal/doctors/{doctor_id}/availability/",
+            f"{settings.USER_SERVICE_BASE_URL}/internal/doctors/{request_id}/availability/",
             headers=headers,
             timeout=3
         )
@@ -417,7 +428,7 @@ def fetch_medical_summary(user_id: str, auth_header: str) -> Dict:
 @transaction.atomic
 def create_appointment_with_validation(
     user_id: str,
-    doctor_id: uuid.UUID,
+    doctor_id,
     scheduled_at: datetime.datetime,
     severity_level: Optional[int],
     notes: str,
@@ -428,7 +439,7 @@ def create_appointment_with_validation(
     
     Args:
         user_id: User's ID from JWT
-        doctor_id: Doctor's UUID
+        doctor_id: Doctor's ID (string or UUID)
         scheduled_at: Appointment datetime
         severity_level: Optional severity level
         notes: Appointment notes
@@ -443,19 +454,22 @@ def create_appointment_with_validation(
     """
     user_uuid = convert_to_uuid(user_id)
     
+    # Convert doctor_id to UUID if it's a string
+    doctor_uuid = convert_to_uuid(doctor_id) if not isinstance(doctor_id, uuid.UUID) else doctor_id
+    
     # Fetch user's latest severity (non-blocking)
     severity_data = fetch_user_severity_level(user_id, auth_header)
     
     # Validate doctor availability and fetch fee
     try:
-        doctor_data = fetch_doctor_availability_and_fee(doctor_id)
+        doctor_data = fetch_doctor_availability_and_fee(doctor_uuid)
         consultation_fee = Decimal(str(doctor_data.get("consultation_fee")))
     except UserServiceError as e:
         raise AppointmentBusinessError(str(e))
     
     # Check for conflicting appointments using advanced ORM
     conflicting_count = Appointment.objects.filter(
-        doctor_id=doctor_id,
+        doctor_id=doctor_uuid,
         scheduled_at=scheduled_at,
         status__in=["pending", "confirmed"]
     ).count()
@@ -482,7 +496,7 @@ def create_appointment_with_validation(
     # Create appointment
     appointment = Appointment.objects.create(
         user_id=user_uuid,
-        doctor_id=doctor_id,
+        doctor_id=doctor_uuid,
         scheduled_at=scheduled_at,
         severity_level=final_severity_score,
         status="pending",
@@ -591,21 +605,24 @@ def complete_appointment(appointment: Appointment, user_id: str) -> Appointment:
     return appointment
 
 
-def get_available_slots_for_date(doctor_id: uuid.UUID, date: datetime.date) -> List[str]:
+def get_available_slots_for_date(doctor_id, date: datetime.date) -> List[str]:
     """
     Get available time slots for a specific doctor on a specific date.
     Uses advanced ORM queries for efficiency.
     
     Args:
-        doctor_id: Doctor's UUID
+        doctor_id: Doctor's ID (string or UUID)
         date: Date to check availability
         
     Returns:
         list: Available time slots in HH:MM format
     """
+    # Convert doctor_id to UUID if it's a string
+    doctor_uuid = convert_to_uuid(doctor_id) if not isinstance(doctor_id, uuid.UUID) else doctor_id
+    
     # Get booked slots using values_list for efficiency
     booked_times = Appointment.objects.filter(
-        doctor_id=doctor_id,
+        doctor_id=doctor_uuid,
         scheduled_at__date=date,
         status__in=["pending", "confirmed"]
     ).values_list('scheduled_at__time', flat=True)
@@ -614,7 +631,7 @@ def get_available_slots_for_date(doctor_id: uuid.UUID, date: datetime.date) -> L
     
     # Get doctor's availability
     try:
-        doctor_data = fetch_doctor_availability_and_fee(doctor_id)
+        doctor_data = fetch_doctor_availability_and_fee(doctor_uuid)
         start_time = doctor_data.get("start_time", "09:00")
         end_time = doctor_data.get("end_time", "17:00")
         slot_duration = doctor_data.get("slot_duration", 30)
@@ -706,9 +723,15 @@ def create_payment_order(
     # Fetch consultation fee
     try:
         doctor_data = fetch_doctor_availability_and_fee(appointment.doctor_id)
-        consultation_fee = Decimal(str(doctor_data.get("consultation_fee")))
-    except UserServiceError as e:
-        raise AppointmentBusinessError(f"Failed to fetch consultation fee: {str(e)}")
+        fee_value = doctor_data.get("consultation_fee")
+        if fee_value is None:
+             # Default fee if not set
+             consultation_fee = Decimal("500.00")
+        else:
+             consultation_fee = Decimal(str(fee_value))
+    except (UserServiceError, Exception) as e:
+        logger.warning(f"Failed to fetch fee, using default: {e}")
+        consultation_fee = Decimal("500.00")
     
     # Create Razorpay order
     from .razorpay_utils import create_razorpay_order
@@ -725,6 +748,10 @@ def create_payment_order(
             }
         )
         razorpay_order_id = razorpay_order["id"]
+    except ValueError as e:
+        # Handle configuration errors
+        logger.error(f"Razorpay configuration error: {e}")
+        raise AppointmentBusinessError(f"Payment gateway not properly configured: {str(e)}")
     except Exception as e:
         logger.error(f"Razorpay order creation failed: {e}")
         

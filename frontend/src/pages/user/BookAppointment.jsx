@@ -79,10 +79,24 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
 
   useEffect(() => {
     if (appointmentDate && availability.length > 0 && selectedDoctor) {
-      // Validate date format (YYYY-MM-DD)
+      // Validate date format (YYYY-MM-DD) and value
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(appointmentDate)) {
         console.error('Invalid date format:', appointmentDate);
+        return;
+      }
+      
+      // Validate that the date is reasonable with more robust checks
+      const date = new Date(appointmentDate);
+      if (isNaN(date.getTime()) || date.getFullYear() < 2024 || date.getFullYear() > 2030 || date.getFullYear().toString().length !== 4) {
+        console.error('Invalid date value:', appointmentDate);
+        return;
+      }
+      
+      // Additional check: ensure the date string actually represents the expected date
+      const [year, month, day] = appointmentDate.split('-').map(Number);
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        console.error('Date mismatch:', appointmentDate, 'parsed as:', date);
         return;
       }
 
@@ -213,7 +227,20 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
   const getAvailableSlots = async (dateString, availabilityData, doctorId) => {
     if (!availabilityData || availabilityData.length === 0 || !doctorId) return [];
 
+    // Validate date format and value before processing
     const date = new Date(dateString);
+    if (isNaN(date.getTime()) || date.getFullYear() < 2024 || date.getFullYear() > 2030 || date.getFullYear().toString().length !== 4) {
+      console.warn('Invalid date selected:', dateString);
+      return [];
+    }
+    
+    // Additional check: ensure the date string actually represents the expected date
+    const [year, month, day] = dateString.split('-').map(Number);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+      console.warn('Date mismatch:', dateString, 'parsed as:', date);
+      return [];
+    }
+
     let dayOfWeek = date.getDay();
     // Convert Sunday (0) to 6, else day-1
     dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -240,7 +267,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
     }
 
     try {
-      const response = await apiCall(`${APPOINTMENT_API}/doctors/${doctorId}/available-slots/?date=${dateString}`);
+      const response = await apiCall(`${APPOINTMENT_API}/appointments/doctors/${doctorId}/available-slots/?date=${dateString}`);
       if (response.ok) {
         const data = await response.json();
         return data.available_slots;
@@ -268,10 +295,53 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
 
     setLoading(true);
     try {
+      // Validate the date format first
+      const dateObj = new Date(appointmentDate);
+      if (isNaN(dateObj.getTime()) || dateObj.getFullYear() < 2024 || dateObj.getFullYear() > 2030) {
+        alert('Invalid date selected. Please select a valid date.');
+        setLoading(false);
+        return;
+      }
+      
+      // Validate the time format
+      const timeRegex = /^\d{2}:\d{2}$/;
+      if (!timeRegex.test(appointmentTime)) {
+        alert('Invalid time format. Please select a valid time.');
+        setLoading(false);
+        return;
+      }
+      
       // Create a Date object from the selected date and time
-      const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
-
-      // Use toISOString() to convert the local time (IST) to UTC correctly
+      // Ensure we handle the date properly to avoid invalid dates
+      const [year, month, day] = appointmentDate.split('-').map(Number);
+      const [hours, minutes] = appointmentTime.split(':').map(Number);
+      
+      // Create date in local time (not UTC) to avoid timezone issues
+      const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+      
+      // Validate the created date is valid
+      if (isNaN(appointmentDateTime.getTime())) {
+        alert('Invalid date or time selected. Please try again.');
+        setLoading(false);
+        return;
+      }
+      
+      // Check if the year is reasonable (not in the past like 0020)
+      if (appointmentDateTime.getFullYear() < 2024 || appointmentDateTime.getFullYear() > 2030) {
+        alert('Invalid date selected. Please select a valid date.');
+        setLoading(false);
+        return;
+      }
+      
+      // Additional validation: ensure the appointment is in the future
+      const now = new Date();
+      if (appointmentDateTime <= now) {
+        alert('Appointment must be scheduled in the future. Please select a later time.');
+        setLoading(false);
+        return;
+      }
+      
+      // Use toISOString() to convert to ISO format
       const scheduledAt = appointmentDateTime.toISOString();
       const response = await apiCall(`${APPOINTMENT_API}/appointments/`, {
         method: 'POST',
@@ -547,7 +617,24 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
                     <input
                       type="date"
                       value={appointmentDate}
-                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        // Additional validation on date change
+                        if (selectedDate) {
+                          const date = new Date(selectedDate);
+                          const [year] = selectedDate.split('-').map(Number);
+                                            
+                          // Check if the date is valid and year is reasonable
+                          if (!isNaN(date.getTime()) && year >= 2024 && year <= 2030 && year.toString().length === 4) {
+                            setAppointmentDate(selectedDate);
+                          } else {
+                            console.error('Invalid date selected:', selectedDate);
+                            alert('Please select a valid date between 2024 and 2030');
+                          }
+                        } else {
+                          setAppointmentDate(selectedDate); // Allow empty value
+                        }
+                      }}
                       min={new Date().toISOString().split('T')[0]}
                       className="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50"
                     />

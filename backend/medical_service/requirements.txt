@@ -31,3 +31,8 @@ transformers==4.45.2
 accelerate==0.34.2
 # pydantic version constraint removed to avoid conflict
 langsmith==0.1.119
+
+# Dev Tools
+flake8
+black
+isort

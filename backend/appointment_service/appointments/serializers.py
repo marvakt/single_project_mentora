@@ -166,8 +166,8 @@ class AppointmentCreateSerializer(serializers.Serializer):
     Serializer for creating appointments.
     user_id is extracted from JWT - NOT included in request body.
     """
-    doctor_id = serializers.UUIDField(
-        help_text="ID of the doctor (UUID format)"
+    doctor_id = serializers.CharField(
+        help_text="ID of the doctor (UUID format or legacy integer ID)"
     )
     scheduled_at = serializers.DateTimeField(
         help_text="Appointment date and time (ISO 8601 format)"
@@ -190,6 +190,12 @@ class AppointmentCreateSerializer(serializers.Serializer):
     def validate_scheduled_at(self, value):
         """Validates appointment scheduling constraints."""
         now = timezone.now()
+        
+        # Check if the date is valid and reasonable
+        if value.year < 2024 or value.year > 2030:
+            raise serializers.ValidationError(
+                f"Invalid year: {value.year}. Date must be between 2024 and 2030."
+            )
         
         # Must be in future
         if value <= now:
@@ -231,6 +237,17 @@ class AppointmentCreateSerializer(serializers.Serializer):
                 "Severity level must be between 0 and 27"
             )
         return value
+
+    def validate_doctor_id(self, value):
+        """Validates doctor_id can be converted to UUID format and returns UUID object."""
+        try:
+            from .utils import convert_to_uuid
+            uuid_obj = convert_to_uuid(value)
+            return uuid_obj
+        except ValueError:
+            raise serializers.ValidationError(
+                "Invalid doctor_id format. Must be a valid UUID or legacy integer ID."
+            )
 
 
 class AppointmentUpdateSerializer(serializers.Serializer):
