@@ -181,6 +181,11 @@ const DoctorAppointmentDetail = ({
         e.preventDefault();
         if (!appointment?.user_id) return;
 
+        if (!noteForm.notes || noteForm.notes.length < 10) {
+            alert('Clinical notes must be at least 10 characters long.');
+            return;
+        }
+
         try {
             setNoteLoading(true);
             const response = await medicalApiCall('/session-notes/create', {

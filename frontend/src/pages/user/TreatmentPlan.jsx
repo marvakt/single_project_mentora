@@ -46,6 +46,26 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
     }
   };
 
+  const [summary, setSummary] = useState(null);
+
+  const fetchMedicalSummary = async () => {
+    try {
+      const response = await apiCall(`${MEDICAL_API}/summary/`, { method: 'GET' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSummary(data.data);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch medical summary:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchMedicalSummary();
+  }, []);
+
   const fetchDoctorDetails = async (doctorId) => {
     try {
       const response = await apiCall(`${USER_API}/profiles/doctor/${doctorId}/profile/`);
@@ -280,13 +300,32 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                       </div>
                     )}
 
+                    {/* Wellness Summary - AI Insights */}
+                    {summary && summary.insights && (
+                      <div className="bg-violet-50 rounded-3xl p-8 shadow-sm border border-violet-100">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                            <Sparkles className="w-5 h-5 text-violet-600" />
+                          </div>
+                          <h3 className="text-lg font-bold text-violet-900">AI Health Insights</h3>
+                        </div>
+                        <div className="space-y-3">
+                          {(Array.isArray(summary.insights) ? summary.insights : [summary.insights]).map((insight, i) => (
+                            <div key={i} className="bg-white/60 p-3 rounded-xl text-sm text-violet-800 font-medium">
+                              {typeof insight === 'string' ? insight : "Your health trends are stabilizing."}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Goals List */}
                     <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
                       <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-emerald-600" /> Treatment Goals
                       </h3>
                       <div className="space-y-4">
-                        {plan.goals.map((goal, idx) => (
+                        {(plan.goals || []).map((goal, idx) => (
                           <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-emerald-100 transition group">
                             <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-emerald-500 group-hover:text-white transition">
                               <CheckCircle className="w-4 h-4" />
@@ -328,7 +367,7 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                           <Heart className="w-5 h-5 text-rose-500" /> Expert Recommendations
                         </h3>
                         <ul className="space-y-4">
-                          {plan.recommendations.map((rec, idx) => (
+                          {(plan.recommendations || []).map((rec, idx) => (
                             <li key={idx} className="flex gap-4">
                               <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-2 shrink-0"></div>
                               <span className="text-sm text-gray-600 leading-relaxed font-medium">{rec}</span>
@@ -352,6 +391,30 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                         </div>
                       </div>
                     </div>
+
+                    {/* Recent Mood History from Summary */}
+                    {summary && summary.recent_moods && summary.recent_moods.length > 0 && (
+                      <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                        <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                          <Smile className="w-5 h-5 text-teal-500" /> Recent Mood Trends
+                        </h3>
+                        <div className="flex items-center gap-4 overflow-x-auto pb-2">
+                          {summary.recent_moods.map((mood, i) => (
+                            <div key={i} className="flex flex-col items-center gap-2 min-w-[60px]">
+                              <div className="h-24 w-2 bg-gray-100 rounded-full relative overflow-hidden">
+                                <div
+                                  className="absolute bottom-0 w-full bg-teal-400 rounded-full"
+                                  style={{ height: `${(mood.mood_level / 10) * 100}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-bold text-gray-500">
+                                {new Date(mood.timestamp).toLocaleDateString('en-US', { weekday: 'short' })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Medication Safeguards */}
                     {plan.medication_notes && (

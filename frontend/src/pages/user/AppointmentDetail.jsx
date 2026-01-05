@@ -50,12 +50,25 @@ const AppointmentDetail = ({
       dispatch(fetchAppointmentDetail(appointmentId));
     }
     if (appointmentId) {
+      console.log('Fetching session notes for:', appointmentId);
       medicalApiCall(`/session-notes/appointment/${appointmentId}`)
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data?.session_note) setSessionNote(data.session_note);
+        .then(res => {
+          console.log('Session notes response status:', res.status);
+          return res.ok ? res.json() : null;
         })
-        .catch(err => console.error(err));
+        .then(data => {
+          console.log('Session notes data:', data);
+          if (data?.session_note) {
+            setSessionNote(data.session_note);
+          } else {
+            console.warn('No session note found in data');
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching session notes:', err);
+          // Optionally set a specialized error state for notes if you don't screen-block
+          // setError('Failed to load session notes'); 
+        });
     }
   }, [appointmentId, appointment, dispatch]);
 

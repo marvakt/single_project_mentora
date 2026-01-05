@@ -20,8 +20,11 @@ def get_razorpay_client():
     razorpay_key_id = settings.RAZORPAY_KEY_ID
     razorpay_key_secret = settings.RAZORPAY_KEY_SECRET
 
-    if not razorpay_key_id or not razorpay_key_secret:
-        raise ValueError("Razorpay credentials not configured")
+    if not razorpay_key_id:
+        raise ValueError("Razorpay key ID not configured")
+    
+    if not razorpay_key_secret:
+        raise ValueError("Razorpay key secret not configured")
 
     return razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
 

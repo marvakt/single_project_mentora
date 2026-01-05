@@ -116,9 +116,24 @@ async def get_session_note_by_appointment(
     
     # Verify access rights
     user_role = current_user.get("role")
-    if user_role == "user" and note["user_id"] != user_id:
-        raise HTTPException(status_code=403, detail="You can only access your own session notes")
-    elif user_role == "doctor" and note["doctor_id"] != user_id:
+    
+    # Generate allowed IDs for user
+    allowed_user_ids = [str(user_id)]
+    try:
+        norm_id = normalize_id(user_id)
+        if norm_id != str(user_id):
+            allowed_user_ids.append(norm_id)
+    except:
+        pass
+
+    print(f"DEBUG: Session Note Access - Role: {user_role}, Note UserID: {note['user_id']}, Request UserID: {user_id}, Allowed: {allowed_user_ids}")
+    
+    if user_role == "user" and str(note["user_id"]) not in allowed_user_ids:
+        print(f"DEBUG: Access Denied! {note['user_id']} not in {allowed_user_ids}")
+        raise HTTPException(status_code=403, detail=f"Access denied: Note belongs to {note['user_id']}, you are {user_id}")
+    elif user_role == "doctor" and str(note["doctor_id"]) != str(user_id):
+        # For doctors, we assume ID format is consistent or they might need similar logic, 
+        # but usually doctors don't have this mixed ID issue as often. Keeping simple for now.
         raise HTTPException(status_code=403, detail="You can only access notes you created")
     
     # Decrypt note
@@ -133,6 +148,18 @@ async def get_session_note_by_appointment(
     }
 
 
+import uuid
+
+def normalize_id(value) -> str:
+    """Convert ID to UUID string if it's an integer usage"""
+    try:
+        val_str = str(value)
+        if val_str.isdigit() and len(val_str) < 32:
+             return str(uuid.UUID(int=int(val_str)))
+        return val_str
+    except:
+        return str(value)
+
 @router.get("/my-notes")
 async def get_my_session_notes(
     limit: int = 20,
@@ -140,14 +167,24 @@ async def get_my_session_notes(
 ):
     """
     Get all session notes for current user (Patient view)
-    
-    Returns patient's therapy session history
+    Handles both Integer IDs (Legacy) and UUIDs
     """
     db = get_database()
     
-    # Find all notes for user
+    # Generate ID variants to search
+    search_ids = [user_id]
+    try:
+        norm_id = normalize_id(user_id)
+        if norm_id != user_id:
+            search_ids.append(norm_id)
+    except:
+        pass
+        
+    print(f"DEBUG: Fetching notes for user {user_id}. Searching variants: {search_ids}")
+
+    # Find all notes for user (matching any ID variant)
     cursor = db.session_notes.find(
-        {"user_id": user_id}
+        {"user_id": {"$in": search_ids}}
     ).sort("created_at", -1).limit(limit)
     
     notes = await cursor.to_list(length=limit)

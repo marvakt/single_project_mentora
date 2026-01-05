@@ -44,6 +44,7 @@ const UserDashboard = () => {
       await fetchLatestAssessment();
       await fetchMoodSummary();
       await fetchTreatmentPlan();
+      await fetchLatestNote();
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
@@ -127,6 +128,22 @@ const UserDashboard = () => {
       }
     } catch (err) {
       console.error('Failed to fetch treatment plan', err);
+    }
+  };
+
+  const [latestNote, setLatestNote] = useState(null);
+
+  const fetchLatestNote = async () => {
+    try {
+      const response = await apiCall(`${MEDICAL_API}/session-notes/my-notes?limit=1`, { method: 'GET' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.session_notes && data.session_notes.length > 0) {
+          setLatestNote(data.session_notes[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch latest notes', err);
     }
   };
 
@@ -262,6 +279,11 @@ const UserDashboard = () => {
                   Dashboard
                 </h1>
                 <p className="text-gray-500">Welcome back, {profile?.name}. Here's your daily wellness overview.</p>
+                {/* DEBUG INFO - REMOVE LATER */}
+                <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs font-mono text-yellow-800">
+                  <p>DEBUG ID: {user?.user_id}</p>
+                  <p>Notes Count: {latestNote ? 1 : '0'}</p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs font-semibold text-gray-600 shadow-sm flex items-center gap-2">
@@ -326,6 +348,42 @@ const UserDashboard = () => {
                   <p className="text-sm text-gray-500 font-medium">Your schedule is clear</p>
                 </div>
               </div>
+            </div>
+
+            {/* Latest Session Note Banner (Debug) */}
+            <div
+              onClick={() => latestNote && dispatch(setCurrentView('my-appointments'))}
+              className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer group"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Latest Doctor Note</h3>
+                  <p className="text-sm text-gray-500">
+                    {latestNote ? 'From your recent session' : 'No notes found'}
+                  </p>
+                </div>
+              </div>
+
+              {latestNote ? (
+                <>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p className="text-gray-700 italic text-sm line-clamp-3">"{latestNote.notes}"</p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                      {new Date(latestNote.created_at).toLocaleDateString()}
+                    </span>
+                    <span className="text-violet-600 text-sm font-semibold group-hover:underline">View Full Note</span>
+                  </div>
+                </>
+              ) : (
+                <div className="p-4 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <p className="text-sm text-gray-400">No session notes available yet.</p>
+                </div>
+              )}
             </div>
 
             {/* 3. Treatment Plan Banner */}

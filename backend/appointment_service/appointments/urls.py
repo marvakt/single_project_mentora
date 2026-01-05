@@ -102,5 +102,6 @@ urlpatterns = [
     # ==================== UTILITY ENDPOINTS ====================
     
     # Get available slots for a doctor
-    path("doctors/<uuid:doctor_id>/available-slots/", AvailableSlotsAPIView.as_view(), name="available-slots"),
+    # Get available slots for a doctor
+    path("doctors/<str:doctor_id>/available-slots/", AvailableSlotsAPIView.as_view(), name="available-slots"),
 ]

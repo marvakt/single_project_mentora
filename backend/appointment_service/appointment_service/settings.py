@@ -431,6 +431,9 @@ RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
 if not RAZORPAY_KEY_ID:
     print("⚠️ Razorpay disabled (no key id)")
+    
+if not RAZORPAY_KEY_SECRET:
+    print("⚠️ Razorpay disabled (no key secret)")
 
 # CELERY CONFIGURATION
 CELERY_BROKER_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672//")

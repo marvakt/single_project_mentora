@@ -37,21 +37,77 @@ const PaymentProcessing = ({
     setError(null);
 
     try {
+      // First, check if the appointment already has a payment
+      const appointmentResponse = await apiCall(`${APPOINTMENT_API}/appointments/${appointmentId}/`);
+      if (appointmentResponse.ok) {
+        const appointmentData = await appointmentResponse.json();
+        if (appointmentData.payment) {
+          // If payment exists and is paid, inform the user
+          if (appointmentData.payment.status === 'paid') {
+            setLoading(false);
+            setError('Payment has already been processed successfully for this appointment.');
+            // Optionally redirect to success page
+            setTimeout(() => {
+              if (onSuccess) onSuccess({ razorpay_order_id: appointmentData.payment.razorpay_order_id });
+            }, 2000);
+            return null;
+          } else if (appointmentData.payment.status === 'created') {
+            // If payment exists but not paid, return existing payment data
+            return {
+              razorpay_order_id: appointmentData.payment.razorpay_order_id,
+              amount: appointmentData.payment.amount,
+              currency: appointmentData.payment.currency
+            };
+          }
+        }
+      }
+
       const response = await apiCall(
         `${APPOINTMENT_API}/appointments/${appointmentId}/payments/create/`,
         { method: 'POST' }
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create payment order');
+        let errorMessage = 'Failed to create payment order';
+        try {
+          const errorData = await response.json();
+          // Prioritize 'error', then 'detail', then fallback
+          errorMessage = errorData.error || errorData.detail || errorMessage;
+
+          // Check if it's the specific appointment status error
+          if (errorMessage.includes('pending appointments')) {
+            // Check if the appointment is already confirmed by fetching appointment details
+            try {
+              const appointmentResponse = await apiCall(`${APPOINTMENT_API}/appointments/${appointmentId}/`);
+              if (appointmentResponse.ok) {
+                const appointmentData = await appointmentResponse.json();
+                if (appointmentData.status === 'confirmed') {
+                  // Appointment is already confirmed, payment might have been processed
+                  if (appointmentData.payment && appointmentData.payment.status === 'paid') {
+                    errorMessage = 'Payment has already been processed successfully for this appointment.';
+                  } else {
+                    errorMessage = 'Appointment is already confirmed. Payment may have been processed.';
+                  }
+                }
+              }
+            } catch (fetchError) {
+              console.error('Error checking appointment status:', fetchError);
+            }
+          }
+        } catch (parseError) {
+          // If response is not JSON (e.g., 500 HTML page), use status text
+          console.error('Non-JSON error response:', parseError);
+          errorMessage = `Server Error (${response.status}): ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       setRazorpayOrderId(data.razorpay_order_id);
       return data;
     } catch (err) {
-      setError(err.message);
+      console.error('Payment creation error:', err);
+      setError(err.message || 'An unexpected error occurred processing your payment.');
       setLoading(false);
       return null;
     }
@@ -68,8 +124,20 @@ const PaymentProcessing = ({
     const orderData = await createPaymentOrder();
     if (!orderData) return;
 
+    // Debug logging for Razorpay Key
+    const envKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    console.log('[DEBUG] Razorpay Env Key:', envKey ? 'Loaded (' + envKey.slice(0, 5) + '...)' : 'MISSING/UNDEFINED');
+    console.log('[DEBUG] Full Env Object:', import.meta.env);
+
+    if (!envKey) {
+      console.warn('Razorpay key missing from env. Using fallback test key.');
+    }
+
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'YOUR_RAZORPAY_KEY_ID',
+      key: envKey || 'rzp_test_RX3p5au36kGfhF', // Fallback to provided test key
+      amount: parseFloat(orderData.amount) * 100,
+      currency: orderData.currency,
+      name: 'Mentora',
       amount: parseFloat(orderData.amount) * 100,
       currency: orderData.currency,
       name: 'Mentora',
