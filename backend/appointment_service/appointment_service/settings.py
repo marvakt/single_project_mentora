@@ -264,8 +264,8 @@ appointment_service/settings.py - UPDATED WITH MEDICAL SERVICE INTEGRATION
 Django settings for appointment_service with medical service integration.
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 

@@ -1,16 +1,17 @@
-from django.test import TestCase
-from rest_framework.test import APIClient
-from rest_framework import status
-from django.utils import timezone
-from unittest.mock import patch, MagicMock
-from decimal import Decimal
-import uuid
 import datetime
+import uuid
+from decimal import Decimal
+from unittest.mock import MagicMock, patch
+
 from appointments.models import Appointment, Payment
 from appointments.utils import AppointmentBusinessError
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.conf import settings
+from django.test import TestCase
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -100,8 +101,11 @@ class AppointmentTests(TestCase):
             status="confirmed"
         )
         
-        from appointments.utils import create_appointment_with_validation, AppointmentBusinessError
-        
+        from appointments.utils import (
+            AppointmentBusinessError,
+            create_appointment_with_validation,
+        )
+
         # Try to book same slot
         with self.assertRaises(AppointmentBusinessError) as context:
             create_appointment_with_validation(
@@ -126,7 +130,7 @@ class AppointmentTests(TestCase):
         )
         
         from appointments.utils import cancel_appointment
-        
+
         # Success case
         cancelled_appt = cancel_appointment(appt, self.user_id)
         self.assertEqual(cancelled_appt.status, "cancelled")
@@ -170,7 +174,7 @@ class AppointmentTests(TestCase):
         mock_fetch_doctor.return_value = {"available": True, "approved": True, "consultation_fee": 500}
         
         from appointments.utils import validate_appointment_creation
-        
+
         # Test with valid future time
         future_time = timezone.now() + datetime.timedelta(days=1)
         result = validate_appointment_creation(
@@ -187,8 +191,11 @@ class AppointmentTests(TestCase):
         """Test appointment validation for past time"""
         mock_fetch_doctor.return_value = {"available": True, "approved": True, "consultation_fee": 500}
         
-        from appointments.utils import validate_appointment_creation, AppointmentBusinessError
-        
+        from appointments.utils import (
+            AppointmentBusinessError,
+            validate_appointment_creation,
+        )
+
         # Test with past time
         past_time = timezone.now() - datetime.timedelta(days=1)
         
@@ -218,7 +225,7 @@ class AppointmentTests(TestCase):
         )
         
         from appointments.utils import check_double_booking
-        
+
         # Check for double booking
         is_double_booked = check_double_booking(
             doctor_id=uuid.UUID(self.doctor_id),
@@ -270,7 +277,7 @@ class AppointmentTests(TestCase):
         mock_fetch_doctor.return_value = {"available": True, "approved": True, "consultation_fee": 500}
         
         from appointments.utils import calculate_appointment_priority
-        
+
         # Test different severity levels
         critical_priority = calculate_appointment_priority("severe")
         self.assertEqual(critical_priority, "high")
@@ -289,8 +296,11 @@ class AppointmentTests(TestCase):
         """Test appointment creation with invalid data"""
         mock_fetch_doctor.return_value = {"available": True, "approved": True, "consultation_fee": 500}
         
-        from appointments.utils import validate_appointment_creation, AppointmentBusinessError
-        
+        from appointments.utils import (
+            AppointmentBusinessError,
+            validate_appointment_creation,
+        )
+
         # Test with invalid user ID
         with self.assertRaises(AppointmentBusinessError):
             validate_appointment_creation(
@@ -305,7 +315,10 @@ class AppointmentTests(TestCase):
         """Test appointment creation when doctor is unavailable"""
         mock_fetch_doctor.return_value = {"available": False, "approved": True, "consultation_fee": 500}
         
-        from appointments.utils import validate_appointment_creation, AppointmentBusinessError
+        from appointments.utils import (
+            AppointmentBusinessError,
+            validate_appointment_creation,
+        )
         
         with self.assertRaises(AppointmentBusinessError) as context:
             validate_appointment_creation(
@@ -424,7 +437,7 @@ class UtilsTests(TestCase):
     def test_fetch_doctor_availability_and_fee(self, mock_requests_get):
         """Test fetching doctor availability and fee"""
         from appointments.utils import fetch_doctor_availability_and_fee
-        
+
         # Mock the response from user service
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -448,7 +461,7 @@ class UtilsTests(TestCase):
     def test_fetch_user_severity_level(self, mock_requests_get):
         """Test fetching user severity level"""
         from appointments.utils import fetch_user_severity_level
-        
+
         # Mock the response from medical service
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -478,9 +491,10 @@ class UtilsTests(TestCase):
 
     def test_validate_datetime_format(self):
         """Test datetime format validation"""
-        from appointments.utils import validate_datetime_format
         from datetime import datetime
-        
+
+        from appointments.utils import validate_datetime_format
+
         # Valid datetime
         valid_dt = datetime.now() + datetime.timedelta(days=1)
         self.assertTrue(validate_datetime_format(valid_dt))
@@ -493,7 +507,7 @@ class UtilsTests(TestCase):
     def test_fetch_doctor_availability_failure(self, mock_requests_get):
         """Test fetching doctor availability when request fails"""
         from appointments.utils import fetch_doctor_availability_and_fee
-        
+
         # Mock a failed response
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -506,7 +520,7 @@ class UtilsTests(TestCase):
     def test_fetch_user_severity_failure(self, mock_requests_get):
         """Test fetching user severity when request fails"""
         from appointments.utils import fetch_user_severity_level
-        
+
         # Mock a failed response
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -624,7 +638,7 @@ class BusinessLogicTests(TestCase):
     def test_appointment_business_rules(self):
         """Test core appointment business rules"""
         from appointments.utils import validate_appointment_creation
-        
+
         # Rule: Appointments must be in the future
         past_time = timezone.now() - datetime.timedelta(hours=1)
         self.assertFalse(validate_appointment_creation(
@@ -655,7 +669,7 @@ class BusinessLogicTests(TestCase):
     def test_severity_based_priority_logic(self):
         """Test severity-based appointment priority logic"""
         from appointments.utils import calculate_appointment_priority
-        
+
         # Test different severity levels map to correct priorities
         severity_priority_map = {
             "minimal": "low",
@@ -672,7 +686,7 @@ class BusinessLogicTests(TestCase):
     def test_appointment_cancellation_policy(self):
         """Test appointment cancellation policy"""
         from appointments.utils import can_cancel_appointment
-        
+
         # Create appointment
         scheduled_time = timezone.now() + datetime.timedelta(hours=24)
         appointment = Appointment.objects.create(
@@ -708,7 +722,10 @@ class ErrorHandlingTests(TestCase):
         """Test error handling when doctor is unavailable"""
         mock_fetch_doctor.side_effect = Exception("Doctor service unavailable")
         
-        from appointments.utils import validate_appointment_creation, AppointmentBusinessError
+        from appointments.utils import (
+            AppointmentBusinessError,
+            validate_appointment_creation,
+        )
         
         with self.assertRaises(AppointmentBusinessError):
             validate_appointment_creation(

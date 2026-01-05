@@ -4,6 +4,7 @@ Celery configuration for appointment_service V1.
 Configures RabbitMQ broker for async event publishing.
 """
 import os
+
 from celery import Celery
 from kombu import Queue
 
@@ -26,5 +27,6 @@ app.conf.task_default_queue = "default"
 
 # Explicitly include producer tasks
 from appointments import producer
+
 app.autodiscover_tasks()
 

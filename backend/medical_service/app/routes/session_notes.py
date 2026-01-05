@@ -3,14 +3,15 @@ app/routes/session_notes.py - Session Notes Management
 Doctor's notes from therapy sessions
 """
 
+import logging
+from datetime import datetime
+from typing import Optional
+
+from app.core.database import get_database
+from app.core.encryption import ENCRYPTED_FIELDS, encryption
+from app.core.security import get_current_user, get_current_user_id
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
-from app.core.security import get_current_user_id, get_current_user
-from app.core.database import get_database
-from app.core.encryption import encryption, ENCRYPTED_FIELDS
-from datetime import datetime
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ async def create_session_note(
     
     # Store in database
     result = await db.session_notes.insert_one(encrypted_note)
-    
+
     logger.info(f"Session notes created by doctor {doctor_id} for appointment {note_data.appointment_id}")
     
     return {
@@ -224,7 +225,7 @@ async def update_session_note(
     
     db = get_database()
     from bson import ObjectId
-    
+
     # Find existing note
     existing_note = await db.session_notes.find_one({"_id": ObjectId(note_id)})
     

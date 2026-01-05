@@ -1,68 +1,68 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.shortcuts import get_object_or_404
-from datetime import timedelta
-from django.utils import timezone
 import logging
+from datetime import timedelta
+
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.db.models import Q
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 logger = logging.getLogger(__name__)
 
-from .models import (
-    UserProfile,
-    DoctorProfile,
-    DoctorDocument,
-    DoctorAvailability,
-    DoctorRating,
-    Notification,
-    MoodEntry,
-)
-
-from .serializers import (
-    UserProfileSerializer,
-    DoctorProfileSerializer,
-    DoctorDocumentSerializer,
-    DoctorAvailabilitySerializer,
-    DoctorRatingSerializer,
-    NotificationSerializer,
-    MoodEntrySerializer,
-)
-
-from .tasks import send_doctor_status_email, notify_admin_new_doctor
-from .permissions import (
-    IsAuthenticatedJWT,
-    IsOwner,
-    IsDoctor,
-    IsAdmin,
-    IsInternalService,
-    IsAuthenticatedJWTOrInternalService,
-)
-from .authentication import JWTAuthentication
-from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
+from .authentication import JWTAuthentication
+from .models import (
+    DoctorAvailability,
+    DoctorDocument,
+    DoctorProfile,
+    DoctorRating,
+    MoodEntry,
+    Notification,
+    UserProfile,
+)
+from .permissions import (
+    IsAdmin,
+    IsAuthenticatedJWT,
+    IsAuthenticatedJWTOrInternalService,
+    IsDoctor,
+    IsInternalService,
+    IsOwner,
+)
+from .serializers import (
+    DoctorAvailabilitySerializer,
+    DoctorDocumentSerializer,
+    DoctorProfileSerializer,
+    DoctorRatingSerializer,
+    MoodEntrySerializer,
+    NotificationSerializer,
+    UserProfileSerializer,
+)
+from .tasks import notify_admin_new_doctor, send_doctor_status_email
 from .utils import (
-    convert_to_integer_id,
-    check_profile_access_permission,
-    check_document_access_permission,
-    upload_file_to_s3,
-    generate_presigned_url,
-    check_doctor_profile_completion,
-    update_onboarding_status,
-    should_notify_admin,
     auto_approve_doctor_if_enabled,
-    check_doctor_availability,
+    calculate_average_mood_metrics,
+    calculate_mood_trend,
+    calculate_patient_mood_statistics,
     calculate_severity_level,
+    check_doctor_availability,
+    check_doctor_profile_completion,
+    check_document_access_permission,
+    check_profile_access_permission,
+    convert_to_integer_id,
+    filter_users_by_search_and_role,
+    format_mood_entry_data,
+    generate_presigned_url,
     get_doctors_by_severity,
     get_top_matched_doctors,
-    calculate_mood_trend,
-    calculate_average_mood_metrics,
-    format_mood_entry_data,
-    calculate_patient_mood_statistics,
-    filter_users_by_search_and_role,
-    validate_severity_score,
-    validate_rating,
     publish_mood_event,
+    should_notify_admin,
+    update_onboarding_status,
+    upload_file_to_s3,
+    validate_rating,
+    validate_severity_score,
 )
 
 
@@ -572,10 +572,25 @@ class PublicDoctorListAPIView(APIView):
     permission_classes = []
 
     def get(self, request):
-        doctors = DoctorProfile.objects.all().select_related("profile")
+        queryset = DoctorProfile.objects.all().select_related("profile")
+        
+        # Filter by search term (name or specialization)
+        search_query = request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(
+                Q(profile__name__icontains=search_query) | 
+                Q(specialization__icontains=search_query)
+            )
+            
+        # Filter by specialization category
+        specialization = request.GET.get('specialization')
+        if specialization and specialization != 'All':
+            # Handle broad categories mapping to specific DB values if needed
+            # For now assuming direct match or containment
+            queryset = queryset.filter(specialization__icontains=specialization)
 
         data = []
-        for d in doctors:
+        for d in queryset:
             data.append({
                 "user_id": d.profile.user_id,
                 "name": d.profile.name,

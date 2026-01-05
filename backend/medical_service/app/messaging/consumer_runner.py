@@ -5,6 +5,7 @@ This script runs the Celery worker that consumes events from RabbitMQ.
 """
 import os
 import sys
+
 from celery import Celery
 
 # Add the app directory to Python path

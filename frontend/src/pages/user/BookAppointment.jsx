@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar, Clock, DollarSign, User, ArrowLeft, CheckCircle,
   Star, Activity, AlertCircle, TrendingUp, Heart, Home, Smile,
-  Settings, LogOut, Menu, FileText
+  Settings, LogOut, Menu, FileText, X, GraduationCap, MapPin, ArrowRight, Search
 } from 'lucide-react';
+import DoctorProfileModal from '../../components/DoctorProfileModal';
 import { USER_API, APPOINTMENT_API, MEDICAL_API, apiCall } from '../../config/api';
 import { formatIndianTime } from '../../utils/dateUtils';
 import PaymentProcessing from './PaymentProcessing';
@@ -24,12 +25,16 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
     // We only clear if we found them, but safe to try remove always
     sessionStorage.removeItem('selectedDoctorId');
     sessionStorage.removeItem('recommendationSnapshotId');
+    sessionStorage.removeItem('showAllDoctors');
   }, []);
 
   const [doctors, setDoctors] = useState([]);
   const [suggestedDoctors, setSuggestedDoctors] = useState([]);
-  const [showAllDoctors, setShowAllDoctors] = useState(false);
+  // Initialize showAllDoctors from sessionStorage to support "Browse All" from Dashboard
+  const [showAllDoctors, setShowAllDoctors] = useState(() => sessionStorage.getItem('showAllDoctors') === 'true');
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [availableSlots, setAvailableSlots] = useState([]);
@@ -42,6 +47,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
 
   // Sidebar State
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileViewDoctor, setProfileViewDoctor] = useState(null);
 
   useEffect(() => {
     // If a specific doctor ID is provided, fetch all doctors and select that specific one
@@ -52,9 +58,24 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
     } else {
       // Otherwise, fetch all doctors and get user severity for suggestions
       fetchUserSeverity();
-      fetchDoctors();
+      fetchDoctors(); // Initial fetch
     }
   }, [targetDoctorId]);
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Trigger fetch when debounced search changes
+  useEffect(() => {
+    if (!targetDoctorId) {
+      fetchDoctors();
+    }
+  }, [debouncedSearch]);
 
   // Additional effect to ensure that when we have a selected doctor, we don't show severity recommendations
   useEffect(() => {
@@ -180,14 +201,16 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
 
   const fetchDoctors = async () => {
     try {
-      const response = await apiCall(`${USER_API}/doctors/`);
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.append('search', debouncedSearch);
+
+      const response = await apiCall(`${USER_API}/doctors/?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         const sortedDoctors = data
           .filter(d => d.doctor_status === 'approved')
           .sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
         setDoctors(sortedDoctors);
-
       }
     } catch (err) {
       console.error('Failed to fetch doctors:', err);
@@ -342,7 +365,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
   const DoctorCard = ({ doctor, isSuggested = false }) => (
     <div
       className={`bg-white rounded-2xl p-6 shadow-sm border transition-all cursor-pointer relative group hover:shadow-lg ${isSuggested ? 'border-teal-200 ring-4 ring-teal-50' : 'border-gray-100 hover:border-teal-100'}`}
-      onClick={() => handleDoctorSelect(doctor)}
+      onClick={() => setProfileViewDoctor(doctor)}
     >
       {isSuggested && (
         <div className="absolute top-4 right-4 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-[10px] px-2 py-1 rounded-full font-bold tracking-wider shadow-sm">
@@ -503,9 +526,25 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
                   <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Available Specialists</h2>
                   {/* Only show the Recommended/All toggle if no specific doctor was selected from assessment */}
                   {!targetDoctorId && (
-                    <div className="flex gap-2">
-                      <button onClick={() => setShowAllDoctors(false)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${!showAllDoctors ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-50'}`}>Recommended</button>
-                      <button onClick={() => setShowAllDoctors(true)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${showAllDoctors ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-50'}`}>All Doctors</button>
+                    <div className="flex items-center gap-4">
+                      {/* Quiet Search Input added here */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                          type="text"
+                          placeholder="Search..."
+                          value={searchTerm}
+                          onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            if (e.target.value) setShowAllDoctors(true);
+                          }}
+                          className="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none w-32 focus:w-48 transition-all"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setShowAllDoctors(false)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${!showAllDoctors ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-50'}`}>Recommended</button>
+                        <button onClick={() => setShowAllDoctors(true)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${showAllDoctors ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-50'}`}>All Doctors</button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -619,6 +658,17 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
           </div>
         </div>
       </main>
+      {/* Doctor Profile Modal */}
+      {profileViewDoctor && (
+        <DoctorProfileModal
+          doctor={profileViewDoctor}
+          onClose={() => setProfileViewDoctor(null)}
+          onBook={(doc) => {
+            setProfileViewDoctor(null);
+            handleDoctorSelect(doc);
+          }}
+        />
+      )}
     </div>
   );
 };

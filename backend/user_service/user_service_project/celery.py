@@ -17,6 +17,7 @@
 
 
 import os
+
 from celery import Celery
 from kombu import Queue
 
@@ -40,6 +41,7 @@ app.autodiscover_tasks(["profiles"])
 
 # Configure Celery Beat schedule for periodic tasks
 from celery.schedules import crontab
+
 app.conf.beat_schedule = {
     # Daily mood reminders at 9 AM UTC
     'send-daily-mood-reminders': {

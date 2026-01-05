@@ -3,8 +3,9 @@ Event producer for user_service.
 
 Publishes RabbitMQ events for user/doctor lifecycle events.
 """
-from celery import shared_task
 import logging
+
+from celery import shared_task
 
 logger = logging.getLogger(__name__)
 

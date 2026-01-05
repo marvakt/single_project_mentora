@@ -2,13 +2,14 @@
 
 
 from django.urls import path
+
 from .views import (
-    RegisterAPIView,
-    VerifyOTPAPIView,
-    LoginAPIView,
-    GoogleAuthAPIView,
     ForgotPasswordAPIView,
+    GoogleAuthAPIView,
+    LoginAPIView,
+    RegisterAPIView,
     ResetPasswordAPIView,
+    VerifyOTPAPIView,
     VerifyTokenAPIView,
 )
 

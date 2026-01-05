@@ -107,6 +107,7 @@ appointments/models.py - UPDATED MODELS
 Enhanced models with better field support and medical integration.
 """
 import uuid
+
 from django.db import models
 
 

@@ -4,8 +4,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import {
   Heart, Calendar, Clock, Bell, User, LogOut, Smile,
   FileText, TrendingUp, Activity, Sparkles,
-  ChevronRight, ArrowUpRight, Menu, X, Home, Settings
+  ChevronRight, ArrowUpRight, Menu, X, Home, Settings, Search, Star, Brain, Shield, MapPin
 } from 'lucide-react';
+import DoctorProfileModal from '../../components/DoctorProfileModal';
 import { USER_API, MEDICAL_API, apiCall } from '../../config/api';
 import { logout } from '../../store/slices/authSlice';
 import { setCurrentView } from '../../store/slices/uiSlice';
@@ -26,18 +27,29 @@ const UserDashboard = () => {
   const [treatmentPlan, setTreatmentPlan] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
 
   useEffect(() => {
     if (user?.user_id) {
       dispatch(fetchUserProfile(user.user_id));
-      fetchDoctors();
-      fetchLatestAssessment();
-      fetchMoodSummary();
-      fetchTreatmentPlan();
+      fetchDashboardData();
     }
   }, [user?.user_id, dispatch]);
 
-
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      await fetchDoctors();
+      await fetchLatestAssessment();
+      await fetchMoodSummary();
+      await fetchTreatmentPlan();
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchDoctors = async () => {
     try {
@@ -160,12 +172,24 @@ const UserDashboard = () => {
         ></div>
       )}
 
+      {/* Doctor Profile Modal */}
+      {selectedDoctor && (
+        <DoctorProfileModal
+          doctor={selectedDoctor}
+          onClose={() => setSelectedDoctor(null)}
+          onBook={(doc) => {
+            sessionStorage.setItem('selectedDoctorId', doc.user_id || doc.id);
+            dispatch(setCurrentView('book-appointment'));
+          }}
+        />
+      )}
+
       {/* Sidebar Navigation */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 shadow-xl lg:shadow-none transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
-          <div className="p-6 flex items-center gap-3 border-b border-gray-50">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+          <div className="p-6 flex items-center gap-3 border-b border-gray-50 animate-fade-in">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/20 hover-scale-sm transition-smooth">
               <Heart className="w-6 h-6 text-white text-bold" fill="white" />
             </div>
             <div>
@@ -305,13 +329,16 @@ const UserDashboard = () => {
             </div>
 
             {/* 3. Treatment Plan Banner */}
-            <div className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-3xl p-8 text-white shadow-xl shadow-teal-900/10 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -translate-x-1/3 translate-y-1/3 blur-3xl"></div>
+            <div
+              onClick={() => dispatch(setCurrentView('treatment-plan'))}
+              className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-3xl p-8 text-white shadow-xl shadow-teal-900/10 relative overflow-hidden animate-gradient animate-fade-in-up delay-300 cursor-pointer group"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl animate-float-slow"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -translate-x-1/3 translate-y-1/3 blur-3xl animate-float-slow" style={{ animationDelay: '2s' }}></div>
 
               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 group-hover:scale-110 transition-transform duration-300">
                     <FileText className="w-8 h-8 text-white" />
                   </div>
                   <div>
@@ -326,8 +353,7 @@ const UserDashboard = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => dispatch(setCurrentView('treatment-plan'))}
-                  className="px-6 py-3 bg-white text-teal-700 font-bold rounded-xl hover:bg-teal-50 transition-colors shadow-lg active:scale-95 whitespace-nowrap"
+                  className="px-6 py-3 bg-white text-teal-700 font-bold rounded-xl group-hover:bg-teal-50 transition-colors shadow-lg whitespace-nowrap"
                 >
                   {treatmentPlan ? 'Continue Plan' : 'View Details'}
                 </button>
@@ -338,7 +364,13 @@ const UserDashboard = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-900">Recommended Specialists</h2>
-                <button className="text-sm font-semibold text-teal-600 hover:text-teal-800 flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    sessionStorage.setItem('showAllDoctors', 'true');
+                    dispatch(setCurrentView('book-appointment'));
+                  }}
+                  className="text-sm font-semibold text-teal-600 hover:text-teal-800 flex items-center gap-1"
+                >
                   Browse All <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -350,9 +382,9 @@ const UserDashboard = () => {
                   </div>
                 ) : (
                   doctors.slice(0, 4).map((doctor, idx) => (
-                    <div key={idx} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
+                    <div key={idx} className={`bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-2 transition-smooth duration-300 group cursor-pointer animate-fade-in-up delay-${idx * 100}`}>
                       <div className="flex items-center gap-4 mb-4">
-                        <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
+                        <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 group-hover:scale-110 transition-smooth">
                           <User className="w-6 h-6" />
                         </div>
                         <div className="min-w-0">
@@ -373,11 +405,8 @@ const UserDashboard = () => {
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-gray-900">₹{doctor.consultation_fee}</span>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            dispatch(setCurrentView('book-appointment'));
-                          }}
-                          className="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg group-hover:bg-teal-600 transition-colors"
+                          onClick={() => setSelectedDoctor(doctor)}
+                          className="w-full bg-gray-50 text-gray-900 py-2.5 rounded-xl font-bold hover:bg-gray-100 transition border border-gray-200"
                         >
                           Book
                         </button>

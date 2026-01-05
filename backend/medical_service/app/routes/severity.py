@@ -1,12 +1,13 @@
 # ==================== app/routes/severity.py ====================
+import logging
+from datetime import datetime
+from typing import List, Optional
+
+from app.ai_engine.langchain_rag_engine import get_langchain_rag_engine
+from app.core.database import get_database
+from app.core.security import get_current_user_id
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Optional
-from app.core.security import get_current_user_id
-from app.core.database import get_database
-from app.ai_engine.langchain_rag_engine import get_langchain_rag_engine
-from datetime import datetime
-import logging
 
 logger = logging.getLogger(__name__)
 

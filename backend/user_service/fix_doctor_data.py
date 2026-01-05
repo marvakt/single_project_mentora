@@ -1,13 +1,15 @@
 import os
-import django
 import sys
+
+import django
 
 # Setup Django environment
 sys.path.append(os.getcwd())
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "user_service_project.settings")
 django.setup()
 
-from profiles.models import UserProfile, DoctorProfile, DoctorAvailability
+from profiles.models import DoctorAvailability, DoctorProfile, UserProfile
+
 
 def fix_all_doctors():
     print("Checking Doctor Profiles...")

@@ -3,18 +3,20 @@ app/routes/chat.py - Secure Chat System
 Doctor-Patient communication
 """
 
+import asyncio
+import json
+import logging
+from datetime import datetime
+from typing import List, Optional
+
+import jwt
+from app.core.config import settings
+from app.core.database import get_database
+from app.core.encryption import ENCRYPTED_FIELDS, encryption
+from app.core.security import decode_jwt, get_current_user, get_current_user_id
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
-from typing import Optional, List
-from app.core.security import get_current_user_id, get_current_user, decode_jwt
-from app.core.config import settings
-import jwt
-from app.core.database import get_database
-from app.core.encryption import encryption, ENCRYPTED_FIELDS
-from datetime import datetime
-import logging
-import json
-import asyncio
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()

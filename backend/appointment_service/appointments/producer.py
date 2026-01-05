@@ -142,8 +142,9 @@ appointments/producer.py - UPDATED EVENT PRODUCER
 
 Enhanced event publishing with medical service integration.
 """
-from celery import shared_task
 import logging
+
+from celery import shared_task
 
 logger = logging.getLogger(__name__)
 

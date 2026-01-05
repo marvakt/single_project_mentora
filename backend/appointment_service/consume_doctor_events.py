@@ -5,13 +5,14 @@ Standalone consumer for doctor approval/rejection events.
 This script directly consumes events from RabbitMQ without using Celery,
 which avoids the configuration issues we've been experiencing.
 """
+import json
+import logging
 import os
 import sys
-import json
 import time
-import pika
-import logging
+
 import django
+import pika
 
 # Set up Django (minimal setup without database)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'appointment_service.settings')

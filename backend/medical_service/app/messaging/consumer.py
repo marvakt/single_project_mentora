@@ -6,8 +6,9 @@ Consumes RabbitMQ events from other services:
 - doctor_rejected
 """
 import logging
-from celery import Celery
 import os
+
+from celery import Celery
 
 # Configure Celery client
 celery_app = Celery("medical_service")

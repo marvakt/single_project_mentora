@@ -1,11 +1,13 @@
 from django.contrib import admin
+
 from .models import (
-    UserProfile,
-    DoctorProfile,
-    DoctorDocument,
     DoctorAvailability,
+    DoctorDocument,
+    DoctorProfile,
     Notification,
+    UserProfile,
 )
+
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):

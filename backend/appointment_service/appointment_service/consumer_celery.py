@@ -5,6 +5,7 @@ This configuration is specifically designed for the consumer worker
 to avoid issues with worker_state_db and other problematic settings.
 """
 import os
+
 from celery import Celery
 from kombu import Queue
 
@@ -33,8 +34,8 @@ app.conf.task_default_queue = "default"
 app.conf.worker_state_db = None
 
 # Explicitly include consumer tasks
-from appointments import consumer
-from appointments import producer
+from appointments import consumer, producer
+
 app.autodiscover_tasks()
 
 if __name__ == "__main__":

@@ -2,9 +2,10 @@
 app/core/database.py - MongoDB Database Connection
 """
 
-from motor.motor_asyncio import AsyncIOMotorClient
-from app.core.config import settings
 import logging
+
+from app.core.config import settings
+from motor.motor_asyncio import AsyncIOMotorClient
 
 logger = logging.getLogger(__name__)
 

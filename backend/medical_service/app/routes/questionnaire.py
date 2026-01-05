@@ -3,18 +3,19 @@ app/routes/questionnaire.py - Mental Health Questionnaire API
 PHQ-9 based depression/anxiety screening questionnaire
 """
 
+import logging
+from datetime import datetime
+from typing import Dict, List, Optional
+
+import httpx
+from app.ai_engine.srts_scoring import SRTSEngine
+from app.core.config import settings
+from app.core.database import get_database
+from app.core.encryption import ENCRYPTED_FIELDS, encryption
+from app.core.security import get_current_user_id
+from app.messaging.celery_client import send_high_risk_alert
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
-from app.core.security import get_current_user_id
-from app.core.database import get_database
-from app.core.encryption import encryption, ENCRYPTED_FIELDS
-from app.core.config import settings
-from app.ai_engine.srts_scoring import SRTSEngine
-from app.messaging.celery_client import send_high_risk_alert
-from datetime import datetime
-import logging
-import httpx
 
 logger = logging.getLogger(__name__)
 

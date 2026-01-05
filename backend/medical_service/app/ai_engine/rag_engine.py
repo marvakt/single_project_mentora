@@ -5,12 +5,13 @@ Provides knowledge retrieval for mental wellness chatbot with safety boundaries
 
 import json
 import logging
-from typing import List, Dict, Optional
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 import os
 import re
+from typing import Dict, List, Optional
+
+import numpy as np
 from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
 

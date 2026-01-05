@@ -1,16 +1,23 @@
-from django.test import TestCase
-from rest_framework.test import APIClient
-from rest_framework import status
-from unittest.mock import patch, MagicMock
 import datetime
-from django.utils import timezone
-from .models import UserProfile, DoctorProfile, MoodEntry, DoctorAvailability, DoctorDocument
-from django.contrib.auth import get_user_model
-from decimal import Decimal
-import uuid
 import json
-from django.core.files.uploadedfile import SimpleUploadedFile
+import uuid
+from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APIClient
+
+from .models import (
+    DoctorAvailability,
+    DoctorDocument,
+    DoctorProfile,
+    MoodEntry,
+    UserProfile,
+)
 
 User = get_user_model()
 
@@ -762,7 +769,7 @@ class UtilsTests(TestCase):
     def test_calculate_match_score(self, mock_calculate_score):
         """Test doctor match score calculation"""
         from profiles.utils import calculate_doctor_match_score
-        
+
         # Mock the return value
         mock_calculate_score.return_value = {
             "total_score": 85.5,
@@ -786,7 +793,7 @@ class UtilsTests(TestCase):
     def test_get_doctors_by_severity(self):
         """Test getting doctors by severity level"""
         from profiles.utils import get_doctors_by_severity
-        
+
         # Test with different severity levels
         critical_doctors = get_doctors_by_severity('CRITICAL')
         self.assertIsNotNone(critical_doctors)
@@ -813,7 +820,7 @@ class UtilsTests(TestCase):
     def test_fetch_user_severity_level(self, mock_requests_get):
         """Test fetching user severity level from medical service"""
         from profiles.utils import fetch_user_severity_level
-        
+
         # Mock the response from medical service
         mock_response = MagicMock()
         mock_response.status_code = 200

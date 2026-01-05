@@ -5,8 +5,9 @@ Handles automatic actions triggered by model changes.
 Follows Django best practices for signal handling.
 """
 import logging
+
 from django.db.models.signals import post_save, pre_save
-from django.dispatch import receiver, Signal
+from django.dispatch import Signal, receiver
 from django.utils import timezone
 
 from .models import Appointment, Payment, VideoSession

@@ -5,8 +5,9 @@ Consumes RabbitMQ events from other services:
 - doctor_approved
 - doctor_rejected
 """
-from celery import shared_task
 import logging
+
+from celery import shared_task
 
 logger = logging.getLogger(__name__)
 

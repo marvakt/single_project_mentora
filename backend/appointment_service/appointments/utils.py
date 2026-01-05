@@ -158,17 +158,18 @@ appointments/utils.py - RESTRUCTURED UTILITY FUNCTIONS
 All business logic, external API calls, and helper functions.
 Clean separation from views.
 """
-import uuid
-import requests
-import secrets
-import string
 import datetime
 import logging
+import secrets
+import string
+import uuid
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
+
+import requests
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q, Prefetch, Count
+from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 
 from .models import Appointment, Payment, VideoSession
@@ -773,7 +774,7 @@ def process_payment_webhook(
         AppointmentBusinessError: If processing fails
     """
     from .razorpay_utils import verify_razorpay_signature
-    
+
     # Verify signature
     if not verify_razorpay_signature(razorpay_order_id, razorpay_payment_id, razorpay_signature):
         raise AppointmentBusinessError("Invalid signature")

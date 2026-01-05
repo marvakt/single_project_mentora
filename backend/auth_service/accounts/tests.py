@@ -1,11 +1,12 @@
+from unittest.mock import MagicMock, patch
+
+from accounts.models import ROLE_CHOICES
+from accounts.utils import create_access_token, generate_otp, verify_jwt_token
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from rest_framework.test import APIClient
 from rest_framework import status
-from django.contrib.auth import get_user_model
-from unittest.mock import patch, MagicMock
-from accounts.utils import generate_otp, verify_jwt_token, create_access_token
-from accounts.models import ROLE_CHOICES
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
@@ -420,7 +421,7 @@ class UtilsTests(TestCase):
     @patch('accounts.utils.redis_client')
     def test_otp_storage_operations(self, mock_redis):
         """Test OTP storage, retrieval, and deletion"""
-        from accounts.utils import store_otp, get_stored_otp, delete_otp
+        from accounts.utils import delete_otp, get_stored_otp, store_otp
         
         email = "test@example.com"
         otp_data = "123456|password|user"

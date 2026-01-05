@@ -143,17 +143,17 @@
 
 
 
-import random
-import requests
-import redis
 import os
+import random
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
+import redis
+import requests
 from django.conf import settings
-from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
-from jose import jwt, JWTError
+from django.core.mail import send_mail
+from jose import JWTError, jwt
 from rest_framework import status
 
 User = get_user_model()

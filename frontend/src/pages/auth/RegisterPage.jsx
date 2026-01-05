@@ -3,8 +3,10 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { Heart, Mail, Lock, Key, ArrowRight } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { AUTH_API } from '../../config/api';
 import { setCurrentView } from '../../store/slices/uiSlice';
+import { login } from '../../store/slices/authSlice';
 
 
 const RegisterPage = () => {
@@ -58,13 +60,42 @@ const RegisterPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Registration successful! Please login.');
-        dispatch(setCurrentView('login'));
+        dispatch(login({ user: data.user, token: data.access }));
+        alert('Registration successful!');
+        if (data.user.role === 'admin') dispatch(setCurrentView('admin-dashboard'));
+        else if (data.user.role === 'doctor') dispatch(setCurrentView('doctor-dashboard'));
+        else dispatch(setCurrentView('user-dashboard'));
       } else {
         setError(data.detail || 'OTP verification failed');
       }
     } catch (err) {
       setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${AUTH_API}/google/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: credentialResponse.credential })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        dispatch(login({ user: data.user, token: data.access }));
+        if (data.user.role === 'admin') dispatch(setCurrentView('admin-dashboard'));
+        else if (data.user.role === 'doctor') dispatch(setCurrentView('doctor-dashboard'));
+        else dispatch(setCurrentView('user-dashboard'));
+      } else {
+        setError(data.detail || 'Google authentication failed');
+      }
+    } catch (err) {
+      setError('Network error during Google sign-in');
     } finally {
       setLoading(false);
     }
@@ -139,6 +170,24 @@ const RegisterPage = () => {
                 </>
               )}
             </button>
+
+            <div className="mt-6 flex flex-col items-center gap-4">
+              <div className="flex items-center gap-4 w-full">
+                <div className="h-px bg-gray-200 flex-1"></div>
+                <span className="text-gray-400 text-sm">Or sign up with</span>
+                <div className="h-px bg-gray-200 flex-1"></div>
+              </div>
+
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Google Sign-Up failed')}
+                useOneTap
+                shape="circle"
+                theme="outline"
+                size="large"
+                text="signup_with"
+              />
+            </div>
           </form>
         ) : (
           <form onSubmit={handleVerifyOTP} className="space-y-6">
@@ -190,7 +239,7 @@ const RegisterPage = () => {
           </button>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

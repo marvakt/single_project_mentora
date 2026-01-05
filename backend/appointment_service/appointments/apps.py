@@ -22,6 +22,6 @@ class AppointmentsConfig(AppConfig):
         """
         # Import signals to register them
         from . import signals
-        
+
         # Explicitly register signals (if needed)
         signals.register_signals()

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Heart, ArrowRight, AlertCircle, TrendingUp, Calendar, Star, User,
   Home, Activity, Smile, FileText, Settings, LogOut, Menu, CheckCircle,
-  Sparkles, Brain, Shield
+  Sparkles, Brain, Shield, X
 } from 'lucide-react';
+import DoctorProfileModal from '../../components/DoctorProfileModal';
 import { MEDICAL_API, USER_API, apiCall } from '../../config/api';
 
 const SeverityAssessment = ({ user, token, setCurrentView }) => {
@@ -16,6 +17,7 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
   const [doctors, setDoctors] = useState([]);
   const [history, setHistory] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
 
   // Fetch questionnaire questions from backend
   useEffect(() => {
@@ -58,6 +60,14 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
     } catch (err) {
       console.error('Failed to fetch history:', err);
     }
+  };
+
+  const handleBookAppointment = (doctorId) => {
+    sessionStorage.setItem('selectedDoctorId', doctorId);
+    if (result && result.recommendation_snapshot_id) {
+      sessionStorage.setItem('recommendationSnapshotId', result.recommendation_snapshot_id);
+    }
+    setCurrentView('book-appointment');
   };
 
   const handleAnswerChange = (questionId, value) => {
@@ -140,6 +150,13 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
+      {selectedDoctor && (
+        <DoctorProfileModal
+          doctor={selectedDoctor}
+          onClose={() => setSelectedDoctor(null)}
+          onBook={(doc) => handleBookAppointment(doc.user_id)}
+        />
+      )}
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/20 z-40 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>}
 
@@ -419,14 +436,7 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
                     </h3>
                     <div className="grid md:grid-cols-2 gap-4">
                       {doctors.map(doc => (
-                        <div key={doc.user_id} className="p-4 rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition bg-gray-50 hover:bg-white group cursor-pointer" onClick={() => {
-                          // Store ID and navigate to booking
-                          sessionStorage.setItem('selectedDoctorId', doc.user_id);
-                          if (result && result.recommendation_snapshot_id) {
-                            sessionStorage.setItem('recommendationSnapshotId', result.recommendation_snapshot_id);
-                          }
-                          setCurrentView('book-appointment');
-                        }}>
+                        <div key={doc.user_id} className="p-4 rounded-2xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition bg-gray-50 hover:bg-white group cursor-pointer" onClick={() => setSelectedDoctor(doc)}>
                           <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-teal-700 font-bold text-xl shadow-sm border border-gray-100 group-hover:scale-105 transition">
                               {doc.name?.charAt(0)}

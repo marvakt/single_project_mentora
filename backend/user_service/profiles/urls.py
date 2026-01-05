@@ -1,55 +1,31 @@
 # profiles/urls.py
 from django.urls import path
-from .views import (
-    # Internal
-    CreateProfileInternalAPIView,
-    DoctorAvailabilityInternalAPIView,
 
-    # Profile
-    GetProfileAPIView,
-    UpdateProfileAPIView,
-
-    # Doctor Profile
-    CreateOrUpdateDoctorProfileAPIView,
-
-    # Documents
-    UploadDoctorDocumentAPIView,
-
-    # Availability
+from .views import (  # Internal; Profile; Doctor Profile; Documents; Availability; Admin approval; Listings; Notifications; Ratings and Suggestions; Mood Tracking; Mood aggregation for doctors
     AddAvailabilityAPIView,
-    DeleteAvailabilityAPIView,
-
-    # Admin approval
     ApproveDoctorAPIView,
-    RejectDoctorAPIView,
-
-    # Listings
-    UserManagementListAPIView,
+    CreateOrUpdateDoctorProfileAPIView,
+    CreateProfileInternalAPIView,
+    DeleteAvailabilityAPIView,
     DeleteUserAPIView,
-
-    # Notifications
-    NotificationListAPIView,
-
-
-    ListAvailabilityAPIView,
-
-    ListDoctorDocumentsAPIView,
-    GetDoctorDocumentAPIView,
-
-
-    PublicDoctorListAPIView,
-    
-    # Ratings and Suggestions
-    RateDoctorAPIView,
+    DoctorAvailabilityInternalAPIView,
+    DoctorMoodDashboardAPIView,
     DoctorSuggestionAPIView,
-    
-    # Mood Tracking
-    SubmitMoodEntryAPIView,
+    GetDoctorDocumentAPIView,
     GetMoodHistoryAPIView,
     GetMoodTrendsAPIView,
-    # Mood aggregation for doctors
-    DoctorMoodDashboardAPIView,
+    GetProfileAPIView,
+    ListAvailabilityAPIView,
+    ListDoctorDocumentsAPIView,
+    NotificationListAPIView,
     PatientMoodHistoryAPIView,
+    PublicDoctorListAPIView,
+    RateDoctorAPIView,
+    RejectDoctorAPIView,
+    SubmitMoodEntryAPIView,
+    UpdateProfileAPIView,
+    UploadDoctorDocumentAPIView,
+    UserManagementListAPIView,
 )
 
 urlpatterns = [

@@ -5,9 +5,9 @@ Validates JWT tokens via HTTP call to auth_service.
 Extracts user_id and role from JWT payload ONLY.
 """
 import requests
+from django.conf import settings
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
-from django.conf import settings
 
 
 class JWTAuthentication(BaseAuthentication):

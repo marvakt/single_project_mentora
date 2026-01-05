@@ -42,14 +42,14 @@ const DoctorDashboard = () => {
 
   const fetchNotifications = async () => {
     if (!user?.user_id) return;
-    
+
     setNotificationsLoading(true);
     try {
       const response = await apiCall(`${USER_API}/notifications/${user.user_id}/`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setNotifications(data);
@@ -230,8 +230,8 @@ const DoctorDashboard = () => {
 
             {/* Welcome Section */}
             <div className="grid md:grid-cols-12 gap-8 mb-8">
-              <div className="md:col-span-8 bg-white rounded-3xl p-8 shadow-sm border border-gray-100 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-teal-50 rounded-full blur-3xl -mr-32 -mt-32 opacity-60"></div>
+              <div className="md:col-span-8 bg-white rounded-3xl p-8 shadow-sm border border-gray-100 relative overflow-hidden animate-fade-in-up">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-teal-50 rounded-full blur-3xl -mr-32 -mt-32 opacity-60 animate-float-slow"></div>
                 <div className="relative">
                   <span className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
                     Practice Dashboard
@@ -242,21 +242,21 @@ const DoctorDashboard = () => {
                   </p>
 
                   <div className="flex flex-wrap gap-4 mt-8">
-                    <button onClick={() => setCurrentView('doctor-availability')} className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-teal-500/20 hover:scale-[1.02] transition">
+                    <button onClick={() => setCurrentView('doctor-availability')} className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-teal-500/20 hover:scale-[1.02] transition-smooth hover-glow">
                       Set Work Hours
                     </button>
-                    <button onClick={() => setCurrentView('doctor-appointments')} className="bg-gray-50 text-gray-700 px-6 py-3 rounded-2xl font-bold border border-gray-100 hover:bg-white hover:border-teal-100 transition">
+                    <button onClick={() => setCurrentView('doctor-appointments')} className="bg-gray-50 text-gray-700 px-6 py-3 rounded-2xl font-bold border border-gray-100 hover:bg-white hover:border-teal-100 transition-smooth hover-lift-sm">
                       View Schedule
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="md:col-span-4 bg-gradient-to-br from-teal-600 to-emerald-700 rounded-3xl p-8 text-white shadow-lg shadow-teal-700/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16"></div>
+              <div className="md:col-span-4 bg-gradient-to-br from-teal-600 to-emerald-700 rounded-3xl p-8 text-white shadow-lg shadow-teal-700/20 relative overflow-hidden animate-fade-in-up delay-200 animate-gradient">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16 animate-float-slow"></div>
                 <div className="relative h-full flex flex-col justify-between">
                   <div>
-                    <Sparkles className="w-10 h-10 mb-4 opacity-80" />
+                    <Sparkles className="w-10 h-10 mb-4 opacity-80 animate-pulse-soft" />
                     <h3 className="text-2xl font-bold mb-2">Clinical Insight</h3>
                     <p className="text-teal-50 text-sm leading-relaxed opacity-90">
                       Did you know? Regular follow-ups increase patient recovery rates by 40% in digital mental healthcare.
@@ -272,32 +272,32 @@ const DoctorDashboard = () => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
-                <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-smooth group animate-fade-in-up hover-lift-sm">
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-smooth">
                   <Calendar className="w-6 h-6 text-teal-600" />
                 </div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Sessions Today</p>
                 <h4 className="text-3xl font-black text-gray-900 tracking-tighter">{getTodayCount()}</h4>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-smooth group animate-fade-in-up delay-100 hover-lift-sm">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-smooth">
                   <Users className="w-6 h-6 text-emerald-600" />
                 </div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Patients</p>
                 <h4 className="text-3xl font-black text-gray-900 tracking-tighter">{getTotalPatients()}</h4>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-smooth group animate-fade-in-up delay-200 hover-lift-sm">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-smooth">
                   <Clock className="w-6 h-6 text-amber-600" />
                 </div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Hours Logged</p>
                 <h4 className="text-3xl font-black text-gray-900 tracking-tighter">--</h4>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-smooth group animate-fade-in-up delay-300 hover-lift-sm">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-smooth">
                   <TrendingUp className="w-6 h-6 text-indigo-600" />
                 </div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Earnings</p>
@@ -370,7 +370,7 @@ const DoctorDashboard = () => {
                     <div className="flex items-center gap-2">
                       <Bell className="w-5 h-5 text-teal-600" /> Notifications
                     </div>
-                    <button 
+                    <button
                       onClick={fetchNotifications}
                       disabled={notificationsLoading}
                       className={`text-xs font-bold px-3 py-1.5 rounded-lg ${notificationsLoading ? 'bg-gray-100 text-gray-400' : 'bg-teal-50 text-teal-600 hover:bg-teal-100'}`}
@@ -404,16 +404,16 @@ const DoctorDashboard = () => {
                 </div>
 
                 {/* Growth Section */}
-                <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 border-l-4 border-l-teal-500">
+                <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 border-l-4 border-l-teal-500 animate-fade-in-up delay-200 hover-lift-sm transition-smooth">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0 hover-scale transition-smooth">
                       <Activity className="w-5 h-5 text-teal-600" />
                     </div>
                     <h3 className="text-lg font-bold text-gray-900">Reach Goal</h3>
                   </div>
                   <p className="text-xs text-gray-500 font-medium mb-4">You're at {Math.min(100, (getTotalPatients() / 20) * 100).toFixed(0)}% of your patient monthly target. Need help scaling?</p>
                   <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2">
-                    <div className="bg-teal-500 h-full transition-all duration-1000" style={{ width: `${Math.min(100, (getTotalPatients() / 20) * 100)}%` }}></div>
+                    <div className="bg-gradient-to-r from-teal-500 to-emerald-500 h-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (getTotalPatients() / 20) * 100)}%` }}></div>
                   </div>
                   <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                     <span>{getTotalPatients()} Patients</span>

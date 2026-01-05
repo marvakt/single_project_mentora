@@ -154,11 +154,13 @@ appointments/serializers.py - RESTRUCTURED SERIALIZERS
 Clean serializers with proper validation and field handling.
 All business logic moved to utils.py.
 """
-from rest_framework import serializers
-from django.utils import timezone
 from datetime import timedelta
+from datetime import timezone as dt_timezone
+
+from django.utils import timezone
+from rest_framework import serializers
+
 from .models import Appointment, Payment, VideoSession
-from datetime import timedelta, timezone as dt_timezone
 
 
 class AppointmentCreateSerializer(serializers.Serializer):

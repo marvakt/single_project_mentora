@@ -1,8 +1,9 @@
-import os
 import json
 import logging
-import pika
+import os
+
 import django
+import pika
 
 # 🔥 Django setup (required for standalone process)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "user_service_project.settings")

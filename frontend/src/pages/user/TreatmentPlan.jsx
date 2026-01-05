@@ -4,11 +4,16 @@ import {
   Heart, Calendar, CheckCircle, Clock, TrendingUp, FileText,
   Home, Activity, Smile, Settings, LogOut, Menu, User, Sparkles, Zap
 } from 'lucide-react';
-import { MEDICAL_API, apiCall } from '../../config/api';
+import { MEDICAL_API, USER_API, APPOINTMENT_API, apiCall } from '../../config/api';
+import { formatIndianTime } from '../../utils/dateUtils';
+import DoctorProfileModal from '../../components/DoctorProfileModal';
 
 const TreatmentPlan = ({ user, token, setCurrentView }) => {
   const [plan, setPlan] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [doctorProfile, setDoctorProfile] = useState(null); // Store full profile
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [nextAppointment, setNextAppointment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -27,11 +32,56 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
         const data = await response.json();
         setPlan(data.treatment_plan);
         setProgress(data.progress);
+
+        // Fetch specific doctor details if ID exists
+        if (data.treatment_plan.doctor_id) {
+          fetchDoctorDetails(data.treatment_plan.doctor_id);
+          fetchNextAppointment(data.treatment_plan.doctor_id);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch treatment plan:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDoctorDetails = async (doctorId) => {
+    try {
+      const response = await apiCall(`${USER_API}/profiles/doctor/${doctorId}/profile/`);
+      if (response.ok) {
+        const data = await response.json();
+        setDoctorProfile(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch doctor details:', err);
+    }
+  };
+
+  const handleBookFollowUp = () => {
+    if (doctorProfile) {
+      sessionStorage.setItem('selectedDoctorId', doctorProfile.user_id);
+      setCurrentView('book-appointment');
+    }
+  };
+
+  const fetchNextAppointment = async (doctorId) => {
+    try {
+      const response = await apiCall(`${APPOINTMENT_API}/appointments/my-appointments`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter for upcoming appointments with this doctor
+        const now = new Date();
+        const upcoming = data
+          .filter(apt => apt.status === 'confirmed' && new Date(apt.scheduled_at) > now)
+          .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+
+        if (upcoming.length > 0) {
+          setNextAppointment(upcoming[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch appointments:', err);
     }
   };
 
@@ -161,17 +211,40 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                           Active Treatment
                         </div>
                         <h1 className="text-4xl font-bold tracking-tight mb-2">{plan.plan_title}</h1>
-                        <p className="text-teal-50 font-medium text-lg italic opacity-90">supervised by Dr. {plan.doctor_name || 'Your Therapist'}</p>
+                        <p
+                          onClick={() => doctorProfile && setShowDoctorModal(true)}
+                          className="text-teal-50 font-medium text-lg italic opacity-90 cursor-pointer hover:underline decoration-teal-200/50 underline-offset-4 transition-all"
+                        >
+                          supervised by Dr. {doctorProfile?.name || plan.doctor_name || 'Your Therapist'}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-6 text-sm font-bold bg-black/10 backdrop-blur-sm p-4 rounded-2xl border border-white/10">
-                        <div className="flex items-center gap-2 text-teal-50">
-                          <Calendar className="w-4 h-4" />
-                          <span>{plan.duration_weeks} Weeks Plan</span>
-                        </div>
-                        <div className="w-px h-6 bg-white/20"></div>
-                        <div className="flex items-center gap-2 text-teal-50">
-                          <Clock className="w-4 h-4" />
-                          <span>{plan.therapy_frequency}</span>
+                      <div className="flex flex-col items-end gap-3">
+                        {/* Book Follow-up Button */}
+                        <button
+                          onClick={handleBookFollowUp}
+                          className="bg-white text-teal-700 font-bold py-2.5 px-6 rounded-xl shadow-lg shadow-teal-900/10 hover:bg-teal-50 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                        >
+                          <Calendar className="w-4 h-4" /> Book Session
+                        </button>
+
+                        {nextAppointment && (
+                          <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20">
+                            <p className="text-[10px] uppercase font-bold text-teal-100 tracking-wider">Next Session</p>
+                            <p className="text-white font-bold text-sm">
+                              {new Date(nextAppointment.scheduled_at).toLocaleDateString()} @ {formatIndianTime(new Date(nextAppointment.scheduled_at).toTimeString().slice(0, 5))}
+                            </p>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-6 text-sm font-bold bg-black/10 backdrop-blur-sm p-4 rounded-2xl border border-white/10">
+                          <div className="flex items-center gap-2 text-teal-50">
+                            <Calendar className="w-4 h-4" />
+                            <span>{plan.duration_weeks} Weeks Plan</span>
+                          </div>
+                          <div className="w-px h-6 bg-white/20"></div>
+                          <div className="flex items-center gap-2 text-teal-50">
+                            <Clock className="w-4 h-4" />
+                            <span>{plan.therapy_frequency}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -301,6 +374,18 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
           </div>
         </div>
       </main>
+
+      {/* Doctor Profile Modal */}
+      {showDoctorModal && doctorProfile && (
+        <DoctorProfileModal
+          doctor={doctorProfile}
+          onClose={() => setShowDoctorModal(false)}
+          onBook={(doc) => {
+            handleBookFollowUp();
+            setShowDoctorModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };

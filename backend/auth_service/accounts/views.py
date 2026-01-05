@@ -241,30 +241,30 @@
 #         except JWTError:
 #             return Response({"detail": "Invalid token"}, status=401)
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from django.contrib.auth import authenticate
-from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .serializers import (
-    RegisterSerializer,
-    VerifyOTPSerializer,
-    LoginSerializer,
-    GoogleAuthSerializer,
     ForgotPasswordSerializer,
+    GoogleAuthSerializer,
+    LoginSerializer,
+    RegisterSerializer,
     ResetPasswordSerializer,
+    VerifyOTPSerializer,
     VerifyTokenSerializer,
 )
 from .utils import (
-    handle_registration,
-    handle_otp_verification,
-    handle_google_authentication,
-    handle_password_reset_request,
-    handle_password_reset,
-    verify_jwt_token,
     generate_auth_response,
+    handle_google_authentication,
+    handle_otp_verification,
+    handle_password_reset,
+    handle_password_reset_request,
+    handle_registration,
+    verify_jwt_token,
 )
 
 
@@ -662,6 +662,6 @@ class VerifyTokenAPIView(APIView):
             return Response(result["payload"], status=status.HTTP_200_OK)
         
         return Response(
-            {"detail": result["error"]}, 
+            {"detail": result["error"]},
             status=status.HTTP_401_UNAUTHORIZED
         )

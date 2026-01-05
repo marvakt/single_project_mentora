@@ -7,7 +7,7 @@ import {
   CheckCircle, AlertCircle, XCircle, Heart, Home, Smile,
   Settings, LogOut, Menu, Star, X
 } from 'lucide-react';
-import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
+import { APPOINTMENT_API, USER_API, apiCall, medicalApiCall } from '../../config/api';
 import { logout } from '../../store/slices/authSlice';
 import { setCurrentView } from '../../store/slices/uiSlice';
 import { fetchAppointmentDetail } from '../../store/slices/appointmentsSlice';
@@ -39,12 +39,23 @@ const AppointmentDetail = ({
   const [submittingReview, setSubmittingReview] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
 
+  // Session Note State
+  const [sessionNote, setSessionNote] = useState(null);
+
   // Use selectedAppointment from Redux or fetch if needed
   const appointment = selectedAppointment?.id === appointmentId ? selectedAppointment : null;
 
   useEffect(() => {
     if (appointmentId && !appointment) {
       dispatch(fetchAppointmentDetail(appointmentId));
+    }
+    if (appointmentId) {
+      medicalApiCall(`/session-notes/appointment/${appointmentId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.session_note) setSessionNote(data.session_note);
+        })
+        .catch(err => console.error(err));
     }
   }, [appointmentId, appointment, dispatch]);
 
@@ -326,6 +337,57 @@ const AppointmentDetail = ({
                       <h2 className="text-xl font-bold text-gray-900 mb-4">Initial Notes</h2>
                       <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-50">
                         <p className="text-gray-700 leading-relaxed italic">"{appointment.notes}"</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Session Notes (Read Only) */}
+                  {sessionNote && (
+                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-violet-600" />
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-900">Clinical Session Notes</h2>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Doctor's Assessment</p>
+                          <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{sessionNote.notes}</p>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-6">
+                          {sessionNote.diagnosis && (
+                            <div className="bg-white p-4 rounded-xl border border-gray-100">
+                              <p className="text-xs font-bold text-violet-600 uppercase tracking-widest mb-1">Diagnosis</p>
+                              <p className="font-semibold text-gray-900">{sessionNote.diagnosis}</p>
+                            </div>
+                          )}
+                          {sessionNote.prescription && (
+                            <div className="bg-white p-4 rounded-xl border border-gray-100">
+                              <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">Prescription</p>
+                              <p className="font-semibold text-gray-900">{sessionNote.prescription}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {(sessionNote.recommendations || sessionNote.next_session_plan) && (
+                          <div className="grid md:grid-cols-2 gap-6">
+                            {sessionNote.recommendations && (
+                              <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100">
+                                <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-1">Recommendations</p>
+                                <p className="text-sm font-medium text-gray-800">{sessionNote.recommendations}</p>
+                              </div>
+                            )}
+                            {sessionNote.next_session_plan && (
+                              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                                <p className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-1">Next Session Plan</p>
+                                <p className="text-sm font-medium text-gray-800">{sessionNote.next_session_plan}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

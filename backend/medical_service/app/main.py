@@ -3,14 +3,23 @@ app/main.py - FastAPI Medical Service Main Application
 Handles mental health assessments, AI scoring, chat, and secure medical data
 """
 
+import logging
+from contextlib import asynccontextmanager
+
+from app.core.config import settings
+from app.core.database import close_db, connect_db
+from app.routes import (
+    chat,
+    mood,
+    questionnaire,
+    session_notes,
+    severity,
+    summary,
+    symptom,
+    treatment,
+)
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import logging
-
-from app.core.database import connect_db, close_db
-from app.core.config import settings
-from app.routes import questionnaire, mood, severity, symptom, summary, chat, treatment, session_notes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

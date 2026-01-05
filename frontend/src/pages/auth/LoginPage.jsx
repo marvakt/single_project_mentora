@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { Heart, Mail, Lock, ArrowRight } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { AUTH_API } from '../../config/api';
 import { login } from '../../store/slices/authSlice';
 
@@ -39,6 +40,32 @@ const LoginPage = ({ setCurrentView }) => {
       }
     } catch (err) {
       setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${AUTH_API}/google/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: credentialResponse.credential })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        dispatch(login({ user: data.user, token: data.access }));
+        if (data.user.role === 'admin') setCurrentView('admin-dashboard');
+        else if (data.user.role === 'doctor') setCurrentView('doctor-dashboard');
+        else setCurrentView('user-dashboard');
+      } else {
+        setError(data.detail || 'Google authentication failed');
+      }
+    } catch (err) {
+      setError('Network error during Google sign-in');
     } finally {
       setLoading(false);
     }
@@ -118,6 +145,24 @@ const LoginPage = ({ setCurrentView }) => {
             )}
           </button>
         </form>
+
+        <div className="mt-6 flex flex-col items-center gap-4">
+          <div className="flex items-center gap-4 w-full">
+            <div className="h-px bg-gray-200 flex-1"></div>
+            <span className="text-gray-400 text-sm">Or continue with</span>
+            <div className="h-px bg-gray-200 flex-1"></div>
+          </div>
+
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Sign-In failed')}
+            useOneTap
+            shape="circle"
+            theme="outline"
+            size="large"
+            text="signin_with"
+          />
+        </div>
 
         <div className="mt-8 text-center space-y-4">
           <p className="text-gray-600">

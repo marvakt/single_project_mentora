@@ -3,12 +3,13 @@ app/core/encryption.py - Field-level encryption for sensitive data
 """
 
 import base64
+import json
 import os
+from typing import Any, Dict, Union
+
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-import json
-from typing import Dict, Any, Union
 
 
 class FieldEncryption:

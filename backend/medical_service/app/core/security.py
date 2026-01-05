@@ -2,12 +2,13 @@
 app/core/security.py - JWT Authentication and Authorization
 """
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import logging
+from typing import Optional
+
 import jwt
 from app.core.config import settings
-from typing import Optional
-import logging
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 logger = logging.getLogger(__name__)
 

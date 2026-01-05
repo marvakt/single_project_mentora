@@ -52,17 +52,15 @@ Enhanced URL routing with all appointment endpoints.
 All views imported from single views.py file.
 """
 from django.urls import path
-from .views import (
-    # Appointment views
+
+from .views import (  # Appointment views; Payment views; Video session views
     AppointmentAPIView,
-    AppointmentDetailAPIView,
     AppointmentCancelAPIView,
     AppointmentCompleteAPIView,
+    AppointmentDetailAPIView,
     AvailableSlotsAPIView,
-    # Payment views
     PaymentCreateAPIView,
     RazorpayWebhookAPIView,
-    # Video session views
     VideoSessionCreateAPIView,
     VideoSessionDetailAPIView,
 )

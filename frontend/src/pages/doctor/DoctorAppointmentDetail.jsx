@@ -6,7 +6,7 @@ import {
     CheckCircle, AlertCircle, XCircle, Heart, Stethoscope,
     Clipboard, TrendingUp, AlertTriangle, Info, Menu, Home, Settings, LogOut, Shield, Sparkles, Users
 } from 'lucide-react';
-import { APPOINTMENT_API, USER_API, apiCall } from '../../config/api';
+import { APPOINTMENT_API, USER_API, apiCall, medicalApiCall } from '../../config/api';
 import { logout } from '../../store/slices/authSlice';
 import { setCurrentView } from '../../store/slices/uiSlice';
 import { fetchAppointmentDetail } from '../../store/slices/appointmentsSlice';
@@ -31,6 +31,18 @@ const DoctorAppointmentDetail = ({
     const [completing, setCompleting] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    // Session Note State
+    const [sessionNote, setSessionNote] = useState(null);
+    const [noteLoading, setNoteLoading] = useState(false);
+    const [isCreatingNote, setIsCreatingNote] = useState(false);
+    const [noteForm, setNoteForm] = useState({
+        notes: '',
+        diagnosis: '',
+        recommendations: '',
+        prescription: '',
+        next_session_plan: ''
+    });
+
     // Use selectedAppointment from Redux
     const appointment = selectedAppointment?.id === appointmentId ? selectedAppointment : null;
 
@@ -40,6 +52,9 @@ const DoctorAppointmentDetail = ({
         }
         if (user?.user_id && !doctorProfile) {
             dispatch(fetchDoctorProfile(user.user_id));
+        }
+        if (appointmentId) {
+            fetchSessionNote();
         }
     }, [appointmentId, appointment, user?.user_id, doctorProfile, dispatch]);
 
@@ -145,6 +160,52 @@ const DoctorAppointmentDetail = ({
         if (score >= 4) return '😐';
         if (score >= 2) return '😔';
         return '😢';
+    };
+
+    const fetchSessionNote = async () => {
+        try {
+            setNoteLoading(true);
+            const response = await medicalApiCall(`/session-notes/appointment/${appointmentId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setSessionNote(data.session_note);
+            }
+        } catch (err) {
+            console.error('Error fetching session note:', err);
+        } finally {
+            setNoteLoading(false);
+        }
+    };
+
+    const handleCreateNote = async (e) => {
+        e.preventDefault();
+        if (!appointment?.user_id) return;
+
+        try {
+            setNoteLoading(true);
+            const response = await medicalApiCall('/session-notes/create', {
+                method: 'POST',
+                body: JSON.stringify({
+                    appointment_id: appointmentId,
+                    user_id: appointment.user_id,
+                    ...noteForm
+                })
+            });
+
+            if (response.ok) {
+                alert('Session notes saved successfully');
+                setIsCreatingNote(false);
+                fetchSessionNote();
+            } else {
+                const error = await response.json();
+                alert(error.detail || 'Failed to save notes');
+            }
+        } catch (err) {
+            console.error('Error creating note:', err);
+            alert('Failed to create session note');
+        } finally {
+            setNoteLoading(false);
+        }
     };
 
     // Sidebar Nav Item Helper
@@ -546,6 +607,149 @@ const DoctorAppointmentDetail = ({
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Session Notes Section */}
+                                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
+                                                <Clipboard className="w-5 h-5 text-violet-600" />
+                                            </div>
+                                            <h3 className="text-xl font-bold text-gray-900 tracking-tight">Clinical Session Notes</h3>
+                                        </div>
+                                        {!sessionNote && !isCreatingNote && (
+                                            <button
+                                                onClick={() => setIsCreatingNote(true)}
+                                                className="px-4 py-2 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition"
+                                            >
+                                                Add Notes
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {noteLoading ? (
+                                        <div className="text-center py-8">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600 mx-auto"></div>
+                                        </div>
+                                    ) : sessionNote ? (
+                                        <div className="space-y-6">
+                                            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Clinical Assessment</p>
+                                                <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{sessionNote.notes}</p>
+                                            </div>
+
+                                            <div className="grid md:grid-cols-2 gap-6">
+                                                {sessionNote.diagnosis && (
+                                                    <div className="bg-white p-4 rounded-xl border border-gray-100">
+                                                        <p className="text-xs font-bold text-violet-600 uppercase tracking-widest mb-1">Diagnosis</p>
+                                                        <p className="font-semibold text-gray-900">{sessionNote.diagnosis}</p>
+                                                    </div>
+                                                )}
+                                                {sessionNote.prescription && (
+                                                    <div className="bg-white p-4 rounded-xl border border-gray-100">
+                                                        <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">Prescription</p>
+                                                        <p className="font-semibold text-gray-900">{sessionNote.prescription}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {(sessionNote.recommendations || sessionNote.next_session_plan) && (
+                                                <div className="grid md:grid-cols-2 gap-6">
+                                                    {sessionNote.recommendations && (
+                                                        <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100">
+                                                            <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-1">Recommendations</p>
+                                                            <p className="text-sm font-medium text-gray-800">{sessionNote.recommendations}</p>
+                                                        </div>
+                                                    )}
+                                                    {sessionNote.next_session_plan && (
+                                                        <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                                                            <p className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-1">Next Session Plan</p>
+                                                            <p className="text-sm font-medium text-gray-800">{sessionNote.next_session_plan}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : isCreatingNote ? (
+                                        <form onSubmit={handleCreateNote} className="space-y-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Session Notes (Required)</label>
+                                                <textarea
+                                                    required
+                                                    value={noteForm.notes}
+                                                    onChange={(e) => setNoteForm({ ...noteForm, notes: e.target.value })}
+                                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none h-32"
+                                                    placeholder="Enter detailed clinical notes..."
+                                                />
+                                            </div>
+
+                                            <div className="grid md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Diagnosis</label>
+                                                    <input
+                                                        type="text"
+                                                        value={noteForm.diagnosis}
+                                                        onChange={(e) => setNoteForm({ ...noteForm, diagnosis: e.target.value })}
+                                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
+                                                        placeholder="e.g. Anxiety Disorder"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Prescription</label>
+                                                    <input
+                                                        type="text"
+                                                        value={noteForm.prescription}
+                                                        onChange={(e) => setNoteForm({ ...noteForm, prescription: e.target.value })}
+                                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
+                                                        placeholder="Medications if any"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Recommendations</label>
+                                                    <textarea
+                                                        value={noteForm.recommendations}
+                                                        onChange={(e) => setNoteForm({ ...noteForm, recommendations: e.target.value })}
+                                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none h-24"
+                                                        placeholder="Lifestyle changes, exercises..."
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Next Session Plan</label>
+                                                    <textarea
+                                                        value={noteForm.next_session_plan}
+                                                        onChange={(e) => setNoteForm({ ...noteForm, next_session_plan: e.target.value })}
+                                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none h-24"
+                                                        placeholder="Topics to cover..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-end gap-3 pt-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsCreatingNote(false)}
+                                                    className="px-6 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={noteLoading}
+                                                    className="px-6 py-2.5 rounded-xl font-bold bg-violet-600 text-white hover:bg-violet-700 transition shadow-lg shadow-violet-500/20"
+                                                >
+                                                    {noteLoading ? 'Saving...' : 'Save Notes'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                            <p className="text-gray-400 font-medium">No session notes added yet</p>
+                                        </div>
+                                    )}                                </div>
+
                             </div>
                         </div>
                     </div>

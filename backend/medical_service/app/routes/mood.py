@@ -3,16 +3,17 @@ app/routes/mood.py - Mood Tracking API
 Daily mood logging and analysis
 """
 
+import logging
+import os
+from datetime import datetime, timedelta
+from typing import List, Optional
+
+import httpx
+from app.core.database import get_database
+from app.core.encryption import ENCRYPTED_FIELDS, encryption
+from app.core.security import get_current_user_id
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional, List
-from app.core.security import get_current_user_id
-from app.core.database import get_database
-from app.core.encryption import encryption, ENCRYPTED_FIELDS
-from datetime import datetime, timedelta
-import logging
-import httpx
-import os
 
 logger = logging.getLogger(__name__)
 

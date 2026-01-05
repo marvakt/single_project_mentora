@@ -2,9 +2,10 @@
 app/core/config.py - Configuration Management
 """
 
-from pydantic_settings import BaseSettings
-from typing import List
 import os
+from typing import List
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):

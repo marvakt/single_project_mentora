@@ -212,12 +212,12 @@ const MentoraLanding = ({ setCurrentView }) => {
   return (
     <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 min-h-screen">
       {/* Fixed Navigation */}
-      <nav className="bg-white/70 backdrop-blur-xl shadow-lg fixed w-full z-50 border-b border-teal-100">
+      <nav className="bg-white/70 backdrop-blur-xl shadow-lg fixed w-full z-50 border-b border-teal-100 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center">
+            <div className="flex items-center gap-2 animate-fade-in-left">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center hover-scale-sm transition-smooth">
                 <Heart className="w-5 h-5 text-white" fill="white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent">
@@ -226,25 +226,28 @@ const MentoraLanding = ({ setCurrentView }) => {
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-700 hover:text-teal-600 transition font-medium">
+            <div className="hidden md:flex items-center space-x-8 animate-fade-in-right">
+              <a href="#features" className="text-gray-700 hover:text-teal-600 transition-smooth font-medium relative group">
                 Features
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-teal-600 group-hover:w-full transition-all duration-300"></span>
               </a>
-              <a href="#how-it-works" className="text-gray-700 hover:text-teal-600 transition font-medium">
+              <a href="#how-it-works" className="text-gray-700 hover:text-teal-600 transition-smooth font-medium relative group">
                 How It Works
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-teal-600 group-hover:w-full transition-all duration-300"></span>
               </a>
-              <a href="#about" className="text-gray-700 hover:text-teal-600 transition font-medium">
+              <a href="#about" className="text-gray-700 hover:text-teal-600 transition-smooth font-medium relative group">
                 About
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-teal-600 group-hover:w-full transition-all duration-300"></span>
               </a>
               <button
                 onClick={() => handleViewChange('login')}
-                className="text-teal-600 hover:text-teal-700 font-semibold transition"
+                className="text-teal-600 hover:text-teal-700 font-semibold transition-smooth hover-scale-sm"
               >
                 Login
               </button>
               <button
                 onClick={() => handleViewChange('doctor-register')}
-                className="bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-6 py-2 rounded-full hover:shadow-lg transform hover:scale-105 transition font-medium"
+                className="bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-6 py-2 rounded-full hover:shadow-xl transform hover:scale-105 transition-smooth font-medium hover-glow"
               >
                 Doctor Registration
               </button>
@@ -262,38 +265,38 @@ const MentoraLanding = ({ setCurrentView }) => {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white/90 backdrop-blur-xl border-t border-teal-100">
+          <div className="md:hidden bg-white/90 backdrop-blur-xl border-t border-teal-100 animate-slide-in-down">
             <div className="px-4 py-4 space-y-3">
               <a
                 href="#features"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block text-gray-700 hover:text-teal-600 py-2 font-medium"
+                className="block text-gray-700 hover:text-teal-600 py-2 font-medium transition-smooth hover:translate-x-2"
               >
                 Features
               </a>
               <a
                 href="#how-it-works"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block text-gray-700 hover:text-teal-600 py-2 font-medium"
+                className="block text-gray-700 hover:text-teal-600 py-2 font-medium transition-smooth hover:translate-x-2"
               >
                 How It Works
               </a>
               <a
                 href="#about"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block text-gray-700 hover:text-teal-600 py-2 font-medium"
+                className="block text-gray-700 hover:text-teal-600 py-2 font-medium transition-smooth hover:translate-x-2"
               >
                 About
               </a>
               <button
                 onClick={() => handleViewChange('login')}
-                className="block w-full text-left text-teal-600 font-semibold py-2"
+                className="block w-full text-left text-teal-600 font-semibold py-2 transition-smooth hover:translate-x-2"
               >
                 Login
               </button>
               <button
                 onClick={() => handleViewChange('doctor-register')}
-                className="block w-full bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-6 py-3 rounded-full font-medium mt-2"
+                className="block w-full bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-6 py-3 rounded-full font-medium mt-2 hover:shadow-lg transition-smooth hover-scale-sm"
               >
                 Doctor Registration
               </button>
@@ -306,12 +309,12 @@ const MentoraLanding = ({ setCurrentView }) => {
       <section className="pt-32 pb-20 px-4 relative overflow-hidden">
         <div className="max-w-6xl mx-auto relative z-10">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-full px-4 py-2 mb-8 border border-teal-200">
-              <Sparkles className="w-4 h-4 text-teal-600" />
+            <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-full px-4 py-2 mb-8 border border-teal-200 animate-fade-in-down hover-scale-sm transition-smooth">
+              <Sparkles className="w-4 h-4 text-teal-600 animate-pulse-soft" />
               <span className="text-sm font-medium text-teal-700">AI-Powered Mental Wellness</span>
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in-up">
               <span className="bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 bg-clip-text text-transparent">
                 Your Mind
               </span>
@@ -319,20 +322,20 @@ const MentoraLanding = ({ setCurrentView }) => {
               <span className="text-gray-800">Deserves Care</span>
             </h1>
 
-            <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+            <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed animate-fade-in-up delay-200">
               Connect with verified mental health specialists through intelligent routing.
               Start your journey to wellness with personalized care.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-up delay-400">
               <button
                 onClick={() => handleViewChange('register')}
-                className="group bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-8 py-4 rounded-full font-semibold shadow-lg hover:shadow-xl transition transform hover:scale-105 flex items-center gap-2"
+                className="group bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-8 py-4 rounded-full font-semibold shadow-lg hover:shadow-2xl transition-smooth transform hover:scale-105 flex items-center gap-2 hover-glow"
               >
                 Start Your Journey
-                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition" />
+                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-smooth" />
               </button>
-              <button className="bg-white/60 backdrop-blur-sm text-gray-700 px-8 py-4 rounded-full font-semibold border border-teal-200 hover:bg-white/80 transition">
+              <button className="bg-white/60 backdrop-blur-sm text-gray-700 px-8 py-4 rounded-full font-semibold border border-teal-200 hover:bg-white/80 transition-smooth hover-lift-sm">
                 Watch Demo
               </button>
             </div>
@@ -345,7 +348,7 @@ const MentoraLanding = ({ setCurrentView }) => {
               { value: '500+', label: 'Specialists' },
               { value: '98%', label: 'Satisfaction' }
             ].map((stat, idx) => (
-              <div key={idx} className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-teal-100 text-center hover:bg-white/80 transition">
+              <div key={idx} className={`bg-white/60 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-teal-100 text-center hover:bg-white/80 transition-smooth hover-lift-sm animate-fade-in-up delay-${(idx + 1) * 200}`}>
                 <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent mb-1">
                   {stat.value}
                 </div>
@@ -356,8 +359,9 @@ const MentoraLanding = ({ setCurrentView }) => {
         </div>
 
         {/* Decorative Elements */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
+        <div className="absolute top-20 left-10 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-float-slow"></div>
+        <div className="absolute top-40 right-10 w-72 h-72 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-float-slow" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute bottom-20 left-1/2 w-64 h-64 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float-slow" style={{ animationDelay: '4s' }}></div>
       </section>
 
       {/* Features Section */}
@@ -411,8 +415,8 @@ const MentoraLanding = ({ setCurrentView }) => {
                 gradient: 'from-cyan-400 to-teal-400'
               }
             ].map((feature, idx) => (
-              <div key={idx} className="group bg-white/60 backdrop-blur-sm rounded-3xl p-8 border border-teal-100 hover:bg-white/80 hover:shadow-xl transition transform hover:-translate-y-1">
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-5 group-hover:scale-110 transition`}>
+              <div key={idx} className={`group bg-white/60 backdrop-blur-sm rounded-3xl p-8 border border-teal-100 hover:bg-white/80 hover:shadow-2xl transition-smooth transform hover:-translate-y-2 animate-fade-in-up delay-${idx * 100}`}>
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-5 group-hover:scale-110 group-hover:rotate-6 transition-smooth`}>
                   <feature.icon className="w-7 h-7 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-800 mb-3">{feature.title}</h3>
@@ -444,9 +448,9 @@ const MentoraLanding = ({ setCurrentView }) => {
                 { num: '03', title: 'Get Matched', desc: 'AI finds your specialist' },
                 { num: '04', title: 'Start Healing', desc: 'Begin personalized care' }
               ].map((step, idx) => (
-                <div key={idx} className="relative">
-                  <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-teal-100 hover:bg-white/80 transition text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-400 text-white text-2xl font-bold flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <div key={idx} className={`relative animate-fade-in-up delay-${idx * 150}`}>
+                  <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-teal-100 hover:bg-white/80 transition-smooth text-center hover-lift-sm">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-400 text-white text-2xl font-bold flex items-center justify-center mx-auto mb-4 shadow-lg hover-scale transition-smooth">
                       {step.num}
                     </div>
                     <h3 className="text-lg font-bold text-gray-800 mb-2">{step.title}</h3>
@@ -479,23 +483,23 @@ const MentoraLanding = ({ setCurrentView }) => {
       {/* CTA Section */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-gradient-to-br from-teal-500 via-emerald-500 to-cyan-500 rounded-[3rem] p-12 md:p-16 text-center text-white relative overflow-hidden">
+          <div className="bg-gradient-to-br from-teal-500 via-emerald-500 to-cyan-500 rounded-[3rem] p-12 md:p-16 text-center text-white relative overflow-hidden animate-gradient">
             <div className="relative z-10">
-              <h2 className="text-3xl md:text-5xl font-bold mb-6">
+              <h2 className="text-3xl md:text-5xl font-bold mb-6 animate-fade-in-up">
                 Ready to Start Your Journey?
               </h2>
-              <p className="text-lg md:text-xl text-teal-50 mb-8 max-w-2xl mx-auto">
+              <p className="text-lg md:text-xl text-teal-50 mb-8 max-w-2xl mx-auto animate-fade-in-up delay-200">
                 Join thousands who've found the right support at the right time
               </p>
               <button
                 onClick={() => handleViewChange('register')}
-                className="bg-white text-teal-600 px-8 py-4 rounded-full font-semibold hover:shadow-2xl transition transform hover:scale-105"
+                className="bg-white text-teal-600 px-8 py-4 rounded-full font-semibold hover:shadow-2xl transition-smooth transform hover:scale-105 animate-fade-in-up delay-400 hover-glow"
               >
                 Get Started Free
               </button>
             </div>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 animate-float-slow"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 animate-float-slow" style={{ animationDelay: '3s' }}></div>
           </div>
         </div>
       </section>

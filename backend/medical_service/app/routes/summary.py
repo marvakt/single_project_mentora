@@ -3,11 +3,12 @@ app/routes/summary.py - Medical Summary API
 Provides consolidated medical history and insights
 """
 
-from fastapi import APIRouter, Depends
-from app.core.security import get_current_user_id
-from app.core.database import get_database
-from app.ai_engine.srts_scoring import SRTSEngine
 import logging
+
+from app.ai_engine.srts_scoring import SRTSEngine
+from app.core.database import get_database
+from app.core.security import get_current_user_id
+from fastapi import APIRouter, Depends
 
 logger = logging.getLogger(__name__)
 

@@ -1,12 +1,13 @@
 # profiles/utils.py
-import uuid
 import json
+import uuid
+from datetime import timedelta
+
 import boto3
 from botocore.exceptions import ClientError
 from django.conf import settings
-from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from datetime import timedelta
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 
@@ -228,7 +229,7 @@ def auto_approve_doctor_if_enabled(doctor_profile, user_profile):
     """
     import os
     auto_approve_enabled = os.getenv('AUTO_APPROVE_DOCTORS', 'False').lower() == 'true'
-    
+
     if auto_approve_enabled:
         doctor_profile.doctor_status = 'approved'
         doctor_profile.save()

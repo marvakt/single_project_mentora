@@ -5,18 +5,18 @@ This module implements a RAG (Retrieval-Augmented Generation) system using LangC
 to provide intelligent mental health severity analysis with explainable recommendations.
 """
 
-import os
 import logging
-from typing import Dict, List, Optional
+import os
 from pathlib import Path
+from typing import Dict, List, Optional
 
+from langchain.chains import RetrievalQA
+from langchain.prompts import PromptTemplate
+from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain.schema import Document
 
 # Import LLM based on provider
 try:
@@ -31,10 +31,9 @@ try:
 except ImportError:
     HUGGINGFACE_AVAILABLE = False
 
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-
 from app.core.config import settings
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
 
 logger = logging.getLogger(__name__)
 
@@ -109,11 +108,11 @@ class LangChainRAGEngine:
             except Exception as e:
                 logger.warning(f"HuggingFaceEmbeddings failed: {e}. Using basic in-memory fallback.")
                 # Fallback to basic in-memory similarity search
+                import numpy as np
                 from langchain.schema import Document
                 from sklearn.feature_extraction.text import TfidfVectorizer
                 from sklearn.metrics.pairwise import cosine_similarity
-                import numpy as np
-                        
+
                 # Store documents for similarity search
                 self.documents = split_docs
                 self.vectorizer = TfidfVectorizer(stop_words='english')
@@ -393,6 +392,7 @@ _last_init_time = None
 
 import time
 from datetime import datetime
+
 
 def get_langchain_rag_engine() -> LangChainRAGEngine:
     """

@@ -3,9 +3,10 @@ app/messaging/celery_client.py - Celery Client for Async Tasks
 Sends high-risk alerts and insights to user service
 """
 
-import pika
 import json
 import logging
+
+import pika
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)

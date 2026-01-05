@@ -482,45 +482,46 @@ All business logic delegated to utils.py.
 Includes: Appointment, Payment, and Video Session views.
 """
 import logging
+
 from django.db import transaction
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from .authentication import JWTAuthentication
 from .models import Appointment
+from .permissions import IsAuthenticatedJWT, IsDoctorRole, IsUserRole
+from .producer import (
+    publish_appointment_cancelled,
+    publish_appointment_completed,
+    publish_appointment_created,
+    publish_appointment_paid,
+)
 from .serializers import (
     AppointmentCreateSerializer,
-    AppointmentListSerializer,
     AppointmentDetailSerializer,
+    AppointmentListSerializer,
     AvailableSlotsRequestSerializer,
     PaymentWebhookSerializer,
     VideoSessionCreateSerializer,
     VideoSessionUpdateSerializer,
 )
-from .authentication import JWTAuthentication
-from .permissions import IsAuthenticatedJWT, IsUserRole, IsDoctorRole
 from .utils import (
-    create_appointment_with_validation,
-    get_filtered_appointments,
+    AppointmentBusinessError,
     cancel_appointment,
     complete_appointment,
+    convert_to_uuid,
+    create_appointment_with_validation,
+    create_payment_order,
+    create_video_session,
+    fetch_medical_summary,
     get_available_slots_for_date,
+    get_filtered_appointments,
+    process_payment_webhook,
+    update_video_session,
     validate_appointment_access,
     validate_video_session_timing,
-    fetch_medical_summary,
-    convert_to_uuid,
-    create_payment_order,
-    process_payment_webhook,
-    create_video_session,
-    update_video_session,
-    AppointmentBusinessError,
-)
-from .producer import (
-    publish_appointment_created,
-    publish_appointment_cancelled,
-    publish_appointment_completed,
-    publish_appointment_paid,
 )
 
 logger = logging.getLogger(__name__)

@@ -3,19 +3,22 @@ Comprehensive unit tests for the medical service
 Testing RAG system, severity scoring, questionnaire functionality, and API endpoints
 """
 
-import unittest
-from unittest.mock import patch, MagicMock, Mock
-import sys
-import os
 import json
+import os
+import sys
+import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
+from unittest.mock import MagicMock, Mock, patch
 
 # Add the app directory to the path so we can import modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
+from app.ai_engine.langchain_rag_engine import (
+    LangChainRAGEngine,
+    get_langchain_rag_engine,
+)
 from app.ai_engine.srts_scoring import SRTSEngine
-from app.ai_engine.langchain_rag_engine import get_langchain_rag_engine, LangChainRAGEngine
 from app.core.database import create_recommendation_snapshot
 
 
@@ -380,7 +383,7 @@ class TestQuestionnaireRoute(unittest.TestCase):
         # Test the function (we can't test the full FastAPI route easily,
         # so we test the core logic)
         from app.ai_engine.srts_scoring import SRTSEngine
-        
+
         # Test triage profile creation directly
         result = SRTSEngine.create_triage_profile(self.test_payload["responses"])
         
@@ -653,7 +656,7 @@ def run_medical_service_tests():
     print(f"   ❌ Failures: {len(result.failures)}")
     print(f"   ⚠️  Errors: {len(result.errors)}")
     print(f"   📝 Total: {result.testsRun}")
-    
+
     return result.wasSuccessful()
 
 

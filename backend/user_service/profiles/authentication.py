@@ -1,9 +1,10 @@
+import time
+
+from django.conf import settings
+from jose import jwt
+from rest_framework import exceptions
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
-from jose import jwt
-import time
-from django.conf import settings
-from rest_framework import exceptions
 
 # Use JWT_SECRET from Django settings instead of environment variable directly
 JWT_SECRET = getattr(settings, 'JWT_SECRET', 'mentora-jwt-secret-2025-change-this')

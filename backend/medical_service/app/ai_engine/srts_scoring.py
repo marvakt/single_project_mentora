@@ -3,9 +3,9 @@ app/ai_engine/srts_scoring.py - Severity Rating Tracking System (SRTS)
 AI-powered mental health severity assessment engine
 """
 
-from typing import Dict, List
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
