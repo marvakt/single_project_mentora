@@ -300,8 +300,8 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                       </div>
                     )}
 
-                    {/* Wellness Summary - AI Insights */}
-                    {summary && summary.insights && (
+                    {/* Wellness Summary - AI Insights & RAG Coping Strategies */}
+                    {summary && (summary.insights || (summary.latest_severity && summary.latest_severity.rag_insights)) && (
                       <div className="bg-violet-50 rounded-3xl p-8 shadow-sm border border-violet-100">
                         <div className="flex items-center gap-3 mb-4">
                           <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
@@ -309,12 +309,35 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                           </div>
                           <h3 className="text-lg font-bold text-violet-900">AI Health Insights</h3>
                         </div>
-                        <div className="space-y-3">
-                          {(Array.isArray(summary.insights) ? summary.insights : [summary.insights]).map((insight, i) => (
-                            <div key={i} className="bg-white/60 p-3 rounded-xl text-sm text-violet-800 font-medium">
-                              {typeof insight === 'string' ? insight : "Your health trends are stabilizing."}
+
+                        <div className="space-y-4">
+                          {/* General Trend Insights */}
+                          {summary.insights && (
+                            <div className="space-y-2">
+                              {(Array.isArray(summary.insights) ? summary.insights : [summary.insights]).map((insight, i) => (
+                                <div key={`trend-${i}`} className="bg-white/60 p-3 rounded-xl text-sm text-violet-800 font-medium border border-violet-100">
+                                  {typeof insight === 'string' ? insight : "Your health trends are stabilizing."}
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
+
+                          {/* RAG Contextual Advice */}
+                          {summary.latest_severity?.rag_insights?.contextual_advice && Array.isArray(summary.latest_severity.rag_insights.contextual_advice) && (
+                            <div className="mt-4 pt-4 border-t border-violet-200/50">
+                              <p className="text-xs font-bold text-violet-700 uppercase tracking-widest mb-3">Personalized Coping Strategies</p>
+                              <div className="grid gap-3">
+                                {summary.latest_severity.rag_insights.contextual_advice.map((advice, idx) => (
+                                  <div key={`rag-${idx}`} className="flex items-start gap-3">
+                                    <div className="w-5 h-5 rounded-full bg-violet-200 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                                      {idx + 1}
+                                    </div>
+                                    <p className="text-sm text-violet-800 leading-relaxed">{advice}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -325,7 +348,7 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                         <TrendingUp className="w-5 h-5 text-emerald-600" /> Treatment Goals
                       </h3>
                       <div className="space-y-4">
-                        {(plan.goals || []).map((goal, idx) => (
+                        {Array.isArray(plan.goals) && plan.goals.map((goal, idx) => (
                           <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-emerald-100 transition group">
                             <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-emerald-500 group-hover:text-white transition">
                               <CheckCircle className="w-4 h-4" />
@@ -367,7 +390,7 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                           <Heart className="w-5 h-5 text-rose-500" /> Expert Recommendations
                         </h3>
                         <ul className="space-y-4">
-                          {(plan.recommendations || []).map((rec, idx) => (
+                          {Array.isArray(plan.recommendations) && plan.recommendations.map((rec, idx) => (
                             <li key={idx} className="flex gap-4">
                               <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-2 shrink-0"></div>
                               <span className="text-sm text-gray-600 leading-relaxed font-medium">{rec}</span>
@@ -382,7 +405,7 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                           <Zap className="w-5 h-5 text-amber-500" /> Lifestyle Adjustments
                         </h3>
                         <div className="space-y-3">
-                          {(plan.lifestyle_changes || []).map((change, idx) => (
+                          {Array.isArray(plan.lifestyle_changes) && plan.lifestyle_changes.map((change, idx) => (
                             <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100 text-amber-900">
                               <div className="w-2 h-2 rounded-full bg-amber-500"></div>
                               <span className="text-sm font-bold truncate">{change}</span>

@@ -86,7 +86,8 @@ async def get_medical_summary(
             "latest_severity": {
                 "score": latest_severity.get("raw_score") if latest_severity else None,
                 "level": latest_severity.get("severity_level") if latest_severity else None,
-                "assessed_at": latest_severity.get("created_at") if latest_severity else None
+                "assessed_at": latest_severity.get("created_at") if latest_severity else None,
+                "rag_insights": latest_severity.get("rag_insights") if latest_severity else None
             } if latest_severity else None,
             "recent_moods": recent_moods,
             "recent_symptoms": recent_symptoms,

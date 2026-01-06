@@ -121,54 +121,8 @@ async def get_my_treatment_plan(
         sort=[("created_at", -1)]
     )
     
-    # [DEV-FIX]: If no plan exists, auto-seed one for the user so they can view the page features.
     if not plan:
-        # Create a default "Anxiety & Stress Management" plan
-        default_plan = {
-            "user_id": user_id,
-            "doctor_id": "4", # Assuming '4' is a valid doctor or at least a placeholder
-            "plan_title": "Anxiety & Stress Management",
-            "plan_details": "A comprehensive cognitive behavioral therapy (CBT) approach focused on identifying triggers, managing stress responses, and building long-term resilience. \n\nWe will focus on weekly sessions combined with daily mindfulness exercises.",
-            "goals": [
-                "Reduce daily anxiety episodes by 40%",
-                "Improve sleep quality (7+ hours/night)",
-                "Practice mindfulness for 10 mins daily",
-                "Complete weekly CBT journals"
-            ],
-            "recommendations": [
-                "Daily 10-minute meditation (Morning)",
-                "Limit caffeine intake after 2 PM",
-                "Maintain a consistent sleep schedule",
-                "Engage in 30 mins of physical activity 3x/week"
-            ],
-            "therapy_frequency": "Weekly",
-            "duration_weeks": 12,
-            "lifestyle_changes": [
-                "Reduced screen time before bed",
-                "Morning walks",
-                "Social connection events"
-            ],
-            "medication_notes": "SSRI (Sertraline 50mg) - Take daily with breakfast. Monitor for mild nausea in first week.",
-            "severity_level": "moderate",
-            "start_date": datetime.utcnow() - timedelta(weeks=2), # Started 2 weeks ago
-            "end_date": datetime.utcnow() + timedelta(weeks=10),
-            "status": "active",
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }
-        
-        # Encrypt
-        encrypted_plan = encryption.encrypt_dict(
-            default_plan,
-            ENCRYPTED_FIELDS.get("treatment_plans", [])
-        )
-        
-        # Insert
-        result = await db.treatment_plans.insert_one(encrypted_plan)
-        plan = await db.treatment_plans.find_one({"_id": result.inserted_id})
-        
-        logger.info(f"Auto-seeded treatment plan for user {user_id}")
-
+        raise HTTPException(status_code=404, detail="No active treatment plan found")
     
     # Decrypt plan
     plan["_id"] = str(plan["_id"])

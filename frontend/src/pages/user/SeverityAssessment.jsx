@@ -25,26 +25,58 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
     fetchHistory();
   }, []);
 
+  // Fallback questions (PHQ-9) in case API fails
+  const FALLBACK_QUESTIONS = [
+    { id: 1, question: "Little interest or pleasure in doing things?" },
+    { id: 2, question: "Feeling down, depressed, or hopeless?" },
+    { id: 3, question: "Trouble falling or staying asleep, or sleeping too much?" },
+    { id: 4, question: "Feeling tired or having little energy?" },
+    { id: 5, question: "Poor appetite or overeating?" },
+    { id: 6, question: "Feeling bad about yourself or that you are a failure?" },
+    { id: 7, question: "Trouble concentrating on things?" },
+    { id: 8, question: "Moving or speaking slowly, or being fidgety?" },
+    { id: 9, question: "Thoughts that you would be better off dead?" },
+    { id: 10, question: "How difficult have these problems made it to function?" }
+  ];
+
   const fetchQuestions = async () => {
     try {
+      console.log('Fetching questions from:', `${MEDICAL_API}/questionnaire/questions`);
       const response = await apiCall(`${MEDICAL_API}/questionnaire/questions`, {
         method: 'GET'
       });
 
+      console.log('Questions response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
-        setQuestions(data.questionnaire);
-
-        // Initialize answers
-        const initialAnswers = {};
-        data.questionnaire.forEach(q => {
-          initialAnswers[q.id] = 0;
-        });
-        setAnswers(initialAnswers);
+        console.log('Questions data:', data);
+        if (data.questionnaire && Array.isArray(data.questionnaire) && data.questionnaire.length > 0) {
+          setQuestions(data.questionnaire);
+          initializeAnswers(data.questionnaire);
+        } else {
+          console.warn('Invalid/Empty questionnaire data, using fallback');
+          setQuestions(FALLBACK_QUESTIONS);
+          initializeAnswers(FALLBACK_QUESTIONS);
+        }
+      } else {
+        console.error('Failed to fetch questions. Status:', response.status);
+        setQuestions(FALLBACK_QUESTIONS);
+        initializeAnswers(FALLBACK_QUESTIONS);
       }
     } catch (err) {
       console.error('Failed to fetch questions:', err);
+      setQuestions(FALLBACK_QUESTIONS);
+      initializeAnswers(FALLBACK_QUESTIONS);
     }
+  };
+
+  const initializeAnswers = (qs) => {
+    const initialAnswers = {};
+    qs.forEach(q => {
+      initialAnswers[q.id] = 0;
+    });
+    setAnswers(initialAnswers);
   };
 
   const fetchHistory = async () => {
