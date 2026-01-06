@@ -100,7 +100,7 @@ const RealTimeChat = ({
         try {
           const data = JSON.parse(event.data);
 
-          if (data.type === 'heartbeat') return;
+          if (data.type === 'heartbeat' || ['offer', 'answer', 'candidate'].includes(data.type)) return;
 
           const messageId = data.message_id || data.client_message_id;
           if (messageId && messageIdsRef.current.has(messageId)) return;
@@ -166,7 +166,7 @@ const RealTimeChat = ({
           content: msg.message,
           timestamp: msg.timestamp,
           type: msg.message_type || 'text'
-        }));
+        })).filter(msg => !['offer', 'answer', 'candidate'].includes(msg.type));
 
         formattedMessages.forEach(msg => {
           if (msg.id) messageIdsRef.current.add(msg.id);

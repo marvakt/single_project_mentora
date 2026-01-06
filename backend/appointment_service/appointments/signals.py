@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 # ==================== CUSTOM SIGNALS ====================
 
-# Custom signal for appointment status changes
+
 appointment_status_changed = Signal()
 
-# Custom signal for payment completion
+
 payment_completed = Signal()
 
 # Custom signal for video session started

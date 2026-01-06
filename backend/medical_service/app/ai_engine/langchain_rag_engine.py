@@ -156,7 +156,7 @@ class LangChainRAGEngine:
                 # This bypasses all API permission issues by running the model inside the container
                 from langchain_huggingface import HuggingFacePipeline
                 
-                model_id = "gpt2"  # Small, fast, works on CPU
+                model_id = "gpt2"  
                 
                 self.llm = HuggingFacePipeline.from_model_id(
                     model_id=model_id,

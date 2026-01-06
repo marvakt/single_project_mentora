@@ -138,9 +138,6 @@ const PaymentProcessing = ({
       amount: parseFloat(orderData.amount) * 100,
       currency: orderData.currency,
       name: 'Mentora',
-      amount: parseFloat(orderData.amount) * 100,
-      currency: orderData.currency,
-      name: 'Mentora',
       description: 'Mental Health Consultation',
       order_id: orderData.razorpay_order_id,
       handler: function (response) {
