@@ -106,14 +106,14 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
         console.error('Invalid date format:', appointmentDate);
         return;
       }
-      
+
       // Validate that the date is reasonable with more robust checks
       const date = new Date(appointmentDate);
       if (isNaN(date.getTime()) || date.getFullYear() < 2024 || date.getFullYear() > 2030 || date.getFullYear().toString().length !== 4) {
         console.error('Invalid date value:', appointmentDate);
         return;
       }
-      
+
       // Additional check: ensure the date string actually represents the expected date
       const [year, month, day] = appointmentDate.split('-').map(Number);
       if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
@@ -139,7 +139,9 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
           setUserSeverity(data.assessment);
           // Only fetch suggested doctors if no specific doctor is selected
           if (!targetDoctorId) {
-            fetchSuggestedDoctors(data.assessment.severity_level);
+            // Use raw_score if available, otherwise default to a moderate score (10)
+            const score = data.assessment.raw_score !== undefined ? data.assessment.raw_score : 10;
+            fetchSuggestedDoctors(score);
           }
         }
       }
@@ -148,36 +150,30 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
     }
   };
 
-  const fetchSuggestedDoctors = async (severityLevel) => {
+  const fetchSuggestedDoctors = async (score) => {
     try {
-      const response = await apiCall(`${USER_API}/doctors/`);
+      // Ensure score is a valid integer between 0-27 (PHQ-9 range) or default to 5
+      const severityScore = score !== null && score !== undefined ? Math.min(Math.max(Math.floor(score), 0), 27) : 5;
+
+      const response = await apiCall(`${USER_API}/doctors/suggest/`, {
+        method: 'POST',
+        body: JSON.stringify({ severity_score: severityScore })
+      });
+
       if (response.ok) {
-        const allDoctors = await response.json();
-        const approved = allDoctors.filter(d => d.doctor_status === 'approved');
-
-        let filtered = approved;
-        if (severityLevel === 'severe' || severityLevel === 'moderately_severe') {
-          filtered = approved.filter(d =>
-            d.specialization?.toLowerCase().includes('psychiatrist') ||
-            d.specialization?.toLowerCase().includes('psychiatric')
-          );
-        } else if (severityLevel === 'moderate') {
-          filtered = approved.filter(d =>
-            d.specialization?.toLowerCase().includes('psychologist') ||
-            d.specialization?.toLowerCase().includes('psychology')
-          );
+        const data = await response.json();
+        if (data.suggested_doctors && data.suggested_doctors.length > 0) {
+          // Sort by rating as a secondary measure (backend might already sort)
+          const sorted = data.suggested_doctors.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+          setSuggestedDoctors(sorted);
         } else {
-          filtered = approved.filter(d =>
-            d.specialization?.toLowerCase().includes('counselor') ||
-            d.specialization?.toLowerCase().includes('therapist')
-          );
+          // Fallback if no specific suggestions returned
+          setSuggestedDoctors([]);
         }
-
-        if (filtered.length === 0) filtered = approved;
-        setSuggestedDoctors(filtered.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0)));
       }
     } catch (err) {
       console.error('Failed to fetch suggested doctors:', err);
+      setSuggestedDoctors([]);
     }
   };
 
@@ -256,7 +252,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
       console.warn('Invalid date selected:', dateString);
       return [];
     }
-    
+
     // Additional check: ensure the date string actually represents the expected date
     const [year, month, day] = dateString.split('-').map(Number);
     if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
@@ -325,7 +321,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
         setLoading(false);
         return;
       }
-      
+
       // Validate the time format
       const timeRegex = /^\d{2}:\d{2}$/;
       if (!timeRegex.test(appointmentTime)) {
@@ -333,29 +329,29 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
         setLoading(false);
         return;
       }
-      
+
       // Create a Date object from the selected date and time
       // Ensure we handle the date properly to avoid invalid dates
       const [year, month, day] = appointmentDate.split('-').map(Number);
       const [hours, minutes] = appointmentTime.split(':').map(Number);
-      
+
       // Create date in local time (not UTC) to avoid timezone issues
       const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
-      
+
       // Validate the created date is valid
       if (isNaN(appointmentDateTime.getTime())) {
         alert('Invalid date or time selected. Please try again.');
         setLoading(false);
         return;
       }
-      
+
       // Check if the year is reasonable (not in the past like 0020)
       if (appointmentDateTime.getFullYear() < 2024 || appointmentDateTime.getFullYear() > 2030) {
         alert('Invalid date selected. Please select a valid date.');
         setLoading(false);
         return;
       }
-      
+
       // Additional validation: ensure the appointment is in the future
       const now = new Date();
       if (appointmentDateTime <= now) {
@@ -363,7 +359,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
         setLoading(false);
         return;
       }
-      
+
       // Use toISOString() to convert to ISO format
       const scheduledAt = appointmentDateTime.toISOString();
       const response = await apiCall(`${APPOINTMENT_API}/appointments/`, {
@@ -662,7 +658,7 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
                         if (selectedDate) {
                           const date = new Date(selectedDate);
                           const [year] = selectedDate.split('-').map(Number);
-                                            
+
                           // Check if the date is valid and year is reasonable
                           if (!isNaN(date.getTime()) && year >= 2024 && year <= 2030 && year.toString().length === 4) {
                             setAppointmentDate(selectedDate);

@@ -287,13 +287,11 @@ def calculate_severity_level(severity_score):
     Returns:
         str: Severity level (LOW, MODERATE, HIGH, CRITICAL)
     """
-    if severity_score <= 3:
+    if severity_score <= 9:  # Minimal (0-4) + Mild (5-9)
         return 'LOW'
-    elif severity_score <= 6:
+    elif severity_score <= 19:  # Moderate (10-14) + Moderately Severe (15-19)
         return 'MODERATE'
-    elif severity_score <= 8:
-        return 'HIGH'
-    else:
+    else:  # Severe (20-27)
         return 'CRITICAL'
 
 
@@ -314,8 +312,7 @@ def get_doctors_by_severity(severity_level):
     if severity_level == 'LOW':
         doctors = base_query.filter(
             Q(specialization__icontains="counselor") | 
-            Q(specialization__icontains="therapist") |
-            Q(specialization__icontains="psychologist")
+            Q(specialization__icontains="therapist")
         )
     elif severity_level == 'MODERATE':
         doctors = base_query.filter(

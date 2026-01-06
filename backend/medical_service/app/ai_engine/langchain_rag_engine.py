@@ -152,23 +152,22 @@ class LangChainRAGEngine:
                 if not HUGGINGFACE_AVAILABLE:
                     raise ImportError("HuggingFace integration not available")
                 
-                if not settings.HUGGINGFACE_API_KEY:
-                    logger.warning("HUGGINGFACE_API_KEY not configured, using local models only")
-                    # Fall back to local models only instead of raising error
-                    self.llm = None
-                    return  # Skip LLM initialization when API key is missing
+                # Switch to LOCAL INFERENCE using HuggingFacePipeline
+                # This bypasses all API permission issues by running the model inside the container
+                from langchain_huggingface import HuggingFacePipeline
                 
-                # Switch to GPT-2 - the most basic, universally available model (fallback)
-                model_id = "gpt2"
+                model_id = "gpt2"  # Small, fast, works on CPU
                 
-                self.llm = HuggingFaceEndpoint(
-                    # Use standard repo_id for GPT-2 as it usually works with default inference API
-                    repo_id=model_id,
-                    huggingfacehub_api_token=settings.HUGGINGFACE_API_KEY,
-                    temperature=0.7,
-                    max_new_tokens=250
+                self.llm = HuggingFacePipeline.from_model_id(
+                    model_id=model_id,
+                    task="text-generation",
+                    pipeline_kwargs={
+                        "max_new_tokens": 250,
+                        "temperature": 0.7,
+                        "do_sample": True
+                    }
                 )
-                logger.info(f"Initialized HuggingFace LLM: {model_id}")
+                logger.info(f"Initialized Local HuggingFace Pipeline: {model_id}")
             
             else:
                 raise ValueError(f"Unsupported LLM provider: {provider}")
