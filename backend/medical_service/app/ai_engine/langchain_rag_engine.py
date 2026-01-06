@@ -153,21 +153,46 @@ class LangChainRAGEngine:
                     raise ImportError("HuggingFace integration not available")
                 
                 # Switch to LOCAL INFERENCE using HuggingFacePipeline
-                # This bypasses all API permission issues by running the model inside the container
                 from langchain_huggingface import HuggingFacePipeline
                 
-                model_id = "gpt2"  
+                # FORCE a reliable model unless user explicitly wants GPT-2 (per current request)
+                # We default to flan-t5-base because it's much better at instructions.
+                target_model = settings.LLM_MODEL
+                
+                # SAFETY OVERRIDE:
+                # If configured model is a heavy 7B model (Mistral, Llama, etc), force fallback 
+                # to a lightweight model (Flan-T5) to prevent container crash/timeout.
+                is_heavy_model = any(heavy in target_model.lower() for heavy in ["mistral", "llama", "7b"])
+                
+                if is_heavy_model:
+                     logger.warning(f"⚠️ Model '{target_model}' is too heavy for local CPU inference. Auto-switching to 'google/flan-t5-base'.")
+                     target_model = "google/flan-t5-base"
+                
+                # Determine task
+                task = "text-generation"
+                if "t5" in target_model.lower() or "bart" in target_model.lower():
+                    task = "text2text-generation"
+                
+                logger.info(f"Initializing Local HuggingFace Pipeline: {target_model} (Task: {task})")
+                
+                # Optimized parameters based on model type
+                pipeline_kwargs = {
+                    "max_new_tokens": 512,
+                    "temperature": 0.3,
+                    "do_sample": True,
+                    "repetition_penalty": 1.2
+                }
+                
+                # specific tweaks for GPT-2 to reduce garbage
+                if "gpt2" in target_model.lower():
+                     pipeline_kwargs["temperature"] = 0.7 # GPT-2 needs more randomness to not loop
+                     pipeline_kwargs["repetition_penalty"] = 1.3 # Higher penalty
                 
                 self.llm = HuggingFacePipeline.from_model_id(
-                    model_id=model_id,
-                    task="text-generation",
-                    pipeline_kwargs={
-                        "max_new_tokens": 250,
-                        "temperature": 0.7,
-                        "do_sample": True
-                    }
+                    model_id=target_model,
+                    task=task,
+                    pipeline_kwargs=pipeline_kwargs
                 )
-                logger.info(f"Initialized Local HuggingFace Pipeline: {model_id}")
             
             else:
                 raise ValueError(f"Unsupported LLM provider: {provider}")
@@ -178,17 +203,19 @@ class LangChainRAGEngine:
     
     def _create_chain(self):
         """Create simple RAG chain using LCEL"""
-        # Simplified prompt that DOES NOT require JSON (which confuses smaller models)
+        # Very explicit prompt for T5 to avoid hallucinations/repetition
         template = """You are a helpful mental health assistant.
         
         Context: {context}
         User Query: {question}
         
-        Provide a helpful response with two parts:
-        1. ANALYSIS: A brief, comforting summary of the situation (2-3 sentences).
-        2. ADVICE: List 3-5 specific, actionable coping strategies as bullet points (start each with -).
+        Provide a helpful response with exactly two parts:
         
-        Keep the tone supportive and professional.
+        ANALYSIS: 
+        Write 2-3 supportive sentences summarizing the situation and what it means.
+        
+        ADVICE:
+        List 3 distinct, specific coping strategies the person can try. Each should be actionable and different. Do NOT use generic headers like "Discussion" or "Recommendation". Do NOT repeat yourself.
         """
         prompt = PromptTemplate.from_template(template)
             
@@ -237,12 +264,12 @@ class LangChainRAGEngine:
             
             # Simple, direct query for the model
             query = f"""
-            The user has reported the following symptoms (Severity: {srts_result['severity_level']}):
-            {', '.join(symptom_descriptions)}
+            User symptoms: {', '.join(symptom_descriptions)}
+            Severity: {srts_result['severity_level']}
             
-            Based on the provided mental health context, provide:
-            1. A supportive analysis of what this means.
-            2. 3-4 specific coping strategies they can try immediately.
+            Task:
+            1. Write a short supportive analysis.
+            2. List 3 specific coping strategies.
             """
             
             response_text = self.chain.invoke(query)
@@ -294,7 +321,8 @@ class LangChainRAGEngine:
                     # Look for bullet points
                     if line.startswith('-') or line.startswith('*') or line[0].isdigit():
                         clean_line = line.lstrip('-*1234567890. ').strip()
-                        if clean_line:
+                        # Filtering generic headers often hallucinated by T5
+                        if clean_line and "Discussion of" not in clean_line and "Recommendation for" not in clean_line and "Suggestion for" not in clean_line:
                             advice.append(clean_line)
                 else:
                     # Accumulate insights text
@@ -303,8 +331,25 @@ class LangChainRAGEngine:
             # Fallback if no specific advice parsing happened
             if not advice:
                 # Just take the last few lines? No, better safe defaults.
-                advice = ["Practice deep breathing", "Maintain a routine", "Reach out to a friend"]
+                advice = ["Practice mindfulness meditation", "Maintain a regular sleep schedule", "Engage in gentle physical activity"]
+            
+            # Repetition/Hallucination Check
+            if len(advice) > 0:
+                # Check for high repetition (e.g. same item repeated multiple times or items being subsets of each other)
+                unique_advice = set(advice)
+                if len(unique_advice) < len(advice) * 0.7:  # Stricter: 70% must be unique
+                    logger.warning(f"Detected repetitive output from LLM: {advice[:3]}...")
+                    raise ValueError("Repetitive output detected")
                 
+                # Check for garbage (e.g. very short items or numbers only)
+                valid_items = [idx for idx in advice if len(idx) > 10 and not idx.isdigit()]
+                if not valid_items:
+                     logger.warning("Detected low-quality output from LLM (too short/meaningless)")
+                     raise ValueError("Low quality output detected")
+                
+                # Limit to 4 items max to prevent overflow
+                advice = advice[:4]
+                     
             if len(insights) < 10:
                 insights = "Based on your symptoms, professional support can be very beneficial."
 

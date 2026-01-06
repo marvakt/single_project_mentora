@@ -194,12 +194,19 @@ async def submit_questionnaire(
                     return None
             
             # Run RAG enhancement in thread pool to not block the main request
+            # Add strict timeout (20s) to prevent request hanging if model is slow
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
-                rag_insights = await loop.run_in_executor(executor, enhance_with_rag)
-                
-            if rag_insights:
-                logger.info(f"RAG insights generated for questionnaire submission")
+                try:
+                    rag_insights = await asyncio.wait_for(
+                        loop.run_in_executor(executor, enhance_with_rag),
+                        timeout=20.0
+                    )
+                    if rag_insights:
+                        logger.info(f"RAG insights generated for questionnaire submission")
+                except asyncio.TimeoutError:
+                    logger.error("RAG enhancement timed out after 20s - proceeding with fallback")
+                    rag_insights = None
             
         except Exception as e:
             logger.warning(f"RAG enhancement failed, continuing with SRTS only: {e}")

@@ -7,11 +7,25 @@ import {
 import DoctorProfileModal from '../../components/DoctorProfileModal';
 import { MEDICAL_API, USER_API, apiCall } from '../../config/api';
 
+const FALLBACK_QUESTIONS = [
+  { id: 1, question: "Little interest or pleasure in doing things?" },
+  { id: 2, question: "Feeling down, depressed, or hopeless?" },
+  { id: 3, question: "Trouble falling or staying asleep, or sleeping too much?" },
+  { id: 4, question: "Feeling tired or having little energy?" },
+  { id: 5, question: "Poor appetite or overeating?" },
+  { id: 6, question: "Feeling bad about yourself or that you are a failure?" },
+  { id: 7, question: "Trouble concentrating on things?" },
+  { id: 8, question: "Moving or speaking slowly, or being fidgety?" },
+  { id: 9, question: "Thoughts that you would be better off dead?" },
+  { id: 10, question: "How difficult have these problems made it to function?" }
+];
+
 const SeverityAssessment = ({ user, token, setCurrentView }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
-  const [questions, setQuestions] = useState([]);
+  // Initialize with fallback for instant render
+  const [questions, setQuestions] = useState(FALLBACK_QUESTIONS);
   const [answers, setAnswers] = useState({});
   const [notes, setNotes] = useState('');
   const [doctors, setDoctors] = useState([]);
@@ -19,25 +33,12 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
 
-  // Fetch questionnaire questions from backend
+  // Fetch questionnaire questions from backend (background update)
   useEffect(() => {
     fetchQuestions();
     fetchHistory();
+    initializeAnswers(FALLBACK_QUESTIONS); // Initialize answers immediately
   }, []);
-
-  // Fallback questions (PHQ-9) in case API fails
-  const FALLBACK_QUESTIONS = [
-    { id: 1, question: "Little interest or pleasure in doing things?" },
-    { id: 2, question: "Feeling down, depressed, or hopeless?" },
-    { id: 3, question: "Trouble falling or staying asleep, or sleeping too much?" },
-    { id: 4, question: "Feeling tired or having little energy?" },
-    { id: 5, question: "Poor appetite or overeating?" },
-    { id: 6, question: "Feeling bad about yourself or that you are a failure?" },
-    { id: 7, question: "Trouble concentrating on things?" },
-    { id: 8, question: "Moving or speaking slowly, or being fidgety?" },
-    { id: 9, question: "Thoughts that you would be better off dead?" },
-    { id: 10, question: "How difficult have these problems made it to function?" }
-  ];
 
   const fetchQuestions = async () => {
     try {
@@ -46,28 +47,17 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
         method: 'GET'
       });
 
-      console.log('Questions response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('Questions data:', data);
-        if (data.questionnaire && Array.isArray(data.questionnaire) && data.questionnaire.length > 0) {
+        if (data && data.questionnaire && Array.isArray(data.questionnaire) && data.questionnaire.length > 0) {
           setQuestions(data.questionnaire);
-          initializeAnswers(data.questionnaire);
-        } else {
-          console.warn('Invalid/Empty questionnaire data, using fallback');
-          setQuestions(FALLBACK_QUESTIONS);
-          initializeAnswers(FALLBACK_QUESTIONS);
+          // Preserve existing answers if re-initializing? 
+          // For now, simpler to just start fresh or strictly trust fallback match
+          // initializeAnswers(data.questionnaire); // Optional: re-sync if IDs change
         }
-      } else {
-        console.error('Failed to fetch questions. Status:', response.status);
-        setQuestions(FALLBACK_QUESTIONS);
-        initializeAnswers(FALLBACK_QUESTIONS);
       }
     } catch (err) {
-      console.error('Failed to fetch questions:', err);
-      setQuestions(FALLBACK_QUESTIONS);
-      initializeAnswers(FALLBACK_QUESTIONS);
+      console.error('Background fetch failed, keeping fallback:', err);
     }
   };
 
@@ -129,6 +119,8 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Assessment response:', data);
+        console.log('Suggested doctors:', data.suggested_doctors);
         setResult(data);
 
         if (data.suggested_doctors && data.suggested_doctors.length > 0) {
@@ -136,7 +128,9 @@ const SeverityAssessment = ({ user, token, setCurrentView }) => {
             (b.average_rating || 0) - (a.average_rating || 0)
           );
           setDoctors(sortedDoctors);
+          console.log('Doctors set to state:', sortedDoctors);
         } else {
+          console.warn('No suggested doctors in response');
           setDoctors([]);
         }
 

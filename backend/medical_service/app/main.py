@@ -33,6 +33,17 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Medical Service...")
     await connect_db()
     logger.info("✅ Database connected")
+
+    # Initialize AI Engine in background to avoid blocking critical startup
+    # This prepares the model so the first user request is fast
+    import asyncio
+    try:
+        from app.ai_engine.langchain_rag_engine import get_langchain_rag_engine
+        logger.info("🧠 Scheduling RAG Engine initialization in background...")
+        # Run in background so it doesn't block the server form starting
+        asyncio.create_task(asyncio.to_thread(get_langchain_rag_engine))
+    except Exception as e:
+        logger.warning(f"⚠️ RAG Engine init scheduling failed: {e}")
     
     yield
     

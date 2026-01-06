@@ -670,7 +670,7 @@ def get_available_slots_for_date(doctor_id, date: datetime.date) -> List[str]:
         new_hour = total_minutes // 60
         new_minute = total_minutes % 60
         
-        if new_hour > end_hour or (new_hour == end_hour and new_minute > end_minute):
+        if new_hour > end_hour or (new_hour == end_hour and new_minute >= end_minute):
             break
         
         current_time = datetime.time(new_hour, new_minute)

@@ -464,10 +464,13 @@ services:
       MONGO_DB: mentora_medical
       JWT_SECRET: mentora-jwt-secret-2025-change-this
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      # Service-to-Service Auth
+      INTERNAL_SERVICE_TOKEN: dev-internal
+      USER_SERVICE_URL: http://user-service:8001
       # RAG Configuration
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-huggingface}
-      LLM_MODEL: ${LLM_MODEL:-mistralai/Mistral-7B-Instruct-v0.2}
+      LLM_MODEL: ${LLM_MODEL:-gpt2}
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.3}
 
     depends_on:
