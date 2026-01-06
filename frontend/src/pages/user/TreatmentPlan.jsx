@@ -14,12 +14,26 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
   const [doctorProfile, setDoctorProfile] = useState(null); // Store full profile
   const [showDoctorModal, setShowDoctorModal] = useState(false);
   const [nextAppointment, setNextAppointment] = useState(null);
+  const [latestAssessment, setLatestAssessment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchTreatmentPlan();
+    fetchLatestAssessment();
   }, []);
+
+  const fetchLatestAssessment = async () => {
+    try {
+      const response = await apiCall(`${MEDICAL_API}/questionnaire/latest`);
+      if (response.ok) {
+        const data = await response.json();
+        setLatestAssessment(data.assessment);
+      }
+    } catch (err) {
+      console.error('Failed to fetch assessment:', err);
+    }
+  };
 
   const fetchTreatmentPlan = async () => {
     setLoading(true);
@@ -204,12 +218,18 @@ const TreatmentPlan = ({ user, token, setCurrentView }) => {
                     Your treatment plan is a collaborative roadmap created with your specialist. Get started by assessing your status or booking a consultation.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button
-                      onClick={() => setCurrentView('severity-assessment')}
-                      className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-teal-500/20 hover:scale-[1.02] transition"
-                    >
-                      Start Assessment
-                    </button>
+                    {!latestAssessment ? (
+                      <button
+                        onClick={() => setCurrentView('severity-assessment')}
+                        className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-teal-500/20 hover:scale-[1.02] transition"
+                      >
+                        Start Assessment
+                      </button>
+                    ) : (
+                      <div className="bg-emerald-50 text-emerald-800 px-8 py-4 rounded-2xl font-bold border border-emerald-100 flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5" /> Assessment Completed
+                      </div>
+                    )}
                     <button
                       onClick={() => setCurrentView('book-appointment')}
                       className="bg-white text-gray-900 border border-gray-200 px-8 py-4 rounded-2xl font-bold hover:bg-gray-50 transition"

@@ -121,8 +121,82 @@ async def get_my_treatment_plan(
         sort=[("created_at", -1)]
     )
     
+    # If no active plan, find the latest plan regardless of status
     if not plan:
-        raise HTTPException(status_code=404, detail="No active treatment plan found")
+        plan = await db.treatment_plans.find_one(
+            {"user_id": user_id},
+            sort=[("created_at", -1)]
+        )
+
+    # AUTO-GENERATE AI PLAN if nothing exists
+    if not plan:
+        latest_assessment = await db.severity_logs.find_one(
+            {"user_id": user_id},
+            sort=[("created_at", -1)]
+        )
+        
+        if latest_assessment:
+            # Import here to avoid circular dependencies if any
+            from app.ai_engine.langchain_rag_engine import get_langchain_rag_engine
+            rag_engine = get_langchain_rag_engine()
+            
+            # Generate AI insights
+            # We map 0-27 score to a rough PHQ-9 map for the engine if needed, or just warn
+            # The engine expects a dict of responses, but we might just have `severity_level` etc.
+            # We will try to pass minimal context.
+            
+            # Construct a synthetic 'responses' derived from severity if actual answers missing
+            # or just rely on 'severity_level' in the prompt inside `enhance_questionnaire_results`
+            
+            # Since `enhance_questionnaire_results` expects `responses` dictionary, we'll try to find it
+            # In `severity_logs`, we usually store `responses`.
+            responses = latest_assessment.get("responses", {})
+            srts_result = {
+                "severity_level": latest_assessment.get("severity_level", "moderate"),
+                "total_score": latest_assessment.get("total_score", 10)
+            }
+            
+            ai_insights = rag_engine.enhance_questionnaire_results(responses, srts_result)
+            
+            # Create a "Suggested" Plan structure
+            generated_plan = {
+                "user_id": user_id,
+                "plan_title": f"AI-Recommended {latest_assessment.get('severity_level', 'Wellness').replace('_', ' ').title()} Plan",
+                "doctor_name": "Mentora AI (Draft)",
+                "plan_details": ai_insights.get("insights", "Based on your recent assessment, we have outlined a preliminary care path."),
+                "goals": [
+                    "Complete daily mood check-ins",
+                    "Practice recommended coping strategies",
+                    "Schedule consultation with specialist"
+                ],
+                "recommendations": ai_insights.get("contextual_advice", ["Maintain a consistent sleep schedule", "Practice mindfulness"]),
+                "therapy_frequency": "Recommended Weekly",
+                "duration_weeks": 4, # Default starting point
+                "lifestyle_changes": [
+                    "Daily 15-min walk",
+                    "Sleep hygiene improvement",
+                    "Reduced caffeine intake"
+                ],
+                "medication_notes": "To be discussed with a psychiatrist if needed.",
+                "start_date": datetime.utcnow(),
+                "end_date": datetime.utcnow() + timedelta(weeks=4),
+                "status": "suggested" # Special status to indicate it's not official yet
+            }
+            
+            # Return this generated plan directly (without saving to DB to avoid pollution, or save as 'draft'?)
+            # Let's return it as if it were a decrypted plan
+            
+            return {
+                "treatment_plan": generated_plan,
+                "progress": {
+                    "percentage": 0,
+                    "weeks_elapsed": 0,
+                    "weeks_remaining": 4
+                }
+            }
+    
+    if not plan:
+        raise HTTPException(status_code=404, detail="No treatment plan found")
     
     # Decrypt plan
     plan["_id"] = str(plan["_id"])
@@ -141,7 +215,11 @@ async def get_my_treatment_plan(
     else:
         total_duration = (end_date - start_date).total_seconds()
         elapsed = (now - start_date).total_seconds()
-        progress_percentage = min(100, int((elapsed / total_duration) * 100))
+        
+        if total_duration <= 0:
+             progress_percentage = 0
+        else:
+             progress_percentage = min(100, int((elapsed / total_duration) * 100))
     
     return {
         "treatment_plan": decrypted_plan,

@@ -621,9 +621,52 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
                   </div>
                 ) : (
                   <div className="grid md:grid-cols-2 gap-4">
-                    {(!showAllDoctors && suggestedDoctors.length > 0 ? suggestedDoctors : doctors).map(doc => (
-                      <DoctorCard key={doc.user_id} doctor={doc} isSuggested={!showAllDoctors && suggestedDoctors.some(sd => sd.user_id === doc.user_id)} />
-                    ))}
+                    {(() => {
+                      const getDisplayedDoctors = () => {
+                        if (showAllDoctors) return doctors;
+
+                        // Priority 1: Backend Suggestions (Matches User Dashboard)
+                        if (suggestedDoctors.length > 0) return suggestedDoctors;
+
+                        // Priority 2: Client-side filtering based on recommendation type (Fallback)
+                        if (userSeverity?.specialist_type) {
+                          const recommendedType = userSeverity.specialist_type.toLowerCase();
+                          const matchingDoctors = doctors.filter(doc => {
+                            const spec = doc.specialization?.toLowerCase() || '';
+                            return spec.includes(recommendedType) ||
+                              (recommendedType === 'psychiatrist' && spec.includes('psychiatry')) ||
+                              (recommendedType === 'counselor' && spec.includes('psychologist'));
+                          });
+
+                          if (matchingDoctors.length > 0) return matchingDoctors;
+                        }
+
+                        // STRICT BEHAVIOR: If in "Recommended" mode and no matches found, 
+                        // return empty array instead of showing all doctors.
+                        return [];
+                      };
+
+                      const displayedList = getDisplayedDoctors();
+
+                      if (displayedList.length === 0) {
+                        return (
+                          <div className="col-span-2 text-center py-12 bg-white rounded-3xl border border-gray-100 border-dashed">
+                            <p className="text-gray-400 font-medium">No specialists found matching the recommendation.</p>
+                            <button onClick={() => setShowAllDoctors(true)} className="mt-2 text-teal-600 font-bold hover:underline text-sm">
+                              Browse all doctors
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return displayedList.map(doc => (
+                        <DoctorCard
+                          key={doc.user_id}
+                          doctor={doc}
+                          isSuggested={!showAllDoctors && userSeverity?.specialist_type && doc.specialization?.toLowerCase().includes(userSeverity.specialist_type.toLowerCase())}
+                        />
+                      ));
+                    })()}
                   </div>
                 )}
               </div>
