@@ -1,0 +1,163 @@
+WHO Mental Health Gap Action Programme (mhGAP) - Clinical Standards for Depression and Anxiety
+==================================================================================================
+
+SOURCE: World Health Organization (WHO) mhGAP Intervention Guide Version 2.0
+EXTERNAL AUTHORITY: This document is based on internationally recognized clinical guidelines.
+
+SECTION 1: DEPRESSION ASSESSMENT CRITERIA
+==========================================
+
+Mild Depression:
+- Symptoms present for at least 2 weeks
+- Depressed mood or loss of interest/pleasure
+- 2-4 additional symptoms from: sleep disturbance, fatigue, concentration problems, appetite changes
+- Minimal functional impairment
+- No psychotic features
+- RECOMMENDED ACTION: Psychoeducation, self-help strategies, brief psychological interventions
+
+Moderate Depression:
+- Symptoms present for at least 2 weeks
+- Depressed mood AND loss of interest/pleasure
+- 4-6 additional symptoms
+- Moderate functional impairment in work, social, or personal activities
+- No psychotic features
+- RECOMMENDED ACTION: Psychological treatment (CBT, IPT) or antidepressant medication
+- SPECIALIST: Mental health professional or trained primary care provider
+
+Severe Depression:
+- Symptoms present for at least 2 weeks
+- Severe depressed mood AND marked loss of interest
+- 6+ symptoms with significant intensity
+- Severe functional impairment or inability to function
+- May include psychotic features (hallucinations, delusions)
+- RECOMMENDED ACTION: Immediate psychiatric referral, combined medication and psychological treatment
+- SPECIALIST: Psychiatrist required
+
+SECTION 2: ANXIETY DISORDER ASSESSMENT
+=======================================
+
+Generalized Anxiety Disorder (GAD):
+- Excessive worry about multiple events/activities
+- Present for at least 6 months
+- Difficulty controlling worry
+- Associated with 3+ of: restlessness, fatigue, concentration problems, irritability, muscle tension, sleep disturbance
+- RECOMMENDED ACTION: Psychological interventions (CBT, relaxation techniques)
+- SPECIALIST: Counselor or psychologist for mild-moderate; psychiatrist for severe
+
+Panic Disorder:
+- Recurrent unexpected panic attacks
+- Persistent concern about additional attacks
+- Significant behavioral change related to attacks
+- RECOMMENDED ACTION: Psychoeducation about panic, breathing techniques, CBT
+- SPECIALIST: Mental health professional
+
+SECTION 3: CRISIS INDICATORS (IMMEDIATE REFERRAL REQUIRED)
+===========================================================
+
+RED FLAGS - Require Immediate Psychiatric Evaluation:
+- Active suicidal ideation with plan or intent
+- Psychotic symptoms (hallucinations, delusions)
+- Severe agitation or violent behavior
+- Severe self-neglect or inability to care for basic needs
+- Recent suicide attempt
+- Command hallucinations
+
+EMERGENCY PROTOCOL:
+- Do not leave person alone
+- Remove access to means of self-harm
+- Contact emergency services or crisis hotline
+- Arrange immediate psychiatric evaluation
+
+SECTION 4: EVIDENCE-BASED COPING STRATEGIES
+============================================
+
+First-Line Psychological Interventions:
+1. Behavioral Activation
+   - Schedule pleasant activities daily
+   - Gradually increase activity levels
+   - Monitor mood-activity relationship
+
+2. Cognitive Restructuring
+   - Identify negative automatic thoughts
+   - Challenge unhelpful thinking patterns
+   - Develop balanced alternative thoughts
+
+3. Problem-Solving Therapy
+   - Define specific problems
+   - Generate multiple solutions
+   - Implement and evaluate chosen solution
+
+4. Relaxation Techniques
+   - Progressive muscle relaxation
+   - Diaphragmatic breathing (4-7-8 technique)
+   - Mindfulness meditation (10-15 minutes daily)
+
+5. Sleep Hygiene
+   - Consistent sleep-wake schedule
+   - Avoid caffeine 6 hours before bed
+   - Create calm sleep environment
+   - Limit screen time before bed
+
+SECTION 5: SPECIALIST REFERRAL GUIDELINES
+==========================================
+
+When to Refer to Psychiatrist:
+- Severe depression or anxiety
+- Psychotic features present
+- Bipolar disorder suspected
+- Treatment-resistant cases (failed 2+ interventions)
+- Complex comorbidities
+- Medication management needed
+
+When to Refer to Psychologist/Counselor:
+- Mild to moderate depression or anxiety
+- Patient preference for psychological treatment
+- First-line treatment approach
+- Ongoing therapy and support needed
+
+When to Refer to Primary Care:
+- Physical health concerns contributing to mental health
+- Medication monitoring
+- Chronic disease management affecting mental health
+
+SECTION 6: TREATMENT PRINCIPLES
+================================
+
+Core Principles from WHO mhGAP:
+1. Respect human rights and dignity
+2. Provide evidence-based care
+3. Ensure continuity of care
+4. Involve family and caregivers when appropriate
+5. Monitor treatment response regularly
+6. Adjust treatment based on individual response
+7. Address social determinants of mental health
+
+Follow-up Schedule:
+- Severe cases: Weekly for first month
+- Moderate cases: Bi-weekly for first 2 months
+- Mild cases: Monthly check-ins
+- All cases: Re-assess at 4-6 weeks
+
+SECTION 7: PSYCHOEDUCATION ESSENTIALS
+======================================
+
+Key Messages for Patients:
+- Mental health conditions are common and treatable
+- Recovery is possible with appropriate support
+- Treatment works - both medication and therapy are effective
+- Self-care strategies complement professional treatment
+- Social support is important for recovery
+- Relapse prevention strategies can be learned
+
+Warning Signs of Deterioration:
+- Worsening symptoms despite treatment
+- New suicidal thoughts
+- Increased substance use
+- Withdrawal from all activities
+- Severe sleep disturbance
+- Loss of contact with reality
+
+END OF DOCUMENT
+===============
+This knowledge base entry represents EXTERNAL CLINICAL STANDARDS from the WHO.
+It provides evidence-based guidance for mental health assessment and intervention.

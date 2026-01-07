@@ -65,10 +65,11 @@ class LangChainRAGEngine:
             
             # Load all text files from knowledge base
             knowledge_files = [
-                "severity_guidelines.txt",
-                "coping_strategies.txt",
-                "doctor_specializations.txt",
-                "warning_signs.txt"
+                "WHO_mhGAP_Standards.txt",      # External: WHO clinical standards
+                "severity_guidelines.txt",       # Internal: App-specific severity mapping
+                "coping_strategies.txt",         # Internal: Curated wellness exercises
+                "doctor_specializations.txt",    # Internal: Platform doctor types
+                "warning_signs.txt"              # Internal: Crisis detection rules
             ]
             
             for filename in knowledge_files:
