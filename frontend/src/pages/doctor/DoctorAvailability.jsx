@@ -89,8 +89,8 @@ const DoctorAvailability = ({ user, token, handleLogout, setCurrentView }) => {
           day_of_week: DAY_TO_INDEX[selectedDay],
           start_time: startTime,
           end_time: endTime,
-          slot_duration_minutes: parseInt(slotDuration),
-          max_patients_per_slot: parseInt(maxPatients)
+          slot_duration: parseInt(slotDuration),
+          max_patients: parseInt(maxPatients)
         })
       });
 

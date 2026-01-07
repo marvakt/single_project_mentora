@@ -41,6 +41,7 @@ class UserProfile(models.Model):
     
     # Mood tracking preferences
     receive_mood_notifications = models.BooleanField(default=True, help_text="Whether user wants to receive daily mood notifications")
+    fcm_token = models.TextField(blank=True, null=True, help_text="Registration token for FCM push notifications")
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -123,6 +124,8 @@ class DoctorAvailability(models.Model):
     day_of_week = models.IntegerField()  # 0=Monday .. 6=Sunday
     start_time = models.TimeField()
     end_time = models.TimeField()
+    slot_duration = models.IntegerField(default=30)  # In minutes
+    max_patients = models.IntegerField(default=1)     # Patients per slot
     timezone = models.CharField(max_length=50, default="UTC")
 
     class Meta:

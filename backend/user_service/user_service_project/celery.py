@@ -29,11 +29,13 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 
 # 🔥 IMPORTANT: Explicit RabbitMQ queue binding
 app.conf.task_queues = (
+    Queue("default", routing_key="default"),
     Queue("high_risk_alerts", routing_key="high_risk_alerts"),
     Queue("appointment_created", routing_key="appointment_created"),
     Queue("appointment_paid", routing_key="appointment_paid"),
     Queue("appointment_cancelled", routing_key="appointment_cancelled"),
 )
+
 
 app.conf.task_default_queue = "default"
 
@@ -43,17 +45,19 @@ app.autodiscover_tasks(["profiles"])
 from celery.schedules import crontab
 
 app.conf.beat_schedule = {
-    # Daily mood reminders at 9 AM UTC
+    # Daily mood reminders at 10:30 AM local (05:00 UTC)
     'send-daily-mood-reminders': {
-        'task': 'profiles.tasks.mood_reminders.send_daily_mood_reminders',
-        'schedule': crontab(hour=9, minute=0),  # Every day at 9 AM UTC
+        'task': 'profiles.send_daily_mood_reminders',
+        'schedule': crontab(hour=5, minute=0),  # 05:00 UTC = 10:30 AM IST
     },
-    # Daily mood aggregation at 10 AM UTC
+
+    # Daily mood aggregation at 11 AM UTC
     'aggregate-daily-mood-data': {
-        'task': 'profiles.tasks.mood_reminders.aggregate_daily_mood_data',
-        'schedule': crontab(hour=10, minute=0),  # Every day at 10 AM UTC
+        'task': 'profiles.aggregate_daily_mood_data',
+        'schedule': crontab(hour=11, minute=0),  # Every day at 11 AM UTC
     },
 }
+
 
 app.conf.timezone = 'UTC'
 

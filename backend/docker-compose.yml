@@ -489,9 +489,18 @@ services:
     volumes:
       - ./user_service:/app
     environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DB_HOST: postgres_user
+      DB_NAME: user_db
+      DB_USER: user_user
+      DB_PASSWORD: user_pass
+      DB_PORT: 5432
       REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      JWT_SECRET: mentora-jwt-secret-2025-change-this
+      INTERNAL_SERVICE_TOKEN: dev-internal
     depends_on:
+      postgres_user:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       redis:
@@ -507,9 +516,18 @@ services:
     volumes:
       - ./user_service:/app
     environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DB_HOST: postgres_user
+      DB_NAME: user_db
+      DB_USER: user_user
+      DB_PASSWORD: user_pass
+      DB_PORT: 5432
       REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      JWT_SECRET: mentora-jwt-secret-2025-change-this
+      INTERNAL_SERVICE_TOKEN: dev-internal
     depends_on:
+      postgres_user:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       redis:

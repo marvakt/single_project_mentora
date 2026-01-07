@@ -39,6 +39,36 @@ export const updateUserProfile = createAsyncThunk(
     }
 );
 
+// Async thunk for updating FCM token
+export const updateFcmToken = createAsyncThunk(
+    'userProfile/updateFcmToken',
+    async (token, { getState, rejectWithValue }) => {
+        try {
+            const { userProfile, auth } = getState();
+            const userId = userProfile.profile?.user_id || auth.user?.user_id;
+
+            if (!userId) {
+                console.error('FCM Update Error: User ID not found in state');
+                return rejectWithValue('User ID not found');
+            }
+
+            const response = await apiCall(
+                `${USER_API}/profile/${userId}/update/`,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify({ fcm_token: token })
+                }
+            );
+            if (response.ok) {
+                return await response.json();
+            }
+            return rejectWithValue('Failed to update FCM token');
+        } catch (error) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
+
 const userProfileSlice = createSlice({
     name: 'userProfile',
     initialState: {

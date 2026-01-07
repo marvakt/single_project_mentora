@@ -8,17 +8,17 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
-from ..models import MoodEntry, UserProfile
-from ..utils import analyze_mood_data, publish_mood_event, send_notifications
+from ..utils import analyze_mood_data, send_notifications
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@shared_task(name="profiles.send_daily_mood_reminders")
 def send_daily_mood_reminders():
     """
     Send daily mood reminder notifications to all active users
     """
+    from ..models import UserProfile
     logger.info("Starting daily mood reminder task")
     
     try:
@@ -34,8 +34,7 @@ def send_daily_mood_reminders():
         
         for user in active_users:
             try:
-                # Send notification via SNS
-                # NOTE: Logic seems to use mood_data as a wrapper for reminder info
+                # Send notification via FCM
                 mood_data = {
                     'user_id': str(user.user_id),
                     'user_email': user.email,
@@ -43,26 +42,14 @@ def send_daily_mood_reminders():
                     'reminder_type': 'daily_mood_collection'
                 }
                 
-                # Publish to SQS for processing
-                response = publish_mood_event(mood_data)
+                # Analyze mood (passing empty dict for general reminder)
+                analysis_result = analyze_mood_data({})
                 
-                if response:
-                    # Also send SNS/Email notification
-                    # Passing empty dict to analyze might trigger "concerning" logic if not careful, 
-                    # but we are preserving original logic flow for now.
-                    analysis_result = analyze_mood_data({})
-                    
-                    # We might want to adjust send_notifications to handle reminders gracefully
-                    send_notifications(
-                        mood_data, 
-                        analysis_result, 
-                        user.email
-                    )
-                    
+                # Send FCM notification
+                if send_notifications(mood_data, analysis_result, user.email):
                     successful_notifications += 1
-                    
-                    # Log the reminder
-                    logger.info(f"Sent mood reminder to user {user.user_id} ({user.email})")
+                    logger.info(f"Sent mood reminder (FCM) to user {user.user_id} ({user.email})")
+
                 
             except Exception as e:
                 logger.error(f"Failed to send mood reminder to user {user.user_id}: {str(e)}")
@@ -76,8 +63,9 @@ def send_daily_mood_reminders():
         return f"Error: {str(e)}"
 
 
-@shared_task
+@shared_task(name="profiles.aggregate_daily_mood_data")
 def aggregate_daily_mood_data():
+    from ..models import MoodEntry, UserProfile
     """
     Aggregate daily mood data for doctor dashboards
     """

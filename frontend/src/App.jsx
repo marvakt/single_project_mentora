@@ -180,6 +180,7 @@ import AdminSettings from './pages/admin/AdminSettings';
 // Shared Components
 import VideoConsultation from './components/VideoConsultation';
 import RealTimeChat from './components/RealTimeChat';
+import { useNotifications } from './hooks/useNotifications';
 const App = () => {
   const dispatch = useDispatch();
 
@@ -192,6 +193,8 @@ const App = () => {
   const [selectedAppointmentId, setSelectedAppointmentId] = React.useState(null);
   const [paymentData, setPaymentData] = React.useState(null);
 
+  const { requestPermission, listenForMessages } = useNotifications();
+
   useEffect(() => {
     // Route to appropriate dashboard if authenticated
     if (isAuthenticated && role) {
@@ -202,6 +205,10 @@ const App = () => {
       } else {
         dispatch(setCurrentView('user-dashboard'));
       }
+
+      // Request notification permission on login
+      requestPermission();
+      listenForMessages();
     }
   }, [isAuthenticated, role, dispatch]);
 

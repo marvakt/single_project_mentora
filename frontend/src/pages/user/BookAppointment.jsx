@@ -277,10 +277,13 @@ const BookAppointment = ({ user, token, setCurrentView, onBookingSuccess, select
     while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
       const timeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
       allPossibleSlots.push(timeString);
-      currentMinute += 30;
+
+      const duration = daySchedule.slot_duration || 30;
+      currentMinute += duration;
+
       if (currentMinute >= 60) {
-        currentMinute = 0;
-        currentHour++;
+        currentHour += Math.floor(currentMinute / 60);
+        currentMinute = currentMinute % 60;
       }
       if (currentHour > endHour || (currentHour === endHour && currentMinute >= endMinute)) break;
     }

@@ -633,47 +633,71 @@ def get_available_slots_for_date(doctor_id, date: datetime.date) -> List[str]:
     # Get doctor's availability
     try:
         doctor_data = fetch_doctor_availability_and_fee(doctor_uuid)
-        start_time = doctor_data.get("start_time", "09:00")
-        end_time = doctor_data.get("end_time", "17:00")
+        schedule = doctor_data.get("schedule", [])
         slot_duration = doctor_data.get("slot_duration", 30)
     except UserServiceError:
         return []
     
-    # Parse times
-    try:
-        start_parts = start_time.split(':')
-        start_hour, start_minute = int(start_parts[0]), int(start_parts[1])
-        
-        end_parts = end_time.split(':')
-        end_hour, end_minute = int(end_parts[0]), int(end_parts[1])
-    except (ValueError, IndexError):
-        logger.error("Invalid time format in doctor availability")
+    # Filter schedule for the requested day of week (Python weekday() 0=Monday..6=Sunday)
+    day_of_week = date.weekday()
+    day_ranges = [r for r in schedule if r.get('day_of_week') == day_of_week]
+    
+    if not day_ranges:
+        logger.info(f"No availability set for doctor {doctor_uuid} on day {day_of_week}")
         return []
     
-    # Generate available slots
     available_slots = []
-    current_time = datetime.time(start_hour, start_minute)
     
-    while True:
-        current_time_str = current_time.strftime('%H:%M:%S')
+    for drange in day_ranges:
+        start_time_str = drange.get("start_time")
+        end_time_str = drange.get("end_time")
+        # Use slot_duration from range, or fallback to the one in doctor_data, or default 30
+        range_slot_duration = drange.get("slot_duration") or slot_duration or 30
         
-        # Check if slot is not booked
-        if current_time_str not in booked_slots:
-            available_slots.append(current_time.strftime('%H:%M'))
-        
-        # Increment by slot duration
-        total_minutes = current_time.hour * 60 + current_time.minute + slot_duration
-        
-        if total_minutes >= 24 * 60:
-            break
-        
-        new_hour = total_minutes // 60
-        new_minute = total_minutes % 60
-        
-        if new_hour > end_hour or (new_hour == end_hour and new_minute >= end_minute):
-            break
-        
-        current_time = datetime.time(new_hour, new_minute)
+        if not start_time_str or not end_time_str:
+            continue
+            
+        try:
+            # Parse times (handle HH:MM:SS or HH:MM)
+            start_parts = start_time_str.split(':')
+            start_hour, start_minute = int(start_parts[0]), int(start_parts[1])
+            
+            end_parts = end_time_str.split(':')
+            end_hour, end_minute = int(end_parts[0]), int(end_parts[1])
+            
+            current_time = datetime.time(start_hour, start_minute)
+            end_time_val = datetime.time(end_hour, end_minute)
+            
+            while True:
+                current_time_str = current_time.strftime('%H:%M:%S')
+                
+                # Check if slot is not booked
+                if current_time_str not in booked_slots:
+                    available_slots.append(current_time.strftime('%H:%M'))
+                
+                # Increment by slot duration
+                total_minutes = current_time.hour * 60 + current_time.minute + range_slot_duration
+                
+                if total_minutes >= 24 * 60:
+                    break
+                
+                new_hour = total_minutes // 60
+                new_minute = total_minutes % 60
+                
+                new_time = datetime.time(new_hour, new_minute)
+                
+                # Stop if we exceed the end of this range
+                if new_time >= end_time_val:
+                    break
+                
+                current_time = new_time
+                
+        except (ValueError, IndexError) as e:
+            logger.error(f"Invalid time format in doctor range: {start_time_str}-{end_time_str}, error: {e}")
+            continue
+            
+    # Sort slots to ensure they appear in chronological order
+    available_slots.sort()
     
     return available_slots
 

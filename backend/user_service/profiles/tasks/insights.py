@@ -7,6 +7,7 @@ from django.core.mail import send_mail
 logger = logging.getLogger(__name__)
 
 
+
 @shared_task(
     bind=True,
     autoretry_for=(Exception,),
@@ -15,13 +16,21 @@ logger = logging.getLogger(__name__)
     name="profiles.send_weekly_insight_email",
 )
 def send_weekly_insight_email(self, email: str, insight: str):
-    send_mail(
-        "Your Weekly Mental Health Insight",
-        insight,
-        settings.DEFAULT_FROM_EMAIL,
-        [email],
-        fail_silently=False,
-    )
+    from ..integrations.fcm_notify import send_fcm_notification
+    from ..models import UserProfile
+    
+    # Fetch user profile to get FCM token
+    user_profile = UserProfile.objects.filter(email=email).first()
+    
+    if not user_profile or not user_profile.fcm_token:
+        logger.warning(f"Cannot send FCM insight: No token for {email}")
+        return False
 
-    logger.info(f"Weekly insight sent to {email}")
-    return True
+    title = "📈 Your Weekly Mental Health Insight"
+    body = insight
+
+    result = send_fcm_notification(user_profile.fcm_token, title, body)
+    if result:
+        logger.info(f"Weekly insight notification sent via FCM to {email}")
+    return result
+

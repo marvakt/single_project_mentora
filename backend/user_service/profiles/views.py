@@ -57,7 +57,6 @@ from .utils import (
     generate_presigned_url,
     get_doctors_by_severity,
     get_top_matched_doctors,
-    publish_mood_event,
     should_notify_admin,
     update_onboarding_status,
     upload_file_to_s3,
@@ -105,12 +104,19 @@ class DoctorAvailabilityInternalAPIView(APIView):
     def get(self, request, doctor_id):
         """
         Internal endpoint for appointment service to check doctor availability.
-        Returns doctor status and consultation fee for booking decisions.
+        Returns doctor status, consultation fee, and schedule for booking decisions.
         """
         actual_doctor_id = convert_to_integer_id(doctor_id)
         profile = get_object_or_404(UserProfile, user_id=actual_doctor_id)
         
         availability_data = check_doctor_availability(profile)
+        
+        # Include the actual schedule
+        availability_data['schedule'] = DoctorAvailabilitySerializer(
+            profile.availability.all(), 
+            many=True
+        ).data
+        
         availability_data['doctor_id'] = doctor_id
         
         return Response(availability_data)
@@ -777,18 +783,7 @@ class SubmitMoodEntryAPIView(APIView):
         if serializer.is_valid():
             mood_entry = serializer.save(user_profile=user_profile)
             
-            # Publish event for Lambda processing
-            mood_data = {
-                'user_id': str(user_profile.user_id),
-                'user_email': user_profile.email,
-                'mood_score': mood_entry.mood_score,
-                'anxiety_level': mood_entry.anxiety_level,
-                'energy_level': mood_entry.energy_level,
-                'sleep_hours': mood_entry.sleep_hours,
-                'notes': mood_entry.notes,
-                'created_at': mood_entry.created_at.isoformat()
-            }
-            publish_mood_event(mood_data)
+            # Mood event publishing (AWS SQS) removed
             
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         

@@ -10,6 +10,8 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from .integrations.fcm_notify import send_fcm_notification
+
 
 # ============================================================
 # ID CONVERSION UTILITIES
@@ -651,71 +653,9 @@ def calculate_patient_mood_statistics(mood_entries):
     }
 
 
-# ============================================================
-# MOOD TRACKING SERVICE UTILITIES
-# ============================================================
-def get_sqs_client():
-    """Get configured SQS client."""
-    return boto3.client(
-        'sqs',
-        aws_access_key_id=getattr(settings, 'AWS_ACCESS_KEY_ID', None),
-        aws_secret_access_key=getattr(settings, 'AWS_SECRET_ACCESS_KEY', None),
-        region_name=getattr(settings, 'AWS_REGION', 'us-east-1')
-    )
+# Removed publish_mood_event - formerly SQS based
 
-
-def publish_mood_event(mood_data):
-    """
-    Publish mood event to SQS for processing by Lambda.
-    
-    Args:
-        mood_data: Dictionary containing mood entry data
-    
-    Returns:
-        SQS response or None if queue not configured
-    """
-    sqs_queue_url = getattr(settings, 'MOOD_TRACKING_SQS_QUEUE_URL', None)
-    
-    if not sqs_queue_url:
-        print("SQS Queue URL not configured, skipping event publishing")
-        return None
-    
-    try:
-        sqs_client = get_sqs_client()
-        
-        message_body = json.dumps({
-            'event_type': 'mood_entry',
-            'data': mood_data,
-            'timestamp': mood_data.get('created_at')
-        })
-        
-        response = sqs_client.send_message(
-            QueueUrl=sqs_queue_url,
-            MessageBody=message_body
-        )
-        
-        return response
-    except Exception as e:
-        print(f"Error publishing mood event: {str(e)}")
-        return None
-
-def get_ses_client():
-    """Get configured SES client."""
-    return boto3.client(
-        'ses',
-        aws_access_key_id=getattr(settings, 'AWS_ACCESS_KEY_ID', None),
-        aws_secret_access_key=getattr(settings, 'AWS_SECRET_ACCESS_KEY', None),
-        region_name=getattr(settings, 'AWS_SES_REGION', 'us-east-1')
-    )
-
-def get_sns_client():
-    """Get configured SNS client."""
-    return boto3.client(
-        'sns',
-        aws_access_key_id=getattr(settings, 'AWS_ACCESS_KEY_ID', None),
-        aws_secret_access_key=getattr(settings, 'AWS_SECRET_ACCESS_KEY', None),
-        region_name=getattr(settings, 'AWS_REGION', 'us-east-1')
-    )
+# Removed get_ses_client and get_sns_client - formerly AWS based
 
 def analyze_mood_data(mood_data):
     """Analyze mood data and determine if notifications are needed (typically via Lambda)"""
@@ -730,38 +670,30 @@ def analyze_mood_data(mood_data):
     return analysis
 
 def send_notifications(mood_data, analysis_result, user_email):
-    """Send notifications based on mood analysis"""
-    sender_email = getattr(settings, 'SES_SENDER_EMAIL', 'noreply@mentora.com')
+    """Send notifications based on mood analysis (FCM only)"""
+    user_id = mood_data.get('user_id')
+    
     try:
-        # Send email if concerning
-        if analysis_result.get('concerning'):
-            ses = get_ses_client()
-            ses.send_email(
-                Source=sender_email,
-                Destination={'ToAddresses': [user_email]},
-                Message={
-                    'Subject': {'Data': 'Mood Tracking Alert'},
-                    'Body': {
-                        'Text': {
-                            'Data': f"Your mood score of {mood_data.get('mood_score')} indicates you may need support. Please reach out to your healthcare provider."
-                        }
-                    }
-                }
-            )
+        # Get user profile to check for FCM token
+        from .models import UserProfile
+        user_profile = UserProfile.objects.filter(Q(email=user_email) | Q(user_id=user_id)).first()
         
-        # Send general notification via SNS
-        sns = get_sns_client()
-        topic_arn = getattr(settings, 'MOOD_NOTIFICATION_TOPIC_ARN', '')
-        if topic_arn:
-            sns.publish(
-                TopicArn=topic_arn,
-                Message=f"New mood entry recorded. Score: {mood_data.get('mood_score')}/10",
-                Subject='Mood Tracking Update'
-            )
+        # SEND FCM PUSH NOTIFICATION
+        if user_profile and user_profile.fcm_token:
+            title = "🌟 Daily Mood Check-in"
+            body = "How are you feeling today? Click here to track your mood."
+            
+            # If concerning, update message to be more supportive
+            if analysis_result.get('concerning'):
+                title = "🚨 Mood Support Alert"
+                body = "Your recent mood indicates you may need support. We are here for you."
+
+            send_fcm_notification(user_profile.fcm_token, title, body)
+            return True
         
-        return True
+        return False
     except Exception as e:
-        print(f"Error sending notifications: {str(e)}")
+        print(f"Error sending FCM notification: {str(e)}")
         return False
 
 

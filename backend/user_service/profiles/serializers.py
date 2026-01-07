@@ -418,6 +418,10 @@ class DoctorDocumentSerializer(serializers.ModelSerializer):
 class DoctorAvailabilitySerializer(serializers.ModelSerializer):
     """Serializer for doctor availability slots."""
     
+    # Aliases for frontend compatibility
+    slot_duration_minutes = serializers.IntegerField(source='slot_duration', write_only=True, required=False)
+    max_patients_per_slot = serializers.IntegerField(source='max_patients', write_only=True, required=False)
+    
     class Meta:
         model = DoctorAvailability
         fields = [
@@ -426,6 +430,10 @@ class DoctorAvailabilitySerializer(serializers.ModelSerializer):
             'day_of_week',
             'start_time',
             'end_time',
+            'slot_duration',
+            'slot_duration_minutes',
+            'max_patients',
+            'max_patients_per_slot',
             'timezone'
         ]
         read_only_fields = ('id',)
@@ -542,6 +550,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'onboarding_status',
             'last_activity',
             'receive_mood_notifications',
+            'fcm_token',
             'created_at',
             'updated_at',
             'documents',
