@@ -470,7 +470,7 @@ services:
       # RAG Configuration
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-huggingface}
-      LLM_MODEL: ${LLM_MODEL:-gpt2}
+      LLM_MODEL: ${LLM_MODEL:-google/flan-t5-base}
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.3}
 
     depends_on:

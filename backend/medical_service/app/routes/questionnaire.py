@@ -147,22 +147,31 @@ async def submit_questionnaire(
     # Validate responses
     responses = questionnaire_data.responses
     
-    if len(responses) != 10:
+    # FIX #3: PHQ-9 Schema Validation - enforce correct question sets
+    PHQ9_STANDARD = {1, 2, 3, 4, 5, 6, 7, 8, 9}
+    PHQ9_WITH_IMPAIRMENT = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    
+    response_keys = set(responses.keys())
+    
+    if response_keys not in [PHQ9_STANDARD, PHQ9_WITH_IMPAIRMENT]:
         raise HTTPException(
             status_code=400,
-            detail="All 10 questions must be answered"
+            detail=f"Invalid PHQ-9 questionnaire: expected questions {sorted(PHQ9_STANDARD)} or {sorted(PHQ9_WITH_IMPAIRMENT)}, got {sorted(response_keys)}"
         )
     
     # Validate score ranges (0-3)
     for q_num, score in responses.items():
-        if not (1 <= q_num <= 10) or not (0 <= score <= 3):
+        if not (0 <= score <= 3):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid response for question {q_num}"
+                detail=f"Invalid score for question {q_num}: must be 0-3, got {score}"
             )
     
     # Create comprehensive triage profile using SRTS engine
     triage_profile = SRTSEngine.create_triage_profile(responses)
+    
+    # Add questionnaire version for schema tracking
+    triage_profile["questionnaire_version"] = "PHQ-9-v1" if len(responses) == 9 else "PHQ-9-with-impairment-v1"
     
     # For backward compatibility, we'll also create the original severity result
     severity_result = {

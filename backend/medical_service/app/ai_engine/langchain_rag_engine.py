@@ -32,6 +32,7 @@ except ImportError:
     HUGGINGFACE_AVAILABLE = False
 
 from app.core.config import settings
+from app.ai_engine.safety import validate_non_crisis_output, CLINICAL_BOUNDARIES
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 
@@ -176,18 +177,18 @@ class LangChainRAGEngine:
                 
                 logger.info(f"Initializing Local HuggingFace Pipeline: {target_model} (Task: {task})")
                 
-                # Optimized parameters based on model type
+                # Optimized parameters to prevent repetition
                 pipeline_kwargs = {
-                    "max_new_tokens": 512,
-                    "temperature": 0.3,
+                    "max_new_tokens": 150,  # Reduced to prevent rambling
+                    "temperature": 0.7,  # Higher for diversity
                     "do_sample": True,
-                    "repetition_penalty": 1.2
+                    "repetition_penalty": 1.5,  # Increased to prevent loops
+                    "no_repeat_ngram_size": 3  # Prevent 3-word phrase repetition
                 }
                 
-                # specific tweaks for GPT-2 to reduce garbage
-                if "gpt2" in target_model.lower():
-                     pipeline_kwargs["temperature"] = 0.7 # GPT-2 needs more randomness to not loop
-                     pipeline_kwargs["repetition_penalty"] = 1.3 # Higher penalty
+                # Flan-T5 specific tweaks
+                if "t5" in target_model.lower():
+                    pipeline_kwargs["repetition_penalty"] = 1.8  # Even higher for T5
                 
                 self.llm = HuggingFacePipeline.from_model_id(
                     model_id=target_model,
@@ -204,28 +205,27 @@ class LangChainRAGEngine:
     
     def _create_chain(self):
         """Create simple RAG chain using LCEL"""
-        # Very explicit prompt for T5 to avoid hallucinations/repetition
-        template = """You are a helpful mental health assistant.
-        
-        Context: {context}
-        User Query: {question}
-        
-        Provide a helpful response with exactly two parts:
-        
-        ANALYSIS: 
-        Write 2-3 supportive sentences summarizing the situation and what it means.
-        
-        ADVICE:
-        List 3 distinct, specific coping strategies the person can try. Each should be actionable and different. Do NOT use generic headers like "Discussion" or "Recommendation". Do NOT repeat yourself.
-        """
+        # Simplified prompt optimized for Flan-T5
+        template = """Context: {context}
+
+Question: {question}
+
+Provide a brief supportive response with:
+1. Short analysis (2 sentences)
+2. Three specific coping strategies
+
+Response:"""
         prompt = PromptTemplate.from_template(template)
             
         # Check if we have the proper vectorstore or are using fallback
         if hasattr(self, 'vectorstore'):
-            retriever = self.vectorstore.as_retriever(search_kwargs={"k": 3})
+            # Reduce retrieval to 2 docs to avoid token limit
+            retriever = self.vectorstore.as_retriever(search_kwargs={"k": 2})
                 
             def format_docs(docs):
-                return "\n\n".join(doc.page_content for doc in docs)
+                # Truncate each doc to 150 chars to fit Flan-T5's 512 token limit
+                truncated = [doc.page_content[:150] for doc in docs]
+                return "\n\n".join(truncated)
                 
             # Simple LCEL Chain
             if self.llm is not None:
@@ -260,36 +260,130 @@ class LangChainRAGEngine:
                                      srts_result: Dict, triage_profile: Dict = None) -> Dict:
         """Enhance questionnaire results with RAG insights"""
         try:
-            # Convert responses to symptom description
-            symptom_descriptions = self._phq9_to_symptoms(responses)
+            # FIX #1: Crisis detection with granularity
+            is_crisis, crisis_level = self._is_crisis_level(responses, triage_profile)
             
-            # Simple, direct query for the model
-            query = f"""
-            User symptoms: {', '.join(symptom_descriptions)}
-            Severity: {srts_result['severity_level']}
+            if is_crisis:
+                return self._generate_crisis_response(crisis_level)
             
-            Task:
-            1. Write a short supportive analysis.
-            2. List 3 specific coping strategies.
-            """
-            
-            response_text = self.chain.invoke(query)
-            
-            # Parse the plain text response into the structure flexible frontend needs
-            insights = self._parse_text_response(response_text)
-            
-            # Add default RAG signals (we simplify this part too)
-            insights['rag_signals'] = {
-                "suggested_specialty_adjustment": None,
-                "risk_flags": [],
-                "confidence_score": 0.5
-            }
-                
-            return insights
+            # Non-crisis path: generate supportive insights
+            return self._generate_supportive_response(responses, srts_result, triage_profile)
             
         except Exception as e:
             logger.error(f"Error enhancing questionnaire results: {e}")
             return self._create_error_response(str(e))
+    
+    def _is_crisis_level(self, responses: Dict[int, int], triage_profile: Dict) -> tuple:
+        """Detect crisis level with granularity"""
+        q9_score = responses.get(9, 0)
+        high_risk = triage_profile.get("red_flags", {}).get("high_risk", False)
+        
+        is_crisis = q9_score > 0 or high_risk
+        
+        # FIX #1: Proper crisis level derivation
+        if high_risk:
+            crisis_level = "active"  # Red flags = active crisis
+        elif q9_score >= 2:
+            crisis_level = "active"
+        elif q9_score == 1:
+            crisis_level = "passive"
+        else:
+            crisis_level = None
+        
+        return is_crisis, crisis_level
+    
+    def _generate_crisis_response(self, crisis_level: str) -> Dict:
+        """Generate deterministic crisis response - NO LLM"""
+        return {
+            "insights": "Your responses indicate you may be experiencing thoughts of self-harm. This is a serious concern that requires immediate professional support.",
+            "contextual_advice": [
+                "Contact a crisis helpline immediately: National Suicide Prevention Lifeline: 988",
+                "Reach out to a trusted friend or family member right now",
+                "If you're in immediate danger, call emergency services (911) or go to the nearest emergency room"
+            ],
+            "rag_signals": {
+                "risk_safe": False,
+                "crisis_detected": True,
+                "crisis_level": crisis_level,
+                "confidence_score": 1.0,
+                "sources": ["crisis_protocol"],
+                "is_clinical_tool": CLINICAL_BOUNDARIES["is_clinical_tool"]
+            }
+        }
+    
+    def _generate_supportive_response(self, responses: Dict[int, int], 
+                                     srts_result: Dict, triage_profile: Dict) -> Dict:
+        """Generate supportive RAG insights for non-crisis cases"""
+        # Convert responses to symptom description
+        symptom_descriptions = self._phq9_to_symptoms(responses)
+        
+        # Simple, direct query for the model
+        query = f"""
+        User symptoms: {', '.join(symptom_descriptions)}
+        Severity: {srts_result['severity_level']}
+        
+        Task:
+        1. Write a short supportive analysis.
+        2. List 3 specific coping strategies.
+        """
+        
+        # Get retrieved documents for source tracking (reduced to 2 for token limit)
+        retrieved_docs = []
+        if hasattr(self, 'vectorstore') and self.vectorstore:
+            retrieved_docs = self.vectorstore.similarity_search(query, k=2)
+        
+        response_text = self.chain.invoke(query)
+        
+        # Debug logging
+        logger.info(f"RAG LLM Response (first 200 chars): {response_text[:200]}")
+        
+        # Early repetition detection - check if same phrase repeats
+        words = response_text.split()
+        if len(words) > 10:
+            # Check if first 5 words repeat multiple times
+            first_phrase = ' '.join(words[:5])
+            if response_text.count(first_phrase) > 2:
+                logger.warning(f"Detected repetitive LLM output, using fallback")
+                return self._create_error_response("Repetitive output")
+        
+        # FIX #4: Post-generation safety filter
+        validate_non_crisis_output(response_text)
+        
+        # Parse the plain text response
+        insights = self._parse_text_response(response_text)
+        
+        # FIX #2: Evidence-based confidence (NOT severity-based)
+        insights['rag_signals'] = {
+            "suggested_specialty_adjustment": None,
+            "risk_flags": [],
+            "confidence_score": self._calculate_confidence(retrieved_docs),
+            "sources": [doc.metadata.get("source", "unknown") for doc in retrieved_docs],
+            "risk_safe": True,
+            "is_clinical_tool": CLINICAL_BOUNDARIES["is_clinical_tool"]
+        }
+            
+        return insights
+    
+    def _calculate_confidence(self, retrieved_docs: List) -> float:
+        """Calculate confidence based on evidence quality, NOT severity"""
+        # Base confidence
+        confidence = 0.5
+        
+        # Factor 1: Retrieval quality (most important)
+        if len(retrieved_docs) >= 2:  # Adjusted for k=2
+            confidence += 0.15
+        
+        # Factor 2: Knowledge base agreement
+        if retrieved_docs:
+            doc_sources = [doc.metadata.get("source", "") for doc in retrieved_docs]
+            unique_sources = set(doc_sources)
+            if len(unique_sources) >= 2:  # Multiple sources agree
+                confidence += 0.15
+        
+        # Severity is NEUTRAL - it doesn't affect confidence
+        # Higher severity cases need HIGHER evidence bar, not automatic confidence
+        
+        return min(confidence, 0.9)  # Cap at 0.9, never claim 100% certainty
     
     def _parse_text_response(self, text: str) -> Dict:
         """
@@ -367,8 +461,9 @@ class LangChainRAGEngine:
                 "crisis_detected": False
             }
             
-        except Exception:
-            # Absolute fallback
+        except Exception as e:
+            # Absolute fallback with logging
+            logger.warning(f"Failed to parse LLM response: {e}. Using fallback.")
             return self._create_error_response("Parsing error")
 
     def _extract_rag_signals(self, insights: Dict, triage_profile: Dict = None) -> Dict:
