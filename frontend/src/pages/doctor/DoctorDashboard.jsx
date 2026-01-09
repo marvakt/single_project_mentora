@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   Heart, Calendar, Users, CheckCircle, DollarSign, Bell, User,
-  LogOut, Clock, Settings, FileText, Menu, Home, Activity, Sparkles, TrendingUp, AlertCircle
+  LogOut, Clock, Menu, Home, Activity, Sparkles, TrendingUp, AlertCircle
 } from 'lucide-react';
 import { USER_API, APPOINTMENT_API, apiCall, getAuthHeaders } from '../../config/api';
 import { logout } from '../../store/slices/authSlice';
@@ -151,10 +151,8 @@ const DoctorDashboard = () => {
             <NavItem icon={Clock} label="Availability" view="doctor-availability" />
             <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-8">Clinical</p>
             <NavItem icon={Users} label="My Patients" view="doctor-patients" />
-            <NavItem icon={FileText} label="Templates" view="templates" />
             <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-8">Account</p>
             <NavItem icon={User} label="Profile" view="doctor-profile" />
-            <NavItem icon={Settings} label="Settings" view="settings" />
           </nav>
           <div className="p-4 border-t border-gray-100">
             <div className="bg-gradient-to-b from-gray-50 to-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">

@@ -4,7 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import {
   Heart, Calendar, Clock, Bell, User, LogOut, Smile,
   FileText, TrendingUp, Activity, Sparkles,
-  ChevronRight, ArrowUpRight, Menu, X, Home, Settings, Search, Star, Brain, Shield, MapPin
+  ChevronRight, ArrowUpRight, Menu, X, Home, Search, Star, Brain, Shield, MapPin
 } from 'lucide-react';
 import DoctorProfileModal from '../../components/DoctorProfileModal';
 import { USER_API, MEDICAL_API, apiCall } from '../../config/api';
@@ -229,7 +229,6 @@ const UserDashboard = () => {
 
             <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-8">Account</p>
             <NavItem icon={User} label="Profile" view="user-profile" />
-            <NavItem icon={Settings} label="Settings" view="settings" />
           </nav>
 
           {/* User Profile Footer */}

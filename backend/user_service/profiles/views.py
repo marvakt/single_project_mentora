@@ -356,7 +356,37 @@ class ListDoctorDocumentsAPIView(APIView):
             )
         
         docs = profile.documents.all()
-        return Response(DoctorDocumentSerializer(docs, many=True).data)
+        serialized_docs = DoctorDocumentSerializer(docs, many=True).data
+        
+        # Generate presigned URLs for each document
+        import re
+        for doc_data in serialized_docs:
+            file_key = doc_data.get('file_key')
+            file_url = doc_data.get('file_url')
+            
+            # If file_key exists, use it directly
+            if file_key:
+                try:
+                    doc_data['presigned_url'] = generate_presigned_url(file_key)
+                except Exception as e:
+                    logger.error(f"Failed to generate presigned URL for document {doc_data.get('id')}: {str(e)}")
+                    doc_data['presigned_url'] = None
+            # If no file_key but file_url exists, extract key from URL
+            elif file_url:
+                try:
+                    match = re.search(r's3\.amazonaws\.com/(.+)$', file_url)
+                    if match:
+                        extracted_key = match.group(1)
+                        doc_data['presigned_url'] = generate_presigned_url(extracted_key)
+                    else:
+                        doc_data['presigned_url'] = None
+                except Exception as e:
+                    logger.error(f"Failed to extract/generate presigned URL for document {doc_data.get('id')}: {str(e)}")
+                    doc_data['presigned_url'] = None
+            else:
+                doc_data['presigned_url'] = None
+        
+        return Response(serialized_docs)
 
 
 class GetDoctorDocumentAPIView(APIView):
@@ -387,8 +417,31 @@ class GetDoctorDocumentAPIView(APIView):
         
         # Handle file access
         if not document.file_key:
+            # For old documents, extract file_key from file_url
             if document.file_url:
-                return Response({'presigned_url': document.file_url})
+                try:
+                    # Extract the S3 key from the URL
+                    # Format: https://bucket-name.s3.amazonaws.com/path/to/file.ext
+                    # We need: path/to/file.ext
+                    import re
+                    match = re.search(r's3\.amazonaws\.com/(.+)$', document.file_url)
+                    if match:
+                        extracted_key = match.group(1)
+                        logger.info(f"Extracted file_key from file_url for document {document_id}: {extracted_key}")
+                        presigned_url = generate_presigned_url(extracted_key)
+                        return Response({'presigned_url': presigned_url})
+                    else:
+                        logger.warning(f"Could not extract file_key from file_url for document {document_id}")
+                        return Response(
+                            {'error': 'Cannot generate presigned URL: invalid file_url format'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        )
+                except Exception as e:
+                    logger.error(f"Error extracting file_key from file_url for document {document_id}: {str(e)}")
+                    return Response(
+                        {'error': f'Failed to generate presigned URL: {str(e)}'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
             else:
                 return Response(
                     {'error': 'Document has no file access information'},
@@ -397,8 +450,10 @@ class GetDoctorDocumentAPIView(APIView):
         
         try:
             presigned_url = generate_presigned_url(document.file_key)
+            logger.info(f"Generated presigned URL for document {document_id}, file_key: {document.file_key}")
             return Response({'presigned_url': presigned_url})
         except Exception as e:
+            logger.error(f"Failed to generate presigned URL for document {document_id}: {str(e)}")
             return Response(
                 {'error': f'Failed to generate document access URL: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

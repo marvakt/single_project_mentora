@@ -273,6 +273,34 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
     }
   };
 
+  const handleViewDocument = async (documentId) => {
+    try {
+      if (!token) {
+        console.error('No token available for API request');
+        return;
+      }
+
+      const response = await fetch(`${USER_API}/doctor/document/${documentId}/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Open the presigned URL in a new tab
+        window.open(data.presigned_url, '_blank');
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Failed to access document');
+      }
+    } catch (err) {
+      console.error('Error accessing document:', err);
+      alert('Error accessing document');
+    }
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setSelectedUser(null);
@@ -645,8 +673,8 @@ const AdminUserManagement = ({ user, token, handleLogout, setCurrentView }) => {
                                 <p className="text-[10px] text-gray-400">{new Date(doc.uploaded_at).toLocaleDateString()}</p>
                               </div>
                             </div>
-                            <a 
-                              href="#" 
+                            <a
+                              href="#"
                               onClick={(e) => {
                                 e.preventDefault();
                                 handleViewDocument(doc.id);
