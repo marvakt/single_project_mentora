@@ -275,6 +275,8 @@ class UploadDoctorDocumentAPIView(APIView):
     permission_classes = [IsAuthenticatedJWT, IsDoctor, IsOwner]
 
     def post(self, request, user_id):
+        import os
+        
         actual_user_id = convert_to_integer_id(user_id)
         profile = get_object_or_404(UserProfile, user_id=actual_user_id)
         self.check_object_permissions(request, profile)
@@ -282,15 +284,42 @@ class UploadDoctorDocumentAPIView(APIView):
         file = request.FILES.get('file')
         doc_type = request.data.get('doc_type')
         
+        # VALIDATION: Check file presence
         if not file:
             return Response(
                 {'error': 'No file provided'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # VALIDATION: Check document type
         if not doc_type:
             return Response(
                 {'error': 'Document type is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # VALIDATION: Check file size (max 10MB)
+        max_size = 10 * 1024 * 1024  # 10MB in bytes
+        if file.size > max_size:
+            return Response(
+                {'error': f'File too large. Maximum size is 10MB (received {file.size / (1024*1024):.1f}MB)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # VALIDATION: Check file type (MIME type)
+        allowed_types = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+        if hasattr(file, 'content_type') and file.content_type not in allowed_types:
+            return Response(
+                {'error': f'Invalid file type. Allowed types: PDF, JPEG, PNG (received: {file.content_type})'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # VALIDATION: Check file extension
+        allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png']
+        file_extension = os.path.splitext(file.name)[1].lower()
+        if file_extension not in allowed_extensions:
+            return Response(
+                {'error': f'Invalid file extension. Allowed: {", ".join(allowed_extensions)} (received: {file_extension})'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -633,7 +662,13 @@ class PublicDoctorListAPIView(APIView):
     permission_classes = []
 
     def get(self, request):
-        queryset = DoctorProfile.objects.all().select_related("profile")
+        # OPTIMIZATION: Use annotate to calculate ratings in single query (fixes N+1 problem)
+        from django.db.models import Avg, Count
+        
+        queryset = DoctorProfile.objects.all().select_related("profile").annotate(
+            avg_rating=Avg('profile__ratings_received__rating'),
+            rating_count=Count('profile__ratings_received')
+        )
         
         # Filter by search term (name or specialization)
         search_query = request.GET.get('search')
@@ -658,8 +693,8 @@ class PublicDoctorListAPIView(APIView):
                 "specialization": d.specialization,
                 "experience": d.experience_years,
                 "consultation_fee": d.consultation_fee,
-                "average_rating": d.average_rating,
-                "total_ratings": d.total_ratings,
+                "average_rating": d.avg_rating or 0.0,  # Use annotated value
+                "total_ratings": d.rating_count,        # Use annotated value
                 "doctor_status": d.doctor_status,
             })
 

@@ -47,6 +47,12 @@ class UserProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['role', 'status']),  # For filtering doctors/users by role and status
+            models.Index(fields=['receive_mood_notifications', 'status']),  # For daily mood reminders
+        ]
+    
     def __str__(self):
         return f"{self.user_id} - {self.email}"
 
@@ -81,6 +87,13 @@ class DoctorProfile(models.Model):
     registered_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['doctor_status']),  # For filtering approved doctors
+            models.Index(fields=['specialization']),  # For doctor search by specialization
+            models.Index(fields=['doctor_status', 'specialization']),  # Composite for common queries
+        ]
+    
     def __str__(self):
         return f"Doctor: {self.profile.email} ({self.doctor_status})"
 
@@ -197,6 +210,10 @@ class MoodEntry(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user_profile', '-created_at']),  # For user mood history queries
+            models.Index(fields=['created_at']),  # For daily aggregation tasks
+        ]
 
 
 # ============================================================
