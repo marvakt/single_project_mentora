@@ -398,6 +398,8 @@ services:
       "
     volumes:
       - ./user_service:/app
+    env_file:
+      - ./user_service/.env
     ports:
       - "8001:8001"
     environment:
@@ -410,12 +412,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       JWT_SECRET: mentora-jwt-secret-2025-change-this
-      
-      # AWS S3 Configuration for Document Storage
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      MOOD_REPORTS_S3_BUCKET: ${MOOD_REPORTS_S3_BUCKET:-mentora-mood-reports}
     depends_on:
       postgres_user:
         condition: service_healthy
