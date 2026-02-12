@@ -471,8 +471,9 @@ services:
       USER_SERVICE_URL: http://user-service:8001
       # RAG Configuration
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
-      LLM_PROVIDER: ${LLM_PROVIDER:-huggingface}
-      LLM_MODEL: ${LLM_MODEL:-google/flan-t5-base}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      LLM_MODEL: ${LLM_MODEL:-llama3-8b-8192}
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.3}
 
     depends_on:
