@@ -46,9 +46,8 @@ class Settings(BaseSettings):
     INTERNAL_SERVICE_TOKEN: str = os.getenv("INTERNAL_SERVICE_TOKEN", "dev-internal")
     
     # LLM Configuration for RAG
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    HUGGINGFACE_API_KEY: str = os.getenv("HUGGINGFACE_API_KEY", "")
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")  # "openai" or "huggingface"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")  # "groq" only
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "mistralai/Mistral-7B-Instruct-v0.3")
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))  # Low for consistent medical advice
     

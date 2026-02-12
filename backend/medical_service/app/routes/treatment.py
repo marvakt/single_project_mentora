@@ -162,21 +162,21 @@ async def get_my_treatment_plan(
             generated_plan = {
                 "user_id": user_id,
                 "plan_title": f"AI-Recommended {latest_assessment.get('severity_level', 'Wellness').replace('_', ' ').title()} Plan",
-                "doctor_name": "Mentora AI (Draft)",
+                "doctor_name": "Mentora AI",
                 "plan_details": ai_insights.get("insights", "Based on your recent assessment, we have outlined a preliminary care path."),
-                "goals": [
+                "goals": ai_insights.get("goals", [
                     "Complete daily mood check-ins",
                     "Practice recommended coping strategies",
                     "Schedule consultation with specialist"
-                ],
+                ]),
                 "recommendations": ai_insights.get("contextual_advice", ["Maintain a consistent sleep schedule", "Practice mindfulness"]),
                 "therapy_frequency": "Recommended Weekly",
                 "duration_weeks": 4, # Default starting point
-                "lifestyle_changes": [
+                "lifestyle_changes": ai_insights.get("lifestyle_changes", [
                     "Daily 15-min walk",
                     "Sleep hygiene improvement",
                     "Reduced caffeine intake"
-                ],
+                ]),
                 "medication_notes": "To be discussed with a psychiatrist if needed.",
                 "start_date": datetime.utcnow(),
                 "end_date": datetime.utcnow() + timedelta(weeks=4),

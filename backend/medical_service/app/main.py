@@ -18,7 +18,7 @@ from app.routes import (
     symptom,
     treatment,
 )
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Configure logging

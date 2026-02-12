@@ -7,29 +7,28 @@ to provide intelligent mental health severity analysis with explainable recommen
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from langchain.chains import RetrievalQA
+
 from langchain.prompts import PromptTemplate
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
-
-# Import LLM based on provider
+# HUGGINGFACE_AVAILABLE (only for embeddings now)
 try:
-    from langchain_openai import ChatOpenAI
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
-
-try:
-    from langchain_huggingface import HuggingFaceEndpoint
+    from langchain_huggingface import HuggingFaceEmbeddings
     HUGGINGFACE_AVAILABLE = True
 except ImportError:
     HUGGINGFACE_AVAILABLE = False
+
+try:
+    from langchain_groq import ChatGroq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
 
 from app.core.config import settings
 from app.ai_engine.safety import validate_non_crisis_output, CLINICAL_BOUNDARIES
@@ -136,68 +135,24 @@ class LangChainRAGEngine:
         try:
             provider = settings.LLM_PROVIDER.lower()
             
-            if provider == "openai":
-                if not OPENAI_AVAILABLE:
-                    raise ImportError("langchain-openai not installed")
+            if provider == "groq":
+                if not GROQ_AVAILABLE:
+                    raise ImportError("langchain-groq not installed")
                 
-                if not settings.OPENAI_API_KEY:
-                    raise ValueError("OPENAI_API_KEY not configured")
+                if not settings.GROQ_API_KEY:
+                    raise ValueError("GROQ_API_KEY not configured")
                 
-                self.llm = ChatOpenAI(
-                    model=settings.LLM_MODEL,
+                self.llm = ChatGroq(
+                    model_name="llama3-8b-8192",  # Default fast model
                     temperature=settings.LLM_TEMPERATURE,
-                    openai_api_key=settings.OPENAI_API_KEY
+                    groq_api_key=settings.GROQ_API_KEY
                 )
-                logger.info(f"Initialized OpenAI LLM: {settings.LLM_MODEL}")
-                
-            elif provider == "huggingface":
-                if not HUGGINGFACE_AVAILABLE:
-                    raise ImportError("HuggingFace integration not available")
-                
-                # Switch to LOCAL INFERENCE using HuggingFacePipeline
-                from langchain_huggingface import HuggingFacePipeline
-                
-                # FORCE a reliable model unless user explicitly wants GPT-2 (per current request)
-                # We default to flan-t5-base because it's much better at instructions.
-                target_model = settings.LLM_MODEL
-                
-                # SAFETY OVERRIDE:
-                # If configured model is a heavy 7B model (Mistral, Llama, etc), force fallback 
-                # to a lightweight model (Flan-T5) to prevent container crash/timeout.
-                is_heavy_model = any(heavy in target_model.lower() for heavy in ["mistral", "llama", "7b"])
-                
-                if is_heavy_model:
-                     logger.warning(f"⚠️ Model '{target_model}' is too heavy for local CPU inference. Auto-switching to 'google/flan-t5-base'.")
-                     target_model = "google/flan-t5-base"
-                
-                # Determine task
-                task = "text-generation"
-                if "t5" in target_model.lower() or "bart" in target_model.lower():
-                    task = "text2text-generation"
-                
-                logger.info(f"Initializing Local HuggingFace Pipeline: {target_model} (Task: {task})")
-                
-                # Optimized parameters to prevent repetition
-                pipeline_kwargs = {
-                    "max_new_tokens": 150,  # Reduced to prevent rambling
-                    "temperature": 0.7,  # Higher for diversity
-                    "do_sample": True,
-                    "repetition_penalty": 1.5,  # Increased to prevent loops
-                    "no_repeat_ngram_size": 3  # Prevent 3-word phrase repetition
-                }
-                
-                # Flan-T5 specific tweaks
-                if "t5" in target_model.lower():
-                    pipeline_kwargs["repetition_penalty"] = 1.8  # Even higher for T5
-                
-                self.llm = HuggingFacePipeline.from_model_id(
-                    model_id=target_model,
-                    task=task,
-                    pipeline_kwargs=pipeline_kwargs
-                )
-            
+                logger.info(f"Initialized Groq LLM: llama3-8b-8192")
+
             else:
-                raise ValueError(f"Unsupported LLM provider: {provider}")
+                # Fallback or invalid
+                logger.warning(f"Unsupported/Missing LLM provider: {provider}. RAG will be disabled (fallback only).")
+                self.llm = None
                 
         except Exception as e:
             logger.error(f"Error initializing LLM: {e}")
@@ -317,14 +272,24 @@ Response:"""
         # Convert responses to symptom description
         symptom_descriptions = self._phq9_to_symptoms(responses)
         
-        # Simple, direct query for the model
+        # Structured JSON prompt for Llama 3
         query = f"""
-        User symptoms: {', '.join(symptom_descriptions)}
-        Severity: {srts_result['severity_level']}
+        You are an expert mental health AI assistant.
         
-        Task:
-        1. Write a short supportive analysis.
-        2. List 3 specific coping strategies.
+        PATIENT PROFILE:
+        - Symptoms: {', '.join(symptom_descriptions)}
+        - Severity Level: {srts_result['severity_level']}
+        
+        Generate a personalized treatment plan in strict JSON format.
+        Do not include any text outside the JSON block.
+        
+        JSON Structure:
+        {{
+            "analysis": "Short, supportive clinical analysis (2-3 sentences)",
+            "coping_strategies": ["Strategy 1", "Strategy 2", "Strategy 3"],
+            "lifestyle_changes": ["Lifestyle Change 1", "Lifestyle Change 2", "Lifestyle Change 3"],
+            "goals": ["Short-term Goal 1", "Short-term Goal 2", "Long-term Goal 3"]
+        }}
         """
         
         # Get retrieved documents for source tracking (reduced to 2 for token limit)
@@ -387,11 +352,48 @@ Response:"""
     
     def _parse_text_response(self, text: str) -> Dict:
         """
-        robustly parse the text response into insights and advice
+        Robustly parse the response into insights and advice.
+        Tries to parse JSON first, then falls back to text parsing.
         """
         insights = ""
         advice = []
+        lifestyle = []
+        goals = []
         
+        # clean potentially markdown code blocks
+        clean_text = text.replace("```json", "").replace("```", "").strip()
+        
+        try:
+            import json
+            # Try to find JSON object in text
+            json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group(0))
+                insights = data.get("analysis", "")
+                advice = data.get("coping_strategies", [])
+                lifestyle = data.get("lifestyle_changes", [])
+                goals = data.get("goals", [])
+                
+                # If successfully parsed JSON, return immediately
+                if insights or advice:
+                    return {
+                        "severity": "Moderate", # Placeholder
+                        "confidence": "Medium",
+                        "symptoms_detected": [],
+                        "advice": advice[:4],
+                        "contextual_advice": advice[:4],
+                        "recommended_specialist": "counselor",
+                        "reasoning": insights,
+                        "insights": insights,
+                        "urgency": "Routine",
+                        "crisis_detected": False,
+                        "lifestyle_changes": lifestyle[:3],
+                        "goals": goals[:3]
+                    }
+        except Exception as e:
+            logger.warning(f"JSON parsing failed, falling back to text parsing: {e}")
+            
+        # Fallback to old text parsing
         try:
             # Split into lines
             lines = text.strip().split('\n')
@@ -422,53 +424,41 @@ Response:"""
                 else:
                     # Accumulate insights text
                     insights += line + " "
-            
-            # Fallback if no specific advice parsing happened
+
+            # Fallback defaults if empty - ONLY if absolutely needed
             if not advice:
-                # Just take the last few lines? No, better safe defaults.
-                advice = ["Practice mindfulness meditation", "Maintain a regular sleep schedule", "Engage in gentle physical activity"]
+                advice = ["Practice mindfulness", "Regular sleep", "Gentle exercise"]
             
-            # Repetition/Hallucination Check
-            if len(advice) > 0:
-                # Check for high repetition (e.g. same item repeated multiple times or items being subsets of each other)
-                unique_advice = set(advice)
-                if len(unique_advice) < len(advice) * 0.7:  # Stricter: 70% must be unique
-                    logger.warning(f"Detected repetitive output from LLM: {advice[:3]}...")
-                    raise ValueError("Repetitive output detected")
-                
-                # Check for garbage (e.g. very short items or numbers only)
-                valid_items = [idx for idx in advice if len(idx) > 10 and not idx.isdigit()]
-                if not valid_items:
-                     logger.warning("Detected low-quality output from LLM (too short/meaningless)")
-                     raise ValueError("Low quality output detected")
-                
-                # Limit to 4 items max to prevent overflow
-                advice = advice[:4]
-                     
-            if len(insights) < 10:
-                insights = "Based on your symptoms, professional support can be very beneficial."
+            if not insights:
+                insights = "Based on your symptoms, professional support is recommended."
 
             return {
-                "severity": "Moderate", # Default placeholder
+                "severity": "Moderate",
                 "confidence": "Medium",
                 "symptoms_detected": [],
-                "advice": advice, # For backward compatibility
-                "contextual_advice": advice, # For new frontend
+                "advice": advice[:4],
+                "contextual_advice": advice[:4],
                 "recommended_specialist": "counselor",
                 "reasoning": insights.strip(),
-                "insights": insights.strip(), # For new frontend
+                "insights": insights.strip(),
                 "urgency": "Routine",
-                "crisis_detected": False
+                "crisis_detected": False,
+                "lifestyle_changes": [],
+                "goals": []
             }
             
         except Exception as e:
-            # Absolute fallback with logging
+            logger.error(f"Error parsing text response: {e}")
+            return {
+                "severity": "Moderate", "confidence": "Low", "symptoms_detected": [],
+                "advice": [], "contextual_advice": [], "recommended_specialist": "counselor",
+                "reasoning": "Analysis unavailable", "insights": "Analysis unavailable",
+                "urgency": "Routine", "crisis_detected": False
+            }
             logger.warning(f"Failed to parse LLM response: {e}. Using fallback.")
             return self._create_error_response("Parsing error")
 
-    def _extract_rag_signals(self, insights: Dict, triage_profile: Dict = None) -> Dict:
-        """Deprecated but kept for class structure compatibility"""
-        return {}
+
     
     def _phq9_to_symptoms(self, responses: Dict[int, int]) -> List[str]:
         """Convert PHQ-9 responses to symptom descriptions"""
@@ -531,7 +521,7 @@ _langchain_rag_engine = None
 _last_init_time = None
 
 import time
-from datetime import datetime
+
 
 
 def get_langchain_rag_engine() -> LangChainRAGEngine:

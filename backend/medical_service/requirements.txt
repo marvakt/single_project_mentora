@@ -15,20 +15,18 @@ celery==5.3.6
 httpx
 # LangChain and RAG dependencies
 langchain>=0.2.0
-langchain-openai>=0.1.0
 langchain-community>=0.2.0
 langchain-huggingface>=0.1.0
 faiss-cpu==1.8.0
 sentence-transformers==2.7.0
 tiktoken==0.7.0
 huggingface-hub==0.24.7
+langchain-groq>=0.1.0
 
 # CPU-only torch to save space
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.4.1+cpu
 torchvision==0.19.1+cpu
-transformers==4.45.2
-accelerate==0.34.2
 # pydantic version constraint removed to avoid conflict
 langsmith==0.1.119
 
