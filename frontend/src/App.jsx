@@ -196,6 +196,7 @@ const App = () => {
   const { requestPermission, listenForMessages } = useNotifications();
 
   useEffect(() => {
+    let unsubscribeFcm;
     // Route to appropriate dashboard if authenticated
     if (isAuthenticated && role) {
       if (role === 'admin') {
@@ -208,8 +209,11 @@ const App = () => {
 
       // Request notification permission on login
       requestPermission();
-      listenForMessages();
+      unsubscribeFcm = listenForMessages();
     }
+    return () => {
+      if (unsubscribeFcm) unsubscribeFcm();
+    };
   }, [isAuthenticated, role, dispatch]);
 
   const handleLogout = () => {

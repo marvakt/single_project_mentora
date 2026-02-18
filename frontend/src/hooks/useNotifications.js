@@ -34,7 +34,7 @@ export const useNotifications = () => {
     };
 
     const listenForMessages = () => {
-        onMessage(messaging, (payload) => {
+        const unsubscribe = onMessage(messaging, (payload) => {
             console.log('Message received in foreground: ', payload);
 
             // Manually trigger a system-level notification if permission is granted
@@ -56,6 +56,7 @@ export const useNotifications = () => {
                 }
             }
         });
+        return unsubscribe;
     };
 
     return { requestPermission, listenForMessages };
