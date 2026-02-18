@@ -156,7 +156,6 @@ const LoginPage = ({ setCurrentView }) => {
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => setError('Google Sign-In failed')}
-            useOneTap
             shape="circle"
             theme="outline"
             size="large"

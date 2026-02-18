@@ -181,7 +181,6 @@ const RegisterPage = () => {
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 onError={() => setError('Google Sign-Up failed')}
-                useOneTap
                 shape="circle"
                 theme="outline"
                 size="large"
