@@ -149,6 +149,8 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DoctorRegisterPage from './pages/auth/DoctorRegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
 // User Pages
 import UserDashboard from './pages/user/UserDashboard';
@@ -273,6 +275,14 @@ const App = () => {
 
     if (currentView === 'doctor-register') {
       return <DoctorRegisterPage setCurrentView={handleSetCurrentView} />;
+    }
+
+    if (currentView === 'forgot-password') {
+      return <ForgotPasswordPage setCurrentView={handleSetCurrentView} />;
+    }
+
+    if (currentView === 'reset-password') {
+      return <ResetPasswordPage setCurrentView={handleSetCurrentView} />;
     }
 
     // ==========================================

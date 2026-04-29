@@ -278,11 +278,6 @@ const UserDashboard = () => {
                   Dashboard
                 </h1>
                 <p className="text-gray-500">Welcome back, {profile?.name}. Here's your daily wellness overview.</p>
-                {/* DEBUG INFO - REMOVE LATER */}
-                <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs font-mono text-yellow-800">
-                  <p>DEBUG ID: {user?.user_id}</p>
-                  <p>Notes Count: {latestNote ? 1 : '0'}</p>
-                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs font-semibold text-gray-600 shadow-sm flex items-center gap-2">

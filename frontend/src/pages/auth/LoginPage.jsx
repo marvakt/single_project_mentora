@@ -125,7 +125,11 @@ const LoginPage = ({ setCurrentView }) => {
               <input type="checkbox" className="w-4 h-4 text-teal-600 rounded border-gray-300 focus:ring-teal-500" />
               <span className="text-gray-500 group-hover:text-teal-700 transition">Remember me</span>
             </label>
-            <button type="button" className="text-teal-600 hover:text-teal-800 font-semibold hover:underline">
+            <button 
+              type="button" 
+              onClick={() => setCurrentView('forgot-password')}
+              className="text-teal-600 hover:text-teal-800 font-semibold hover:underline"
+            >
               Forgot Password?
             </button>
           </div>
